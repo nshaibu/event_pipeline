@@ -1,0 +1,4 @@
+serializeGTN -> UploadEvent -> Commission -> Pack |-> Shipping (
+0->Unpacking,
+1 |-> Receiving
+)

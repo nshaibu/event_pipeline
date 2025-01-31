@@ -86,25 +86,6 @@ class PipelineTask(object):
         ]
 
     @classmethod
-    def process_task_info_map(cls, task, task_map):
-        if task.event != task_map["task"].event:
-            if "on_failure_pipe" in task_map:
-                task.on_failure_event = task_map["task"]
-                task.on_failure_pipe = (
-                    PipeType.POINTER
-                    if task_map["op"] == PipeType.POINTER.token()
-                    else PipeType.PIPE_POINTER
-                )
-            else:
-                task.on_success_event = task_map["task"]
-                task.on_failure_pipe = (
-                    PipeType.POINTER
-                    if task_map["op"] == PipeType.POINTER.token()
-                    else PipeType.PIPE_POINTER
-                )
-        return task
-
-    @classmethod
     def build_pipeline_from_execution_code(cls, code: str):
         ast = parser.pointy_parser(code)
         child_tasks = deque()
