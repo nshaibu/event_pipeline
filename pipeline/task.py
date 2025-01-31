@@ -107,16 +107,76 @@ class PipelineTask(object):
     @classmethod
     def build_pipeline_from_execution_code(cls, code: str):
         ast = parser.pointy_parser(code)
+        child_tasks = deque()
+
+        task_node = None
+        import pdb;pdb.set_trace()
 
         for token in parser.depth_first_traverse_post_order(ast):
-            pass
+            if isinstance(token, parser.TaskName):
+                if task_node is None:
+                    task_node = cls(event=token.value)
+                else:
+                    # store previous task before approaching the operator
+                    child_tasks.append(task_node)
+                    task_node = cls(event=token.value)
+            elif isinstance(token, parser.Descriptor):
+                task_node = (task_node, token.value)
+            elif isinstance(token, parser.ConditionalBinOP):
+                parent = cls(event=token.parent.value)
+                if task_node:
+                    child_tasks.append(task_node)
+                    task_node = None
+
+                while child_tasks:
+                    op, task, descriptor = child_tasks.popleft()
+                    if descriptor == "0":
+                        parent.on_failure_event = task
+                        parent.on_failure_pipe = (
+                            PipeType.POINTER
+                            if op == PipeType.POINTER.token()
+                            else PipeType.PIPE_POINTER
+                        )
+                    else:
+                        parent.on_success_event = task
+                        parent.on_success_pipe = (
+                            PipeType.POINTER
+                            if op == PipeType.POINTER.token()
+                            else PipeType.PIPE_POINTER
+                        )
+
+                child_tasks.append(parent)
+            elif isinstance(token, parser.BinOp):
+                if isinstance(task_node, tuple):
+                    # Add the operator to the processing tuple.
+                    # it will be evaluated in the conditionals block
+                    task_node = (token.op, *task_node)
+                    # child_tasks.append(task_node)
+                elif len(child_tasks) >= 2:
+                    # Evaluate simple instruction here i.e A->B
+                    left_node = child_tasks.popleft()
+                    right_node = child_tasks.popleft()
+                    right_node.on_success_event = left_node
+                    right_node.on_success_pipe = (
+                            PipeType.POINTER
+                            if token.op == PipeType.POINTER.token()
+                            else PipeType.PIPE_POINTER
+                        )
+
+                    child_tasks.append(right_node)
+
+                    if task_node:
+                        child_tasks.append(task_node)
+                        task_node = None
+
+        print(child_tasks)
+
+        return child_tasks.popleft()
 
         # task_info_queue = deque()
         # task_info_map = None
         # import pdb;pdb.set_trace()
         # for token in parser.depth_first_traverse_post_order(ast):
-
-
 
         #     if isinstance(token, parser.TaskName):
         #         new_task = cls(token.value)

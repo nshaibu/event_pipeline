@@ -25,7 +25,7 @@ class TaskName(object):
 
 class Descriptor(object):
     def __init__(self, value):
-        self.value = "success" if value != "1" else "failure"
+        self.value = value
 
     def __str__(self):
         return f"Descriptor: {self.value}"

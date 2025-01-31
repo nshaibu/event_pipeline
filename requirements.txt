@@ -1,0 +1,8 @@
+ply==3.11
+
+# test
+coverage==7.6.10
+iniconfig==2.0.0
+packaging==24.2
+pluggy==1.5.0
+pytest==8.3.4
