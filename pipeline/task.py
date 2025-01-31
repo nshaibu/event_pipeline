@@ -110,7 +110,6 @@ class PipelineTask(object):
         child_tasks = deque()
 
         task_node = None
-        import pdb;pdb.set_trace()
 
         for token in parser.depth_first_traverse_post_order(ast):
             if isinstance(token, parser.TaskName):
@@ -151,7 +150,6 @@ class PipelineTask(object):
                     # Add the operator to the processing tuple.
                     # it will be evaluated in the conditionals block
                     task_node = (token.op, *task_node)
-                    # child_tasks.append(task_node)
                 elif len(child_tasks) >= 2:
                     # Evaluate simple instruction here i.e A->B
                     left_node = child_tasks.popleft()
@@ -169,74 +167,4 @@ class PipelineTask(object):
                         child_tasks.append(task_node)
                         task_node = None
 
-        print(child_tasks)
-
         return child_tasks.popleft()
-
-        # task_info_queue = deque()
-        # task_info_map = None
-        # import pdb;pdb.set_trace()
-        # for token in parser.depth_first_traverse_post_order(ast):
-
-        #     if isinstance(token, parser.TaskName):
-        #         new_task = cls(token.value)
-        #         if task_info_map is None:
-        #             task_info_map = dict()
-        #
-        #         if task_info_queue:
-        #             task_info_map = task_info_queue.popleft()
-        #             if all([key not in task_info_map for key in ["on_failure_pipe", "on_success_pipe"]]):
-        #                 new_task = cls.process_task_info_map(new_task, task_info_map)
-        #
-        #         task_info_map["task"] = new_task
-        #     elif isinstance(token, parser.Descriptor):
-        #         task_info_map = dict()
-        #         if token.value == "0":
-        #             task_info_map["on_failure_pipe"] = "0"
-        #         else:
-        #             task_info_map["on_success_pipe"] = "1"
-        #     elif isinstance(token, parser.BinOp):
-        #         task_info_map["op"] = token.op
-        #         task_info_queue.append(task_info_map)
-        #     elif isinstance(token, parser.ConditionalBinOP):
-        #         new_task = cls(token.parent.value)
-        #
-        #         for task_map in task_info_queue:
-        #             if "on_failure_pipe" in task_map:
-        #                 new_task.on_failure_event = task_map["task"]
-        #                 new_task.on_failure_pipe = (
-        #                     PipeType.POINTER
-        #                     if task_map["op"] == PipeType.POINTER.token()
-        #                     else PipeType.PIPE_POINTER
-        #                 )
-        #             else:
-        #                 new_task.on_success_event = task_map["task"]
-        #                 new_task.on_failure_pipe = (
-        #                     PipeType.POINTER
-        #                     if task_map["op"] == PipeType.POINTER.token()
-        #                     else PipeType.PIPE_POINTER
-        #                 )
-        #
-        #         task_info_map["task"] = new_task
-        #
-        # # Consume the right task info
-        # head = cls(event=ast.right.value)
-        # while task_info_queue:
-        #     task_map = task_info_queue.popleft()
-        #     if head.event != task_map["task"].event:
-        #         if "on_failure_pipe" in task_map:
-        #             head.on_failure_event = task_map["task"]
-        #             head.on_failure_pipe = (
-        #                 PipeType.POINTER
-        #                 if task_map["op"] == PipeType.POINTER.token()
-        #                 else PipeType.PIPE_POINTER
-        #             )
-        #         else:
-        #             head.on_success_event = task_map["task"]
-        #             head.on_failure_pipe = (
-        #                 PipeType.POINTER
-        #                 if task_map["op"] == PipeType.POINTER.token()
-        #                 else PipeType.PIPE_POINTER
-        #             )
-        #
-        # return head
