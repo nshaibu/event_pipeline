@@ -1,7 +1,6 @@
 import abc
 import typing
 from enum import Enum
-from random import SystemRandom
 
 
 class EventState(Enum):
@@ -12,7 +11,6 @@ class EventState(Enum):
 class EventBase(abc.ABC):
 
     def __init__(self, *args, **kwargs):
-        self._event_id = None
         self._status: EventState = EventState.INITIALISED
         self._execution_status: bool = False
 
@@ -35,4 +33,3 @@ class EventBase(abc.ABC):
         if self._execution_status:
             return self.on_success(execution_result)
         return self.on_error(execution_result)
-
