@@ -5,7 +5,7 @@ _tabversion = "3.10"
 
 _lr_method = "LALR"
 
-_lr_signature = "COMMENT DESCRIPTOR LPAREN POINTER PPOINTER RPAREN SEPERATOR TASKNAME\n    expression : term POINTER term\n                | term PPOINTER term\n                | expression POINTER term\n                | expression PPOINTER term\n                | descriptor POINTER term\n                | descriptor PPOINTER term\n    \n    expression : term\n    \n    term : task\n    \n    descriptor : DESCRIPTOR\n    \n    task : TASKNAME\n    \n     task :  task LPAREN expression SEPERATOR expression RPAREN\n    "
+_lr_signature = "COMMENT DESCRIPTOR LPAREN POINTER PPOINTER RPAREN SEPERATOR TASKNAME\n    expression : term POINTER term\n                | term PPOINTER term\n                | expression POINTER term\n                | expression PPOINTER term\n                | descriptor POINTER term\n                | descriptor PPOINTER term\n    \n    expression : term\n    \n    term : task\n    \n    descriptor : DESCRIPTOR\n    \n    task : TASKNAME\n    \n    task :  task LPAREN expression SEPERATOR expression RPAREN\n    "
 
 _lr_action_items = {
     "DESCRIPTOR": (
@@ -312,7 +312,7 @@ _lr_productions = [
         3,
         "p_expression",
         "grammar.py",
-        10,
+        14,
     ),
     (
         "expression -> term PPOINTER term",
@@ -320,7 +320,7 @@ _lr_productions = [
         3,
         "p_expression",
         "grammar.py",
-        11,
+        15,
     ),
     (
         "expression -> expression POINTER term",
@@ -328,7 +328,7 @@ _lr_productions = [
         3,
         "p_expression",
         "grammar.py",
-        12,
+        16,
     ),
     (
         "expression -> expression PPOINTER term",
@@ -336,7 +336,7 @@ _lr_productions = [
         3,
         "p_expression",
         "grammar.py",
-        13,
+        17,
     ),
     (
         "expression -> descriptor POINTER term",
@@ -344,7 +344,7 @@ _lr_productions = [
         3,
         "p_expression",
         "grammar.py",
-        14,
+        18,
     ),
     (
         "expression -> descriptor PPOINTER term",
@@ -352,18 +352,18 @@ _lr_productions = [
         3,
         "p_expression",
         "grammar.py",
-        15,
+        19,
     ),
-    ("expression -> term", "expression", 1, "p_expression_term", "grammar.py", 22),
-    ("term -> task", "term", 1, "p_task", "grammar.py", 29),
-    ("descriptor -> DESCRIPTOR", "descriptor", 1, "p_descriptor", "grammar.py", 36),
-    ("task -> TASKNAME", "task", 1, "p_task_taskname", "grammar.py", 43),
+    ("expression -> term", "expression", 1, "p_expression_term", "grammar.py", 30),
+    ("term -> task", "term", 1, "p_task", "grammar.py", 37),
+    ("descriptor -> DESCRIPTOR", "descriptor", 1, "p_descriptor", "grammar.py", 44),
+    ("task -> TASKNAME", "task", 1, "p_task_taskname", "grammar.py", 51),
     (
         "task -> task LPAREN expression SEPERATOR expression RPAREN",
         "task",
         6,
         "p_task_grouped",
         "grammar.py",
-        50,
+        58,
     ),
 ]

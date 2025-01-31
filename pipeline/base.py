@@ -28,6 +28,12 @@ class EventBase(abc.ABC):
         # branch to when condition in execution is error
         pass
 
+    @classmethod
+    def get_event_klasses(cls):
+        for subclass in cls.__subclasses__():
+            yield from subclass.get_event_klasses()
+            yield subclass
+
     def __call__(self, *args, **kwargs):
         self._execution_status, execution_result = self.process(*args, **kwargs)
         if self._execution_status:

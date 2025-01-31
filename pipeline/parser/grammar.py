@@ -1,7 +1,9 @@
 __all__ = ["pointy_parser"]
 
-import lexer
+from . import lexer
 from ply.yacc import yacc
+
+from .ast import BinOp, Descriptor, TaskName, ConditionalBinOP
 
 pointy_lexer = lexer.PointyLexer()
 tokens = pointy_lexer.tokens
@@ -16,7 +18,7 @@ def p_expression(p):
                 | descriptor POINTER term
                 | descriptor PPOINTER term
     """
-    p[0] = (p[2], p[1], p[3])
+    p[0] = BinOp(p[2], p[1], p[3])
 
 
 def p_expression_term(p):
@@ -37,21 +39,24 @@ def p_descriptor(p):
     """
     descriptor : DESCRIPTOR
     """
-    p[0] = ("DESCRIPTOR", p[1])
+    # p[0] = ("DESCRIPTOR", p[1])
+    p[0] = Descriptor(p[1])
 
 
 def p_task_taskname(p):
     """
     task : TASKNAME
     """
-    p[0] = ("TASKNAME", p[1])
+    # p[0] = ("TASKNAME", p[1])
+    p[0] = TaskName(p[1])
 
 
 def p_task_grouped(p):
     """
     task :  task LPAREN expression SEPERATOR expression RPAREN
     """
-    p[0] = ("GROUP", p[1], p[3], p[5])
+    # p[0] = ("GROUP", p[1], p[3], p[5])
+    p[0] = ConditionalBinOP(p[1], p[3], p[5])
 
 
 # Error rule for syntax errors
