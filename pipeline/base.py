@@ -24,7 +24,7 @@ class EventBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def on_error(self, execution_result):
+    def on_failure(self, execution_result):
         # branch to when condition in execution is error
         pass
 

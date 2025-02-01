@@ -1,12 +1,13 @@
 import logging
 from .base import PipelineExecutorMixinBase
-from ..utils import coroutine
+from ..utils import coroutine, build_event_arguments_from_pipeline_param
 from ..exceptions import (
     EventDoesNotExist,
     EventNotConfigured,
     EventDone,
 )
 
+PipelineParam = object()
 
 logger = logging.getLogger(__name__)
 
