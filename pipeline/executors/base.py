@@ -1,4 +1,9 @@
-class PipelineExecutorBase(object):
+class PipelineExecutorMixinBase(object):
 
-    def execute(self, *args, **kwargs):
+    @classmethod
+    def receive_event_data(cls, *args, **kwargs):
+        raise NotImplementedError
+
+    @classmethod
+    def dispatch_event(cls, *args, **kwargs):
         raise NotImplementedError

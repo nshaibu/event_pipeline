@@ -64,28 +64,6 @@ class PipelineTask(object):
         yield from EventBase.get_event_klasses()
 
     @classmethod
-    def _resolve_event_name(cls, event_name: str) -> typing.Type[EventBase]:
-        for event in cls.get_event_klasses():
-            klass_name = event.__name__.lower()
-            if klass_name == event_name:
-                return event
-        raise EventDoesNotExist(f"'{event_name}' was not found.")
-
-    @classmethod
-    def process_event_name(cls, name: str):
-        value = name.split(" ")
-        if len(value) == 1:
-            return cls._resolve_event_name(name), None
-        return cls._resolve_event_name(value[0]), [
-            OrderedDict(
-                [
-                    (klass, cls._resolve_event_name(klass))
-                    for klass in value[1].split(",")
-                ]
-            )
-        ]
-
-    @classmethod
     def build_pipeline_from_execution_code(cls, code: str):
         ast = parser.pointy_parser(code)
         child_tasks = deque()
@@ -97,7 +75,7 @@ class PipelineTask(object):
                 if task_node is None:
                     task_node = cls(event=token.value)
                 else:
-                    # store previous task before approaching the operator
+                    # store previous task before approaching the next operator
                     child_tasks.append(task_node)
                     task_node = cls(event=token.value)
             elif isinstance(token, parser.Descriptor):
@@ -137,10 +115,10 @@ class PipelineTask(object):
                     right_node = child_tasks.popleft()
                     right_node.on_success_event = left_node
                     right_node.on_success_pipe = (
-                            PipeType.POINTER
-                            if token.op == PipeType.POINTER.token()
-                            else PipeType.PIPE_POINTER
-                        )
+                        PipeType.POINTER
+                        if token.op == PipeType.POINTER.token()
+                        else PipeType.PIPE_POINTER
+                    )
 
                     child_tasks.append(right_node)
 
