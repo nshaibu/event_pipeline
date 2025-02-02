@@ -65,6 +65,9 @@ class PipelineTask(object):
 
     @classmethod
     def build_pipeline_from_execution_code(cls, code: str):
+        if not code:
+            raise IndexError("No pointy code provided")
+
         ast = parser.pointy_parser(code)
         child_tasks = deque()
 
@@ -126,4 +129,7 @@ class PipelineTask(object):
                         child_tasks.append(task_node)
                         task_node = None
 
-        return child_tasks.popleft()
+        if child_tasks:
+            return child_tasks.popleft()
+
+        return task_node
