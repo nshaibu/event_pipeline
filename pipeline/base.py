@@ -38,4 +38,4 @@ class EventBase(abc.ABC):
         self._execution_status, execution_result = self.process(*args, **kwargs)
         if self._execution_status:
             return self.on_success(execution_result)
-        return self.on_error(execution_result)
+        return self.on_failure(execution_result)
