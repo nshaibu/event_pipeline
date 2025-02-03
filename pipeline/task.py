@@ -212,7 +212,7 @@ class PipelineTask(object):
     @classmethod
     def bf_traversal(cls, node: "PipelineTask"):
         if node:
-            for child in node.get_children():
-                cls.bf_traversal(child)
             yield node
 
+            for child in node.get_children():
+                yield from cls.bf_traversal(child)

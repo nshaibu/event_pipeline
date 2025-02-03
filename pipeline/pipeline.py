@@ -239,16 +239,13 @@ class Pipeline(metaclass=PipelineMeta):
         state: PipelineTask = self._state.start
         if state:
             tree = GraphTree()
-            tree.create_node(state.event, identifier=state.id, parent=None)
             for node in state.bf_traversal(state):
-                for child in node.get_children():
-                    if child:
-                        sink_tag = "-Sink" if child.is_sink else ""
-                        tree.create_node(
-                            tag=f"{child.event}{sink_tag}",
-                            identifier=child.id,
-                            parent=node.id,
-                        )
+                sink_tag = " (Sink)" if node.is_sink else ""
+                tree.create_node(
+                    tag=f"{node.event}{sink_tag}",
+                    identifier=node.id,
+                    parent=node.parent_node.id if node.parent_node else None,
+                )
             return tree
 
     def draw_ascii_graph(self):
