@@ -7,6 +7,7 @@ from functools import lru_cache
 from inspect import Signature, Parameter
 from .task import PipelineTask
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
+from .utils import generate_unique_id
 from .exceptions import ImproperlyConfigured, BadPipelineError
 
 
@@ -38,6 +39,12 @@ class PipelineState(object):
         self.start: PipelineTask = pipeline
         self.current: PipelineTask = pipeline
         self.next: typing.Optional[PipelineTask] = None
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["test"] = {}
+        for name in ["start", "current", "next"]:
+            pass
 
     def set_cache(self, instance, instance_cache_field, *, field_name=None, value=None):
         if value is None:
@@ -144,6 +151,8 @@ class PipelineMeta(type):
 class Pipeline(metaclass=PipelineMeta):
 
     def __init__(self, *args, **kwargs):
+        generate_unique_id(self)
+
         parameters = []
         for name, instance in self.get_fields():
             if name:
@@ -172,25 +181,25 @@ class Pipeline(metaclass=PipelineMeta):
             for name, value in bounded_args.arguments.items():
                 setattr(self, name, value)
 
+    @property
+    def pk(self):
+        return generate_unique_id(self)
+
     def __reduce__(self):
         pass
 
     def __setstate__(self, state):
+        state = self.__dict__.copy()
         pass
 
     def __getstate__(self):
         pass
 
-    def is_hashable(self):
-        return ((name, value) for name, value in self.get_fields() if name is None)
-
     def __hash__(self):
-        params = self.is_hashable()
-        if params:
-            return hash(params)
+        return hash(self.pk)
 
     def get_cache_key(self):
-        return f"pipeline_{self.__class__.__name__}_{hash(self)}"
+        return f"pipeline_{self.__class__.__name__}"
 
     @classmethod
     def get_fields(cls):

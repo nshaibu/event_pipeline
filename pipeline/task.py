@@ -3,6 +3,7 @@ from collections import OrderedDict, deque
 from enum import Enum, unique
 from .base import EventBase
 from . import parser
+from .utils import generate_unique_id
 
 
 @unique
@@ -33,6 +34,8 @@ class PipelineTask(object):
         on_success_pipe: typing.Optional[PipeType] = None,
         on_failure_pipe: typing.Optional[PipeType] = None,
     ):
+        generate_unique_id(self)
+
         self._task = None
         self._errors: typing.List = []
         self._state: TaskState = TaskState.INITIALISED
@@ -46,11 +49,18 @@ class PipelineTask(object):
         self._execution_start_tp: int = 0
         self._execution_end_tp: int = 0
 
+    @property
+    def pk(self) -> str:
+        return generate_unique_id(self)
+
     def __str__(self):
         return f"{self.event}:{self._state}"
 
     def __repr__(self):
-        return f"{self.__class__}({self.event}, ({repr(self.on_success_event)}, {repr(self.on_failure_event)}))"
+        return f"{self.pk}({self.event}, [{repr(self.on_success_event)}, {repr(self.on_failure_event)}])"
+
+    def __hash__(self):
+        return hash(self.pk)
 
     def get_errors(self) -> typing.Dict[str, typing.Any]:
         error_dict = {"event_name": self.__class__.__name__.lower(), "errors": []}

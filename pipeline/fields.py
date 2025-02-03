@@ -1,10 +1,16 @@
+import os.path
 import typing
 from .constants import EMPTY, UNKNOWN
 
 
 class CacheInstanceFieldMixin(object):
+    def get_cache_key(self):
+        raise NotImplementedError
+
     def set_field_cache_value(self, instance, value):
-        instance._state.set_cache_for_pipeline_field(instance, self.name, value)
+        instance._state.set_cache_for_pipeline_field(
+            instance, self.get_cache_key(), value
+        )
 
 
 class InputDataField(CacheInstanceFieldMixin):
@@ -40,3 +46,24 @@ class InputDataField(CacheInstanceFieldMixin):
             )
         self.set_field_cache_value(instance, value)
         instance.__dict__[self.name] = value
+
+    def get_cache_key(self):
+        return self.name
+
+
+class FileInputDataField(InputDataField):
+
+    def __init__(self, path: os.PathLike[str] | str | bytes, required=False):
+        super().__init__(
+            name=path, required=required, data_type=os.PathLike, default=None
+        )
+
+    def __set__(self, instance, value):
+        if os.path.isfile(value):
+            super().__get__(instance, value)
+        else:
+            raise TypeError()
+
+    def __get__(self, instance, owner=None):
+        if isinstance(self.data_type, os.PathLike):
+            return open(self.name, "rwb")

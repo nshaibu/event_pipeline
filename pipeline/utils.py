@@ -1,10 +1,14 @@
 import typing
 import logging
+import time
+import uuid
 from functools import wraps
 from collections import OrderedDict
 from inspect import signature, Signature
 
 logger = logging.getLogger(__name__)
+
+PipelineParam = object()
 
 
 def coroutine(func):
@@ -15,6 +19,14 @@ def coroutine(func):
         return cor
 
     return wrapper
+
+
+def generate_unique_id(obj: object):
+    pk = getattr(obj, "_id", None)
+    if pk is None:
+        pk = f"{obj.__class__.__name__}_{time.time()}_{str(uuid.uuid4())}"
+        setattr(obj, "_id", pk)
+    return pk
 
 
 def _parse_call_arguments(sign: Signature, pipeline_param: PipelineParam):
