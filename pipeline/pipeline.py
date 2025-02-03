@@ -5,6 +5,7 @@ import typing
 from collections import OrderedDict
 from functools import lru_cache
 from inspect import Signature, Parameter
+from treelib.tree import Tree, Node
 from .task import PipelineTask
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
 from .utils import generate_unique_id
@@ -31,14 +32,32 @@ class CacheFieldDescriptor(object):
         return instance.__dict__[self.name]
 
 
+class PipelineStateDescriptor(object):
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def __set__(self, instance, value):
+        if not isinstance(value, PipelineTask):
+            raise TypeError
+        instance.__dict__[self.name] = value
+
+    def __get__(self, instance, owner):
+        return instance.__dict__[self.name]
+
+
 class PipelineState(object):
     pipeline_cache = CacheFieldDescriptor()
     result_cache = CacheFieldDescriptor()
 
+    start = PipelineStateDescriptor()
+    current = PipelineStateDescriptor()
+    next = PipelineStateDescriptor()
+
     def __init__(self, pipeline: PipelineTask):
         self.start: PipelineTask = pipeline
-        self.current: PipelineTask = pipeline
-        self.next: typing.Optional[PipelineTask] = None
+        # self.current: PipelineTask = pipeline
+        # self.next: typing.Optional[PipelineTask] = None
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -182,8 +201,13 @@ class Pipeline(metaclass=PipelineMeta):
                 setattr(self, name, value)
 
     @property
-    def pk(self):
+    def id(self):
         return generate_unique_id(self)
+
+    def __eq__(self, other):
+        if not isinstance(other, Pipeline):
+            return False
+        return self.id == other.id
 
     def __reduce__(self):
         pass
@@ -196,7 +220,7 @@ class Pipeline(metaclass=PipelineMeta):
         pass
 
     def __hash__(self):
-        return hash(self.pk)
+        return hash(self.id)
 
     def get_cache_key(self):
         return f"pipeline_{self.__class__.__name__}"
@@ -205,7 +229,27 @@ class Pipeline(metaclass=PipelineMeta):
     def get_fields(cls):
         for name, klass in getattr(cls, PIPELINE_FIELDS, {}).items():
             yield name, klass
-        yield None, None
+
+    def get_pipeline_tree(self) -> Tree:
+        state: PipelineTask = self._state.start
+        if state:
+            tree = Tree()
+            tree.create_node(state.event, identifier=state.id, parent=None)
+            for node in state.bf_traversal(state):
+                for child in node.get_children():
+                    if child:
+                        sink_tag = "-Sink" if child.is_sink else ""
+                        tree.create_node(
+                            tag=f"{child.event}{sink_tag}",
+                            identifier=child.id,
+                            parent=node.id,
+                        )
+            return tree
+
+    def draw_ascii_graph(self):
+        tree = self.get_pipeline_tree()
+        if tree:
+            tree.show(line_type="ascii-emv")
 
     # def start_task(self, execution_str: str) -> typing.Coroutine:
     #     self._task = GS1EventBase.pipeline()

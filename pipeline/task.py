@@ -40,7 +40,19 @@ class PipelineTask(object):
         self._errors: typing.List = []
         self._state: TaskState = TaskState.INITIALISED
 
+        # attributes for when a task is created from a descriptor
+        self._descriptor: typing.Optional[int] = None
+        self._descriptor_pipe: typing.Optional[PipeType] = None
+
         self.event = event
+        self.parent_node: typing.Optional[PipelineTask] = None
+
+        # sink event this is where the conditional events collapse
+        # into after they are done executing
+        self.sink_node: typing.Optional[PipelineTask] = None
+        self.sink_pipe: typing.Optional[PipeType] = None
+
+        # conditional events
         self.on_success_event = on_success_event
         self.on_failure_event = on_failure_event
         self.on_success_pipe = on_success_pipe
@@ -50,17 +62,32 @@ class PipelineTask(object):
         self._execution_end_tp: int = 0
 
     @property
-    def pk(self) -> str:
+    def id(self) -> str:
         return generate_unique_id(self)
 
     def __str__(self):
         return f"{self.event}:{self._state}"
 
     def __repr__(self):
-        return f"{self.pk}({self.event}, [{repr(self.on_success_event)}, {repr(self.on_failure_event)}])"
+        return f"{self.event} -> [{repr(self.on_success_event)}, {repr(self.on_failure_event)}]"
 
     def __hash__(self):
-        return hash(self.pk)
+        return hash(self.id)
+
+    @property
+    def is_conditional(self):
+        return self.on_success_event and self.on_failure_event
+
+    @property
+    def is_descriptor_task(self):
+        return self._descriptor is not None or self._descriptor_pipe is not None
+
+    @property
+    def is_sink(self) -> bool:
+        parent = self.parent_node
+        if parent:
+            return parent.sink_node is not None
+        return False
 
     def get_errors(self) -> typing.Dict[str, typing.Any]:
         error_dict = {"event_name": self.__class__.__name__.lower(), "errors": []}
@@ -79,67 +106,112 @@ class PipelineTask(object):
             raise IndexError("No pointy code provided")
 
         ast = parser.pointy_parser(code)
-        child_tasks = deque()
+        tail = cls._parse_ast(ast)
+        return tail.get_root()
 
-        task_node = None
+    @classmethod
+    def _parse_ast(cls, ast):
+        """
+        TODO: add comment to explain the algorithm
+        :param ast:
+        :return:
+        """
+        if isinstance(ast, parser.BinOp):
+            left_node = cls._parse_ast(ast.left)
+            right_node = cls._parse_ast(ast.right)
 
-        for token in parser.depth_first_traverse_post_order(ast):
-            if isinstance(token, parser.TaskName):
-                if task_node is None:
-                    task_node = cls(event=token.value)
+            if isinstance(left_node, PipelineTask) and isinstance(
+                right_node, PipelineTask
+            ):
+                pipe_type = (
+                    PipeType.POINTER
+                    if ast.op == PipeType.POINTER.token()
+                    else PipeType.PIPE_POINTER
+                )
+
+                if left_node.is_conditional:
+                    left_node.sink_node = right_node
+                    left_node.sink_pipe = pipe_type
                 else:
-                    # store previous task before approaching the next operator
-                    child_tasks.append(task_node)
-                    task_node = cls(event=token.value)
-            elif isinstance(token, parser.Descriptor):
-                task_node = (task_node, token.value)
-            elif isinstance(token, parser.ConditionalBinOP):
-                parent = cls(event=token.parent.value)
-                if task_node:
-                    child_tasks.append(task_node)
-                    task_node = None
+                    left_node.on_success_event = right_node
+                    left_node.on_success_pipe = pipe_type
 
-                while child_tasks:
-                    op, task, descriptor = child_tasks.popleft()
-                    if descriptor == "0":
-                        parent.on_failure_event = task
+                right_node.parent_node = left_node
+                return right_node
+            elif isinstance(left_node, int) or isinstance(right_node, int):
+                descriptor_value = node = None
+                if isinstance(left_node, int):
+                    descriptor_value = left_node
+                else:
+                    node = left_node
+
+                if isinstance(right_node, int):
+                    descriptor_value = right_node
+                else:
+                    node = right_node
+
+                if node:
+                    node = node.get_root()
+                    node._descriptor = descriptor_value
+                    node._descriptor_pipe = ast.op
+                    return node
+                raise SyntaxError
+            else:
+                return left_node or right_node
+        elif isinstance(ast, parser.TaskName):
+            return cls(event=ast.value)
+        elif isinstance(ast, parser.ConditionalBinOP):
+            left_node = cls._parse_ast(ast.left)
+            right_node = cls._parse_ast(ast.right)
+
+            if left_node:
+                left_node = left_node.get_root()
+
+            if right_node:
+                right_node = right_node.get_root()
+
+            parent = cls(event=ast.parent.value)
+
+            for node in [right_node, left_node]:
+                if node:
+                    node.parent_node = parent
+                    if node._descriptor == 0:
+                        parent.on_failure_event = node
                         parent.on_failure_pipe = (
                             PipeType.POINTER
-                            if op == PipeType.POINTER.token()
+                            if node._descriptor_pipe == PipeType.POINTER.token()
                             else PipeType.PIPE_POINTER
                         )
                     else:
-                        parent.on_success_event = task
+                        parent.on_success_event = node
                         parent.on_success_pipe = (
                             PipeType.POINTER
-                            if op == PipeType.POINTER.token()
+                            if node._descriptor_pipe == PipeType.POINTER.token()
                             else PipeType.PIPE_POINTER
                         )
 
-                child_tasks.append(parent)
-            elif isinstance(token, parser.BinOp):
-                if isinstance(task_node, tuple):
-                    # Add the operator to the processing tuple.
-                    # it will be evaluated in the conditionals block
-                    task_node = (token.op, *task_node)
-                elif len(child_tasks) >= 2:
-                    # Evaluate simple instruction here i.e A->B
-                    left_node = child_tasks.popleft()
-                    right_node = child_tasks.popleft()
-                    right_node.on_success_event = left_node
-                    right_node.on_success_pipe = (
-                        PipeType.POINTER
-                        if token.op == PipeType.POINTER.token()
-                        else PipeType.PIPE_POINTER
-                    )
+            return parent
+        elif isinstance(ast, parser.Descriptor):
+            return int(ast.value)
 
-                    child_tasks.append(right_node)
+    def get_children(self):
+        children = []
+        if self.on_failure_event:
+            children.append(self.on_failure_event)
+        if self.sink_node:
+            children.append(self.sink_node)
+        if self.on_success_event:
+            children.append(self.on_success_event)
+        return children
 
-                    if task_node:
-                        child_tasks.append(task_node)
-                        task_node = None
+    def get_root(self):
+        if self.parent_node is None:
+            return self
+        return self.parent_node.get_root()
 
-        if child_tasks:
-            return child_tasks.popleft()
-
-        return task_node
+    @classmethod
+    def bf_traversal(cls, node: "PipelineTask"):
+        if node:
+            yield node
+            for child in node.get_children():
+                cls.bf_traversal(child)

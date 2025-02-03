@@ -62,7 +62,7 @@ class FileInputDataField(InputDataField):
         if os.path.isfile(value):
             super().__get__(instance, value)
         else:
-            raise TypeError()
+            raise TypeError(f"{value} is not a file or does not exist")
 
     def __get__(self, instance, owner=None):
         if isinstance(self.data_type, os.PathLike):

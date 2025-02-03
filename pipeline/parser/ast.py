@@ -9,10 +9,12 @@ class BinOp(object):
         self.right = right_node
 
 
-class ConditionalBinOP(BinOp):
+class ConditionalBinOP(object):
     def __init__(self, parent, left_node, right_node):
         self.parent = parent
-        super().__init__("CONDITIONAL", left_node, right_node)
+        self.op = "CONDITIONAL"
+        self.left = left_node
+        self.right = right_node
 
 
 class TaskName(object):
@@ -31,12 +33,12 @@ class Descriptor(object):
         return f"Descriptor: {self.value}"
 
 
-def depth_first_traverse_post_order(
+def df_traverse_post_order(
     node: typing.Union[BinOp, ConditionalBinOP, TaskName, Descriptor]
 ):
     if node:
         if isinstance(node, (BinOp, ConditionalBinOP)):
-            yield from depth_first_traverse_post_order(node.right)
-            yield from depth_first_traverse_post_order(node.left)
+            yield from df_traverse_post_order(node.right)
+            yield from df_traverse_post_order(node.left)
 
         yield node
