@@ -85,8 +85,8 @@ class PipelineTask(object):
     @property
     def is_sink(self) -> bool:
         parent = self.parent_node
-        if parent:
-            return parent.sink_node is not None
+        if parent and not self.is_descriptor_task:
+            return parent.sink_node == self
         return False
 
     def get_errors(self) -> typing.Dict[str, typing.Any]:

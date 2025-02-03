@@ -60,8 +60,8 @@ class PipelineState(object):
     result_cache = CacheFieldDescriptor()
 
     start = PipelineStateDescriptor()
-    current = PipelineStateDescriptor()
-    next = PipelineStateDescriptor()
+    # current = PipelineStateDescriptor()
+    # next = PipelineStateDescriptor()
 
     def __init__(self, pipeline: PipelineTask):
         self.start: PipelineTask = pipeline
@@ -124,6 +124,14 @@ class PipelineState(object):
             field_name=field_name,
             value=value,
         )
+
+    # def set_next_pipeline(self, instance, value):
+    #     cache_key = self.get_cache_key(instance)
+    #     self.__dict__[cache_key]["next"] = value
+    #
+    # def set_current_pipeline(self, instance, value):
+    #     cache_key = self.get_cache_key(instance)
+    #     self.__dict__[cache_key]["current"] = value
 
 
 class PipelineMeta(type):
@@ -267,15 +275,17 @@ class Pipeline(metaclass=PipelineMeta):
         if state:
             tree = GraphTree()
             for node in state.bf_traversal(state):
+                tag = ""
                 if node.is_conditional:
                     tag = " (?)"
-                elif node.is_sink:
-                    tag = " (Sink)"
-                else:
-                    tag = ""
 
                 if node.is_descriptor_task:
-                    tag = " (OnFailure)" if node._descriptor == 0 else " (OnSuccess)"
+                    tag = " (No)" if node._descriptor == 0 else " (Yes)"
+
+                if node.is_sink:
+                    tag = " (Sink)"
+                # else:
+                #     tag = ""
 
                 tree.create_node(
                     tag=f"{node.event}{tag}",
