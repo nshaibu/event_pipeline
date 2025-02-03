@@ -6,9 +6,62 @@ from functools import wraps
 from collections import OrderedDict
 from inspect import signature, Signature
 
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+from treelib.tree import Tree
+
 logger = logging.getLogger(__name__)
 
 PipelineParam = object()
+
+
+class GraphTree(Tree):
+
+    def return_graphviz_data(
+        self,
+        shape="circle",
+        graph="digraph",
+        t_filter=None,
+        key=None,
+        reverse=False,
+        sorting=True,
+    ) -> str:
+        nodes, connections = [], []
+        if self.nodes:
+            for n in self.expand_tree(
+                mode=self.WIDTH,
+                filter=t_filter,
+                key=key,
+                reverse=reverse,
+                sorting=sorting,
+            ):
+                nid = self[n].identifier
+                state = '"{0}" [label="{1}", shape={2}]'.format(nid, self[n].tag, shape)
+                nodes.append(state)
+
+                for c in self.children(nid):
+                    cid = c.identifier
+                    edge = "->" if graph == "digraph" else "--"
+                    connections.append(('"{0}" ' + edge + ' "{1}"').format(nid, cid))
+
+        # write nodes and connections to dot format
+        f = StringIO()
+
+        f.write(graph + " tree {\n")
+        for n in nodes:
+            f.write("\t" + n + "\n")
+
+        if len(connections) > 0:
+            f.write("\n")
+
+        for c in connections:
+            f.write("\t" + c + "\n")
+
+        f.write("}")
+
+        return f.getvalue()
 
 
 def coroutine(func):

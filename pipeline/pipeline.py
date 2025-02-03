@@ -5,10 +5,15 @@ import typing
 from collections import OrderedDict
 from functools import lru_cache
 from inspect import Signature, Parameter
-from treelib.tree import Tree, Node
+
+try:
+    import graphviz
+except ImportError:
+    graphviz = None
+
 from .task import PipelineTask
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
-from .utils import generate_unique_id
+from .utils import generate_unique_id, GraphTree
 from .exceptions import ImproperlyConfigured, BadPipelineError
 
 
@@ -230,10 +235,10 @@ class Pipeline(metaclass=PipelineMeta):
         for name, klass in getattr(cls, PIPELINE_FIELDS, {}).items():
             yield name, klass
 
-    def get_pipeline_tree(self) -> Tree:
+    def get_pipeline_tree(self) -> GraphTree:
         state: PipelineTask = self._state.start
         if state:
-            tree = Tree()
+            tree = GraphTree()
             tree.create_node(state.event, identifier=state.id, parent=None)
             for node in state.bf_traversal(state):
                 for child in node.get_children():
@@ -250,6 +255,15 @@ class Pipeline(metaclass=PipelineMeta):
         tree = self.get_pipeline_tree()
         if tree:
             tree.show(line_type="ascii-emv")
+
+    def draw_graphviz_image(self, directory="pipeline-graphs"):
+        if graphviz is None:
+            return
+        tree = self.get_pipeline_tree()
+        if tree:
+            data = tree.return_graphviz_data()
+            src = graphviz.Source(data, directory=directory)
+            src.render(format="png", outfile=f"{self.__class__.__name__}.png")
 
     # def start_task(self, execution_str: str) -> typing.Coroutine:
     #     self._task = GS1EventBase.pipeline()
