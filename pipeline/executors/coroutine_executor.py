@@ -1,5 +1,5 @@
 import logging
-from .base import PipelineExecutorMixinBase
+from .base import PipelineExecutorMixinBase, ExecutorType
 from ..utils import coroutine, build_event_arguments_from_pipeline_param
 from ..exceptions import (
     EventDoesNotExist,
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineCoroutineEventExecutorMixin(PipelineExecutorMixinBase):
+    executor_type = ExecutorType.COROUTINE
 
     @classmethod
     @coroutine

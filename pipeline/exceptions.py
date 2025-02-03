@@ -19,6 +19,10 @@ class EventDoesNotExist(ValueError, PipelineError):
     pass
 
 
+class StateError(ValueError, PipelineError):
+    pass
+
+
 class EventDone(PipelineError):
     pass
 

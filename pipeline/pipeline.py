@@ -2,7 +2,7 @@ import os
 import re
 import inspect
 import typing
-from collections import OrderedDict
+from collections import OrderedDict, ChainMap
 from functools import lru_cache
 from inspect import Signature, Parameter
 
@@ -18,6 +18,10 @@ from .exceptions import ImproperlyConfigured, BadPipelineError
 
 
 class CacheFieldDescriptor(object):
+    """
+    TODO: Add backend for persisting cache in a redis/memcache store
+    """
+
     def __set_name__(self, owner, name):
         self.name = name
 
@@ -61,23 +65,38 @@ class PipelineState(object):
 
     def __init__(self, pipeline: PipelineTask):
         self.start: PipelineTask = pipeline
-        # self.current: PipelineTask = pipeline
-        # self.next: typing.Optional[PipelineTask] = None
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state["test"] = {}
-        for name in ["start", "current", "next"]:
-            pass
+    def clear(self, instance: typing.Union["Pipeline", str]):
+        instance_key = self.get_cache_key(instance)
+        cache_fields = self.check_cache_exists(instance)
+        if cache_fields:
+            for field in cache_fields:
+                try:
+                    self.__dict__[field].pop(instance_key)
+                except (AttributeError, KeyError):
+                    pass
+
+    @staticmethod
+    def get_cache_key(instance: typing.Union["Pipeline", str]):
+        return instance.get_cache_key() if not isinstance(instance, str) else instance
+
+    def check_cache_exists(self, instance: typing.Union["Pipeline", str]):
+        keys = set()
+        instance_key = self.get_cache_key(instance)
+        for field, value in self.__dict__.items():
+            if isinstance(value, (dict, OrderedDict)) and instance_key in value:
+                keys.add(field)
+        return keys
+
+    def cache(self, instance: typing.Union["Pipeline", str]):
+        cache_fields = self.check_cache_exists(instance)
+        instance_key = self.get_cache_key(instance)
+        return ChainMap(*(self.__dict__[field][instance_key] for field in cache_fields))
 
     def set_cache(self, instance, instance_cache_field, *, field_name=None, value=None):
         if value is None:
             return
-        if instance_cache_field not in ["pipeline_cache", "result_cache"]:
-            # TODO raise proper error
-            raise Exception
-
-        instance_key = instance.get_cache_key()
+        instance_key = self.get_cache_key(instance)
         cache = self.__dict__.get(instance_cache_field)
         if cache and instance_key in cache:
             collection = cache[instance_key]
@@ -94,6 +113,14 @@ class PipelineState(object):
         self.set_cache(
             instance=instance,
             instance_cache_field="pipeline_cache",
+            field_name=field_name,
+            value=value,
+        )
+
+    def set_cache_for_result_field(self, instance, field_name, value):
+        self.set_cache(
+            instance=instance,
+            instance_cache_field="result_cache",
             field_name=field_name,
             value=value,
         )
@@ -228,7 +255,7 @@ class Pipeline(metaclass=PipelineMeta):
         return hash(self.id)
 
     def get_cache_key(self):
-        return f"pipeline_{self.__class__.__name__}"
+        return f"pipeline_{self.__class__.__name__}_{self.id}"
 
     @classmethod
     def get_fields(cls):
@@ -240,9 +267,18 @@ class Pipeline(metaclass=PipelineMeta):
         if state:
             tree = GraphTree()
             for node in state.bf_traversal(state):
-                sink_tag = " (Sink)" if node.is_sink else ""
+                if node.is_conditional:
+                    tag = " (?)"
+                elif node.is_sink:
+                    tag = " (Sink)"
+                else:
+                    tag = ""
+
+                if node.is_descriptor_task:
+                    tag = " (OnFailure)" if node._descriptor == 0 else " (OnSuccess)"
+
                 tree.create_node(
-                    tag=f"{node.event}{sink_tag}",
+                    tag=f"{node.event}{tag}",
                     identifier=node.id,
                     parent=node.parent_node.id if node.parent_node else None,
                 )
@@ -261,6 +297,25 @@ class Pipeline(metaclass=PipelineMeta):
             data = tree.return_graphviz_data()
             src = graphviz.Source(data, directory=directory)
             src.render(format="png", outfile=f"{self.__class__.__name__}.png")
+
+    @classmethod
+    def load_class_by_id(cls, pk: str):
+        cache_keys = cls._state.check_cache_exists(pk)
+        if not cache_keys:
+            raise
+        cache = cls._state.cache(pk)
+
+        # restore fields
+        kwargs = {}
+        for key, value in cache.get("pipeline_cache", {}).items():
+            kwargs[key] = value
+
+        instance = cls(**kwargs)
+        setattr(instance, "_id", pk)
+
+        # then restore states as well
+
+        return instance
 
     # def start_task(self, execution_str: str) -> typing.Coroutine:
     #     self._task = GS1EventBase.pipeline()
