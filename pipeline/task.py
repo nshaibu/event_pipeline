@@ -1,9 +1,77 @@
+import time
 import typing
-from collections import OrderedDict, deque
+from concurrent.futures import Executor
 from enum import Enum, unique
 from .base import EventBase
 from . import parser
+from .constants import EMPTY
 from .utils import generate_unique_id
+from .exceptions import PipelineError, BadPipelineError, ImproperlyConfigured
+from .utils import build_event_arguments_from_pipeline_param
+
+
+class EventExecutionContext(object):
+
+    def __init__(self, task: "PipelineTask", pipeline: "Pipeline"):
+        self._execution_start_tp: float = time.time()
+        self._execution_end_tp: float = 0
+        self.task_profile = task
+        self.pipeline = pipeline
+        self.execution_result: typing.Any = None
+
+        self.previous_context: typing.Optional[EventExecutionContext] = None
+        self.next_context: typing.Optional[EventExecutionContext] = None
+
+        self._errors: typing.List[PipelineError] = []
+
+    def dispatch(self):
+        if not isinstance(self.task_profile.event.get_executor_class(), Executor):
+            raise ImproperlyConfigured(f"Event executor must inherit {Executor}")
+
+        try:
+            event_init_arguments, event_call_arguments = (
+                build_event_arguments_from_pipeline_param(
+                    self.task_profile.event, self.pipeline
+                )
+            )
+
+            event_init_arguments = event_init_arguments or {}
+            event_call_arguments = event_call_arguments or {}
+
+            event_init_arguments["execution_context"] = self
+
+            pointer_type = self.task_profile.get_pointer_type_to_this_event()
+            if pointer_type != PipeType.POINTER:
+                if self.previous_context:
+                    event_init_arguments["previous_event_result"] = (
+                        self.previous_context.execution_result
+                    )
+                else:
+                    event_init_arguments["previous_event_result"] = EMPTY
+
+            event = self.task_profile.event(**event_init_arguments)
+            executor_klass = event.get_executor_class()
+
+            with executor_klass() as executor:
+                future = executor.submit(event, **event_call_arguments)
+
+            # if response["status"] == 1:
+            #     pipeline.trigger_next_event()
+            # else:
+            #     task_error = PipelineError(
+            #         message=response,
+            #     )
+            # pipeline_event.errors.append(task_error)
+
+            # copy the rest of the errors
+            # if hasattr(event, "_errors"):
+            #     pipeline_event.errors.extend(event._errors)
+        except (KeyError, ValueError, AttributeError) as e:
+            task_error = BadPipelineError(
+                message={"status": 0, "message": str(e)},
+                exception=e,
+            )
+            # pipeline_event.errors.append(task_error)
 
 
 @unique
@@ -57,9 +125,6 @@ class PipelineTask(object):
         self.on_failure_event = on_failure_event
         self.on_success_pipe = on_success_pipe
         self.on_failure_pipe = on_failure_pipe
-
-        self._execution_start_tp: int = 0
-        self._execution_end_tp: int = 0
 
     @property
     def id(self) -> str:
@@ -216,3 +281,21 @@ class PipelineTask(object):
 
             for child in node.get_children():
                 yield from cls.bf_traversal(child)
+
+    def get_pointer_type_to_this_event(self) -> PipeType:
+        pipe_type = PipeType.POINTER
+        if self.parent_node is not None:
+            if (
+                self.parent_node.on_success_event
+                and self.parent_node.on_success_event == self
+            ):
+                pipe_type = self.parent_node.on_success_pipe
+            elif (
+                self.parent_node.on_failure_event
+                and self.parent_node.on_failure_event == self
+            ):
+                pipe_type = self.parent_node.on_failure_pipe
+            elif self.parent_node.sink_node and self.parent_node.sink_node == self:
+                pipe_type = self.parent_node.sink_pipe
+
+        return pipe_type

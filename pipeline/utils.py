@@ -2,6 +2,8 @@ import typing
 import logging
 import time
 import uuid
+import sys
+import resource
 from functools import wraps
 from collections import OrderedDict
 from inspect import signature, Signature
@@ -15,6 +17,19 @@ from treelib.tree import Tree
 logger = logging.getLogger(__name__)
 
 PipelineParam = object()
+
+from concurrent.futures import Executor
+
+
+def _extend_recursion_depth(limit: int = 1048576):
+    rec_limit = sys.getrecursionlimit()
+    if rec_limit == limit:
+        return
+    try:
+        resource.setrlimit(resource.RLIMIT_STACK, (limit, resource.RLIM_INFINITY))
+        sys.setrecursionlimit(limit)
+    except Exception as e:
+        logger.error(f"Extending system recursive depth failed {str(e)}")
 
 
 class GraphTree(Tree):

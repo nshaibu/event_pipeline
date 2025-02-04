@@ -41,27 +41,9 @@ class CacheFieldDescriptor(object):
         return instance.__dict__[self.name]
 
 
-class PipelineStateDescriptor(object):
-
-    def __set_name__(self, owner, name):
-        self.name = name
-
-    def __set__(self, instance, value):
-        if not isinstance(value, PipelineTask):
-            raise TypeError
-        instance.__dict__[self.name] = value
-
-    def __get__(self, instance, owner):
-        return instance.__dict__[self.name]
-
-
 class PipelineState(object):
     pipeline_cache = CacheFieldDescriptor()
     result_cache = CacheFieldDescriptor()
-
-    start = PipelineStateDescriptor()
-    # current = PipelineStateDescriptor()
-    # next = PipelineStateDescriptor()
 
     def __init__(self, pipeline: PipelineTask):
         self.start: PipelineTask = pipeline
@@ -124,14 +106,6 @@ class PipelineState(object):
             field_name=field_name,
             value=value,
         )
-
-    # def set_next_pipeline(self, instance, value):
-    #     cache_key = self.get_cache_key(instance)
-    #     self.__dict__[cache_key]["next"] = value
-    #
-    # def set_current_pipeline(self, instance, value):
-    #     cache_key = self.get_cache_key(instance)
-    #     self.__dict__[cache_key]["current"] = value
 
 
 class PipelineMeta(type):
@@ -284,8 +258,6 @@ class Pipeline(metaclass=PipelineMeta):
 
                 if node.is_sink:
                     tag = " (Sink)"
-                # else:
-                #     tag = ""
 
                 tree.create_node(
                     tag=f"{node.event}{tag}",
@@ -324,41 +296,9 @@ class Pipeline(metaclass=PipelineMeta):
         setattr(instance, "_id", pk)
 
         # then restore states as well
+        # i.e. current and next from pipeline_cache
 
         return instance
 
-    # def start_task(self, execution_str: str) -> typing.Coroutine:
-    #     self._task = GS1EventBase.pipeline()
-    #     self.trigger_next_event()
-    #     return self._task
-    #
-    # def is_configured(self):
-    #     return self._start_pipeline or self._next_event
-    #
-    # def move_to_next(self) -> typing.Optional[PipelineEvent]:
-    #     if self._next_event:
-    #         if self._current_pipeline is None:
-    #             self._current_pipeline = self._start_pipeline
-    #             return self._start_pipeline
-    #
-    #         self._next_event = self._current_pipeline.next_event
-    #         self._current_pipeline = self._next_event
-    #         return self._next_event
-    #
-    # def peek_next_for_event(self) -> typing.Optional["GS1EventBase"]:
-    #     if self._task is None:
-    #         return self._start_pipeline.event
-    #
-    #     if self._next_event:
-    #         event = self._next_event.next_event
-    #         if event:
-    #             return event.event
-    #
-    # def trigger_next_event(self):
-    #     try:
-    #         task = self.peek_next_for_event()
-    #         if task:
-    #             self._task = task.pipeline()
-    #             self._task.send(self)
-    #     except StopIteration:
-    #         pass
+    def dispatch_event(self):
+        pass
