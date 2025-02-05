@@ -36,3 +36,10 @@ class BadPipelineError(ImproperlyConfigured, PipelineError):
     def __init__(self, *args, exception=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.exception = exception
+
+
+class StopProcessingError(RuntimeError, PipelineError):
+
+    def __init__(self, *args, exception=None, **kwargs):
+        self.exception = exception
+        super().__init__(*args, **kwargs)

@@ -6,6 +6,7 @@ from concurrent.futures import Executor, ProcessPoolExecutor
 from .constants import EMPTY, EventResult
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
+from .exceptions import StopProcessingError
 
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,9 @@ class EventBase(abc.ABC):
         self.previous_result = previous_result
         self.stop_on_exception = stop_on_exception
 
+        self._init_args = get_function_call_args(self.__class__.__init__, locals())
+        self._call_args = EMPTY
+
     @classmethod
     def get_executor_class(cls) -> typing.Type[Executor]:
         return cls.executor
@@ -41,17 +45,28 @@ class EventBase(abc.ABC):
             is_error=False,
             detail=execution_result,
             task_id=self._execution_context.task_profile.id,
+            _init_params=self._init_args,
+            _call_params=self._call_args,
         )
 
     def on_failure(self, execution_result) -> EventResult:
         if isinstance(execution_result, Exception):
             if self.stop_on_exception:
-                # raise specific error
-                raise Exception
+                raise StopProcessingError(
+                    message=f"Error occurred while processing event '{self.__class__.__name__}'",
+                    exception=execution_result,
+                    params={
+                        "init": self._init_args,
+                        "call": self._call_args,
+                        "event": self.__class__.__name__,
+                    },
+                )
         return EventResult(
             is_error=True,
             detail=execution_result,
             task_id=self._execution_context.task_profile.id,
+            _init_params=self._init_args,
+            _call_params=self._call_args,
         )
 
     @classmethod
@@ -75,6 +90,7 @@ class EventBase(abc.ABC):
         return context
 
     def __call__(self, *args, **kwargs):
+        self._call_args = get_function_call_args(self.__class__.__call__, locals())
         try:
             self._execution_status, execution_result = self.process(*args, **kwargs)
         except Exception as e:

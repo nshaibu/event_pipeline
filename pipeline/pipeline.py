@@ -300,5 +300,3 @@ class Pipeline(metaclass=PipelineMeta):
 
         return instance
 
-    def dispatch_event(self):
-        pass

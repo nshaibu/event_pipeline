@@ -6,7 +6,7 @@ from .base import EventBase
 from . import parser
 from .constants import EMPTY, EventResult
 from .utils import generate_unique_id
-from .exceptions import PipelineError, BadPipelineError, ImproperlyConfigured
+from .exceptions import PipelineError, BadPipelineError, ImproperlyConfigured, StopProcessingError
 from .utils import build_event_arguments_from_pipeline, get_function_call_args
 
 
@@ -58,43 +58,35 @@ class EventExecutionContext(object):
             with executor_klass(**context) as executor:
                 future = executor.submit(event, **event_call_arguments)
 
-                wait_results = wait([future])
+                waited_results = wait([future])
 
             response_success = []
             response_error = []
 
-            for fut in wait_results.done:
+            for fut in waited_results.done:
                 result = fut.result()
                 if result.is_error:
                     response_error.append(result)
                 else:
                     response_success.append(result)
 
-            self._errors.extend(response_success + response_error)
+            self.execution_result.extend(response_success)
 
-            if response_success:
-                pass
+            for error in response_error:
+                self._errors.append(
+                    PipelineError(
+                        message=error.detail, code=error.task_id, params=error._asdict()
+                    )
+                )
 
-            # if response_error:
-            #     pass
-
-            # if response["status"] == 1:
-            #     pipeline.trigger_next_event()
-            # else:
-            #     task_error = PipelineError(
-            #         message=response,
-            #     )
-            # pipeline_event.errors.append(task_error)
-
-            # copy the rest of the errors
-            # if hasattr(event, "_errors"):
-            #     pipeline_event.errors.extend(event._errors)
         except (KeyError, ValueError, AttributeError) as e:
             task_error = BadPipelineError(
                 message={"status": 0, "message": str(e)},
                 exception=e,
             )
-            # pipeline_event.errors.append(task_error)
+            self._errors.append(task_error)
+        except StopProcessingError:
+            pass
 
 
 @unique
@@ -296,6 +288,11 @@ class PipelineTask(object):
         if self.parent_node is None:
             return self
         return self.parent_node.get_root()
+
+    def get_task_count(self) -> int:
+        root = self.get_root()
+        nodes = yield from self.bf_traversal(root)
+        return len(nodes)
 
     @classmethod
     def bf_traversal(cls, node: "PipelineTask"):
