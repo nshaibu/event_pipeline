@@ -2,7 +2,7 @@ import os
 import re
 import inspect
 import typing
-from collections import OrderedDict, ChainMap
+from collections import OrderedDict, ChainMap, deque
 from functools import lru_cache
 from inspect import Signature, Parameter
 
@@ -14,7 +14,7 @@ except ImportError:
 from .task import PipelineTask, EventExecutionContext
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
 from .utils import generate_unique_id, GraphTree
-from .exceptions import ImproperlyConfigured, BadPipelineError
+from .exceptions import ImproperlyConfigured, BadPipelineError, EventDone
 
 
 class CacheFieldDescriptor(object):
@@ -216,6 +216,8 @@ class Pipeline(metaclass=PipelineMeta):
 
         self.execution_context: typing.Optional[EventExecutionContext] = None
 
+        super().__init__()
+
     @property
     def id(self):
         return generate_unique_id(self)
@@ -237,6 +239,18 @@ class Pipeline(metaclass=PipelineMeta):
 
     def __hash__(self):
         return hash(self.id)
+
+    def start(self, force_rerun: bool = False):
+        if self.execution_context and not force_rerun:
+            raise EventDone("Done executing pipeline")
+        self.execution_context = None
+        sink_queue = deque()
+        PipelineTask.execute_task(
+            self._state.start,
+            previous_context=self.execution_context,
+            pipeline=self,
+            sink_queue=sink_queue,
+        )
 
     def get_cache_key(self):
         return f"pipeline_{self.__class__.__name__}_{self.id}"

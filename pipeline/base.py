@@ -51,8 +51,8 @@ class EventBase(abc.ABC):
             is_error=False,
             detail=execution_result,
             task_id=self._execution_context.task_profile.id,
-            _init_params=self._init_args,
-            _call_params=self._call_args,
+            init_params=self._init_args,
+            call_params=self._call_args,
         )
 
     def on_failure(self, execution_result) -> EventResult:
@@ -71,8 +71,8 @@ class EventBase(abc.ABC):
             is_error=True,
             detail=execution_result,
             task_id=self._execution_context.task_profile.id,
-            _init_params=self._init_args,
-            _call_params=self._call_args,
+            init_params=self._init_args,
+            call_params=self._call_args,
         )
 
     @classmethod

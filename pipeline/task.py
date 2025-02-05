@@ -1,6 +1,8 @@
 import logging
 import time
 import typing
+from functools import lru_cache
+from collections import deque
 from concurrent.futures import Executor, wait
 from enum import Enum, unique
 from .base import EventBase
@@ -12,6 +14,7 @@ from .exceptions import (
     BadPipelineError,
     ImproperlyConfigured,
     StopProcessingError,
+    EventDoesNotExist,
 )
 from .utils import build_event_arguments_from_pipeline, get_function_call_args
 
@@ -29,6 +32,8 @@ class ExecutionState(Enum):
 class EventExecutionContext(object):
 
     def __init__(self, task: "PipelineTask", pipeline: "Pipeline"):
+        generate_unique_id(self)
+
         self._execution_start_tp: float = time.time()
         self._execution_end_tp: float = 0
         self.task_profile = task
@@ -41,17 +46,29 @@ class EventExecutionContext(object):
 
         self._errors: typing.List[PipelineError] = []
 
+    def execution_failed(self):
+        if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
+            return True
+        return self._errors
+
+    def execution_success(self):
+        if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
+            return False
+        return not self._errors and self.execution_result
+
     def dispatch(self):
-        if not isinstance(self.task_profile.event.get_executor_class(), Executor):
+        event_klass = self.task_profile.get_event_klass()
+        if not issubclass(event_klass.get_executor_class(), Executor):
             raise ImproperlyConfigured(f"Event executor must inherit {Executor}")
 
         try:
+            # import pdb;pdb.set_trace()
             self.state = ExecutionState.EXECUTING
 
+            logger.info(f"Executing event '{self.task_profile.event}'")
+
             event_init_arguments, event_call_arguments = (
-                build_event_arguments_from_pipeline(
-                    self.task_profile.event, self.pipeline
-                )
+                build_event_arguments_from_pipeline(event_klass, self.pipeline)
             )
 
             event_init_arguments = event_init_arguments or {}
@@ -68,7 +85,7 @@ class EventExecutionContext(object):
                 else:
                     event_init_arguments["previous_event_result"] = EMPTY
 
-            event = self.task_profile.event(**event_init_arguments)
+            event = event_klass(**event_init_arguments)
             executor_klass = event.get_executor_class()
             context = event.get_executor_context()
 
@@ -78,6 +95,7 @@ class EventExecutionContext(object):
                 future = executor.submit(event, **event_call_arguments)
 
                 waited_results = wait([future])
+                self._execution_end_tp = time.time()
 
             for fut in waited_results.done:
                 try:
@@ -91,8 +109,8 @@ class EventExecutionContext(object):
                         is_error=True,
                         detail=str(e),
                         task_id=self.task_profile.id,
-                        _init_params=event.get_init_args(),
-                        _call_params=event.get_call_args(),
+                        init_params=event.get_init_args(),
+                        call_params=event.get_call_args(),
                     )
 
                 if result.is_error:
@@ -106,15 +124,18 @@ class EventExecutionContext(object):
                 else:
                     self.execution_result.append(result)
 
-            if self.execution_result:
-                self.state = ExecutionState.FINISHED
-        except (KeyError, ValueError, AttributeError) as e:
+            self.state = ExecutionState.FINISHED
+        except Exception as e:
             self.state = ExecutionState.ABORTED
             task_error = BadPipelineError(
                 message={"status": 0, "message": str(e)},
                 exception=e,
             )
             self._errors.append(task_error)
+
+        logger.info(
+            f"Finished executing task '{self.task_profile.event}' with status {self.state}"
+        )
 
 
 @unique
@@ -197,12 +218,24 @@ class PipelineTask(object):
             return parent.sink_node == self
         return False
 
+    def get_event_klass(self):
+        return self.resolve_event_name(self.event)
+
     def get_errors(self) -> typing.Dict[str, typing.Any]:
         error_dict = {"event_name": self.__class__.__name__.lower(), "errors": []}
         if self._errors:
             error_dict["errors"] = self._errors
             return error_dict
         return error_dict
+
+    @classmethod
+    @lru_cache()
+    def resolve_event_name(cls, event_name: str) -> typing.Type[EventBase]:
+        for event in cls.get_event_klasses():
+            klass_name = event.__name__.lower()
+            if klass_name == event_name.lower():
+                return event
+        raise EventDoesNotExist(f"'{event_name}' was not found.")
 
     @staticmethod
     def get_event_klasses():
@@ -351,19 +384,55 @@ class PipelineTask(object):
     @classmethod
     def execute_task(
         cls,
-        task_queue: "PipelineTask",
-        execution_context: EventExecutionContext,
+        task: "PipelineTask",
         pipeline: "Pipeline",
+        sink_queue: deque,
+        previous_context: typing.Optional[EventExecutionContext] = None,
     ):
-        if execution_context is None:
-            execution_context = EventExecutionContext(
-                pipeline=pipeline, task=task_queue
-            )
-            pipeline.execution_context = execution_context
-        else:
-            pass
+        if task:
+            if previous_context is None:
+                execution_context = EventExecutionContext(pipeline=pipeline, task=task)
+                pipeline.execution_context = execution_context
+            elif task.is_sink:
+                sink_queue.append(task)
+                execution_context = EventExecutionContext(pipeline=pipeline, task=task)
+                execution_context.previous_context = previous_context
+            else:
+                execution_context = EventExecutionContext(pipeline=pipeline, task=task)
+                execution_context.previous_context = previous_context
 
-        try:
             execution_context.dispatch()
-        except:
-            pass
+
+            if task.is_conditional:
+                if execution_context.execution_failed():
+                    cls.execute_task(
+                        task=task.on_failure_event,
+                        previous_context=execution_context,
+                        pipeline=pipeline,
+                        sink_queue=sink_queue,
+                    )
+                else:
+                    cls.execute_task(
+                        task=task.on_success_event,
+                        previous_context=execution_context,
+                        pipeline=pipeline,
+                        sink_queue=sink_queue,
+                    )
+            else:
+                cls.execute_task(
+                    task=task.on_success_event,
+                    previous_context=execution_context,
+                    pipeline=pipeline,
+                    sink_queue=sink_queue,
+                )
+
+        else:
+            # clear the sink nodes
+            while sink_queue:
+                task = sink_queue.popleft()
+                cls.execute_task(
+                    task=task,
+                    previous_context=previous_context,
+                    pipeline=pipeline,
+                    sink_queue=sink_queue,
+                )

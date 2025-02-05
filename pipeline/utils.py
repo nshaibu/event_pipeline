@@ -122,4 +122,7 @@ def get_function_call_args(
     except (ValueError, KeyError) as e:
         logger.warning(f"Parsing {func} for call parameters failed {str(e)}")
 
+    for key in ["args", "kwargs"]:
+        if key in params_dict and params_dict[key] is None:
+            params_dict.pop(key, None)
     return params_dict
