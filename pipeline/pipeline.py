@@ -11,7 +11,7 @@ try:
 except ImportError:
     graphviz = None
 
-from .task import PipelineTask
+from .task import PipelineTask, EventExecutionContext
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
 from .utils import generate_unique_id, GraphTree
 from .exceptions import ImproperlyConfigured, BadPipelineError
@@ -214,6 +214,8 @@ class Pipeline(metaclass=PipelineMeta):
             for name, value in bounded_args.arguments.items():
                 setattr(self, name, value)
 
+        self.execution_context: typing.Optional[EventExecutionContext] = None
+
     @property
     def id(self):
         return generate_unique_id(self)
@@ -299,4 +301,3 @@ class Pipeline(metaclass=PipelineMeta):
         # i.e. current and next from pipeline_cache
 
         return instance
-

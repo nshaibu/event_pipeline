@@ -32,6 +32,12 @@ class EventBase(abc.ABC):
         self._init_args = get_function_call_args(self.__class__.__init__, locals())
         self._call_args = EMPTY
 
+    def get_init_args(self):
+        return self._init_args
+
+    def get_call_args(self):
+        return self._call_args
+
     @classmethod
     def get_executor_class(cls) -> typing.Type[Executor]:
         return cls.executor

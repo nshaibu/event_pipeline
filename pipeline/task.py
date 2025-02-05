@@ -1,3 +1,4 @@
+import logging
 import time
 import typing
 from concurrent.futures import Executor, wait
@@ -6,8 +7,23 @@ from .base import EventBase
 from . import parser
 from .constants import EMPTY, EventResult
 from .utils import generate_unique_id
-from .exceptions import PipelineError, BadPipelineError, ImproperlyConfigured, StopProcessingError
+from .exceptions import (
+    PipelineError,
+    BadPipelineError,
+    ImproperlyConfigured,
+    StopProcessingError,
+)
 from .utils import build_event_arguments_from_pipeline, get_function_call_args
+
+logger = logging.getLogger(__name__)
+
+
+class ExecutionState(Enum):
+    PENDING = "pending"
+    EXECUTING = "executing"
+    CANCELLED = "cancelled"
+    FINISHED = "finished"
+    ABORTED = "aborted"
 
 
 class EventExecutionContext(object):
@@ -18,6 +34,7 @@ class EventExecutionContext(object):
         self.task_profile = task
         self.pipeline = pipeline
         self.execution_result: typing.List[EventResult] = []
+        self.state: ExecutionState = ExecutionState.PENDING
 
         self.previous_context: typing.Optional[EventExecutionContext] = None
         self.next_context: typing.Optional[EventExecutionContext] = None
@@ -29,6 +46,8 @@ class EventExecutionContext(object):
             raise ImproperlyConfigured(f"Event executor must inherit {Executor}")
 
         try:
+            self.state = ExecutionState.EXECUTING
+
             event_init_arguments, event_call_arguments = (
                 build_event_arguments_from_pipeline(
                     self.task_profile.event, self.pipeline
@@ -60,33 +79,42 @@ class EventExecutionContext(object):
 
                 waited_results = wait([future])
 
-            response_success = []
-            response_error = []
-
             for fut in waited_results.done:
-                result = fut.result()
-                if result.is_error:
-                    response_error.append(result)
-                else:
-                    response_success.append(result)
+                try:
+                    result = fut.result()
+                except Exception as e:
+                    logger.exception(f"{event.__class__.__name__}: {str(e)}")
+                    if isinstance(e, StopProcessingError):
+                        self.state = ExecutionState.CANCELLED
 
-            self.execution_result.extend(response_success)
-
-            for error in response_error:
-                self._errors.append(
-                    PipelineError(
-                        message=error.detail, code=error.task_id, params=error._asdict()
+                    result = EventResult(
+                        is_error=True,
+                        detail=str(e),
+                        task_id=self.task_profile.id,
+                        _init_params=event.get_init_args(),
+                        _call_params=event.get_call_args(),
                     )
-                )
 
+                if result.is_error:
+                    self._errors.append(
+                        PipelineError(
+                            message=result.detail,
+                            code=result.task_id,
+                            params=result._asdict(),
+                        )
+                    )
+                else:
+                    self.execution_result.append(result)
+
+            if self.execution_result:
+                self.state = ExecutionState.FINISHED
         except (KeyError, ValueError, AttributeError) as e:
+            self.state = ExecutionState.ABORTED
             task_error = BadPipelineError(
                 message={"status": 0, "message": str(e)},
                 exception=e,
             )
             self._errors.append(task_error)
-        except StopProcessingError:
-            pass
 
 
 @unique
@@ -319,3 +347,23 @@ class PipelineTask(object):
                 pipe_type = self.parent_node.sink_pipe
 
         return pipe_type
+
+    @classmethod
+    def execute_task(
+        cls,
+        task_queue: "PipelineTask",
+        execution_context: EventExecutionContext,
+        pipeline: "Pipeline",
+    ):
+        if execution_context is None:
+            execution_context = EventExecutionContext(
+                pipeline=pipeline, task=task_queue
+            )
+            pipeline.execution_context = execution_context
+        else:
+            pass
+
+        try:
+            execution_context.dispatch()
+        except:
+            pass
