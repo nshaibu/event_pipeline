@@ -1,13 +1,13 @@
 import time
 import typing
-from concurrent.futures import Executor
+from concurrent.futures import Executor, wait
 from enum import Enum, unique
 from .base import EventBase
 from . import parser
-from .constants import EMPTY
+from .constants import EMPTY, EventResult
 from .utils import generate_unique_id
 from .exceptions import PipelineError, BadPipelineError, ImproperlyConfigured
-from .utils import build_event_arguments_from_pipeline_param
+from .utils import build_event_arguments_from_pipeline, get_function_call_args
 
 
 class EventExecutionContext(object):
@@ -17,7 +17,7 @@ class EventExecutionContext(object):
         self._execution_end_tp: float = 0
         self.task_profile = task
         self.pipeline = pipeline
-        self.execution_result: typing.Any = None
+        self.execution_result: typing.List[EventResult] = []
 
         self.previous_context: typing.Optional[EventExecutionContext] = None
         self.next_context: typing.Optional[EventExecutionContext] = None
@@ -30,7 +30,7 @@ class EventExecutionContext(object):
 
         try:
             event_init_arguments, event_call_arguments = (
-                build_event_arguments_from_pipeline_param(
+                build_event_arguments_from_pipeline(
                     self.task_profile.event, self.pipeline
                 )
             )
@@ -51,9 +51,32 @@ class EventExecutionContext(object):
 
             event = self.task_profile.event(**event_init_arguments)
             executor_klass = event.get_executor_class()
+            context = event.get_executor_context()
 
-            with executor_klass() as executor:
+            context = get_function_call_args(executor_klass.__init__, context)
+
+            with executor_klass(**context) as executor:
                 future = executor.submit(event, **event_call_arguments)
+
+                wait_results = wait([future])
+
+            response_success = []
+            response_error = []
+
+            for fut in wait_results.done:
+                result = fut.result()
+                if result.is_error:
+                    response_error.append(result)
+                else:
+                    response_success.append(result)
+
+            self._errors.extend(response_success + response_error)
+
+            if response_success:
+                pass
+
+            # if response_error:
+            #     pass
 
             # if response["status"] == 1:
             #     pipeline.trigger_next_event()

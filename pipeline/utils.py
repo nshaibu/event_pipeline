@@ -5,8 +5,7 @@ import uuid
 import sys
 import resource
 from functools import wraps
-from collections import OrderedDict
-from inspect import signature, Signature
+from inspect import signature
 
 try:
     from StringIO import StringIO
@@ -14,11 +13,11 @@ except ImportError:
     from io import StringIO
 from treelib.tree import Tree
 
+from .constants import EMPTY
+
 logger = logging.getLogger(__name__)
 
 PipelineParam = object()
-
-from concurrent.futures import Executor
 
 
 def _extend_recursion_depth(limit: int = 1048576):
@@ -97,32 +96,30 @@ def generate_unique_id(obj: object):
     return pk
 
 
-def _parse_call_arguments(sign: Signature, pipeline_param: PipelineParam):
-    param_dict = OrderedDict()
-    init_params = sign.parameters
-    for param in init_params.values():
-        if param.name != "self":
-            param_dict[param.name] = getattr(pipeline_param, param.name, None)
-    return param_dict
-
-
-def build_event_arguments_from_pipeline_param(
-    event_klass: typing.Type["EventBase"], pipeline_param: PipelineParam
+def build_event_arguments_from_pipeline(
+    event_klass: typing.Type["EventBase"], pipeline: "Pipeline"
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.Dict[str, typing.Any]]:
-    init_param = None
-    call_param = None
+    return get_function_call_args(
+        event_klass.__init__, pipeline
+    ), get_function_call_args(event_klass.__call__, pipeline)
+
+
+def get_function_call_args(
+    func, params: typing.Union[typing.Dict[str, typing.Any], "Pipeline"]
+) -> typing.Dict[str, typing.Any]:
+    params_dict = dict()
     try:
-        init_signature = signature(event_klass.__init__)
-        init_param = _parse_call_arguments(init_signature, pipeline_param)
+        sig = signature(func)
+        for param in sig.parameters.values():
+            if param.name != "self":
+                value = (
+                    params.get(param.name)
+                    if isinstance(params, dict)
+                    else getattr(params, param.name, None)
+                )
+                if value is not EMPTY:
+                    params_dict[param.name] = value
     except (ValueError, KeyError) as e:
-        logger.warning(
-            f"Parsing {event_klass} for initialization parameters failed {str(e)}"
-        )
+        logger.warning(f"Parsing {func} for call parameters failed {str(e)}")
 
-    try:
-        init_signature = signature(event_klass.__call__)
-        call_param = _parse_call_arguments(init_signature, pipeline_param)
-    except (ValueError, KeyError, AttributeError) as e:
-        logger.warning(f"Parsing {event_klass} for call parameters failed {str(e)}")
-
-    return init_param, call_param
+    return params_dict

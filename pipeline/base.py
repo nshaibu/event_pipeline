@@ -1,26 +1,32 @@
 import abc
 import typing
 import logging
-from enum import Enum
-from concurrent.futures import Executor
+import multiprocessing as mp
+from concurrent.futures import Executor, ProcessPoolExecutor
+from .constants import EMPTY, EventResult
+from .executors.default_executor import DefaultExecutor
+from .utils import get_function_call_args
 
 
 logger = logging.getLogger(__name__)
 
 
-class EventState(Enum):
-    INITIALISED = "initialised"
-    WAITING = "waiting"
-
-
 class EventBase(abc.ABC):
-    executor: typing.Type[Executor]
+    executor: typing.Type[Executor] = DefaultExecutor
 
-    def __init__(self, *args, **kwargs):
-        self._status: EventState = EventState.INITIALISED
-        self._execution_context: "EventExecutionContext" = kwargs.pop(
-            "execution_context"
-        )
+    max_workers: typing.Union[int, EMPTY] = EMPTY
+    max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY
+    thread_name_prefix: typing.Union[str, EMPTY] = EMPTY
+
+    def __init__(
+        self,
+        execution_context: "EventExecutionContext",
+        previous_result=EMPTY,
+        stop_on_exception: bool = False,
+    ):
+        self._execution_context = execution_context
+        self.previous_result = previous_result
+        self.stop_on_exception = stop_on_exception
 
     @classmethod
     def get_executor_class(cls) -> typing.Type[Executor]:
@@ -28,23 +34,45 @@ class EventBase(abc.ABC):
 
     @abc.abstractmethod
     def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
-        raise NotImplementedError
+        raise NotImplementedError()
 
-    @abc.abstractmethod
-    def on_success(self, execution_result) -> typing.Dict[typing.Any, typing.Any]:
-        # branch to when condition in execution is success
-        pass
+    def on_success(self, execution_result) -> EventResult:
+        return EventResult(
+            is_error=False,
+            detail=execution_result,
+            task_id=self._execution_context.task_profile.id,
+        )
 
-    @abc.abstractmethod
-    def on_failure(self, execution_result):
-        # branch to when condition in execution is error
-        pass
+    def on_failure(self, execution_result) -> EventResult:
+        if isinstance(execution_result, Exception):
+            if self.stop_on_exception:
+                # raise specific error
+                raise Exception
+        return EventResult(
+            is_error=True,
+            detail=execution_result,
+            task_id=self._execution_context.task_profile.id,
+        )
 
     @classmethod
     def get_event_klasses(cls):
         for subclass in cls.__subclasses__():
             yield from subclass.get_event_klasses()
             yield subclass
+
+    def is_multiprocessing_executor(self):
+        return self.get_executor_class() == ProcessPoolExecutor
+
+    def get_executor_context(self) -> typing.Dict[str, typing.Any]:
+        executor = self.get_executor_class()
+        context = dict()
+        if self.is_multiprocessing_executor():
+            context["mp_context"] = mp.get_context("spawn")
+        elif hasattr(executor, "get_context"):
+            context["mp_context"] = executor.get_context("spawn")
+        params = get_function_call_args(executor.__init__, self.__class__)
+        context.update(params)
+        return context
 
     def __call__(self, *args, **kwargs):
         try:
