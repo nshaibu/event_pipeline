@@ -67,7 +67,9 @@ class EventExecutionContext(object):
     def __setstate__(self, state):
         previous = state.pop("previous_context", None)
         if previous:
-            instance = self.__class__(task=state['task_profile'], pipeline=state["pipeline"])
+            instance = self.__class__(
+                task=state["task_profile"], pipeline=state["pipeline"]
+            )
             instance.__dict__.update(previous)
             state["previous_context"] = instance
         else:
