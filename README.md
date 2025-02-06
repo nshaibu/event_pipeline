@@ -130,7 +130,7 @@ A (0 -> B, 1 -> C) -> D
 
 # Example
 
-```
+```pty
 A -> B (
     0->C (
         0 |-> T,
@@ -138,9 +138,25 @@ A -> B (
     ),
     1 -> E
 ) -> F (
-    0 -> Y
+    0 -> Y,
     1 -> Z
 )
+```
+This is the graphical representation of the above pipeline
+
+![pipeline](img/Simple.png)
+
+To draw your pipeline:
+```python
+# instantiate your pipeline clas
+pipeline = MyPipeline()
+
+# draw ascii representation
+pipeline.draw_ascii_graph()
+
+# draw graphical representation # (requires graphviz, xdot)
+pipeline.draw_graphviz_image(directory=...)
+
 ```
 
 # Contributing
