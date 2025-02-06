@@ -2,6 +2,7 @@ import os
 import re
 import inspect
 import typing
+import copy
 from collections import OrderedDict, ChainMap, deque
 from functools import lru_cache
 from inspect import Signature, Parameter
@@ -43,7 +44,6 @@ class CacheFieldDescriptor(object):
 
 class PipelineState(object):
     pipeline_cache = CacheFieldDescriptor()
-    result_cache = CacheFieldDescriptor()
 
     def __init__(self, pipeline: PipelineTask):
         self.start: PipelineTask = pipeline
@@ -95,14 +95,6 @@ class PipelineState(object):
         self.set_cache(
             instance=instance,
             instance_cache_field="pipeline_cache",
-            field_name=field_name,
-            value=value,
-        )
-
-    def set_cache_for_result_field(self, instance, field_name, value):
-        self.set_cache(
-            instance=instance,
-            instance_cache_field="result_cache",
             field_name=field_name,
             value=value,
         )
@@ -228,14 +220,25 @@ class Pipeline(metaclass=PipelineMeta):
         return self.id == other.id
 
     def __reduce__(self):
-        pass
+        state = self.__getstate__()
+        if "_id" in state:
+            return self.load_class_by_id, (state["_id"],), state
+        klass = self.__class__()
+        klass.__dict__.update(state)
+        return klass
 
     def __setstate__(self, state):
-        state = self.__dict__.copy()
-        pass
+        self.__dict__.update(state)
 
     def __getstate__(self):
-        pass
+        instance_key = self.get_cache_key()
+        state = self.__dict__.copy()
+        klass_state = self.__class__.__dict__.copy()
+        state["_state"] = copy.copy(klass_state["_state"])
+        state["_state"].pipeline_cache = {
+            instance_key: state["_state"].pipeline_cache.get(instance_key, {}).copy()
+        }
+        return state
 
     def __hash__(self):
         return hash(self.id)
