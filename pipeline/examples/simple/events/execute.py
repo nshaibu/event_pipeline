@@ -1,10 +1,10 @@
 import typing
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pipeline.base import EventBase
 
 
 class Execute(EventBase):
-    # executor = ProcessPoolExecutor
+    executor = ThreadPoolExecutor
 
     def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
         print("Executed execute event")

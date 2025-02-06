@@ -219,13 +219,13 @@ class Pipeline(metaclass=PipelineMeta):
             return False
         return self.id == other.id
 
-    def __reduce__(self):
-        state = self.__getstate__()
-        if "_id" in state:
-            return self.load_class_by_id, (state["_id"],), state
-        klass = self.__class__()
-        klass.__dict__.update(state)
-        return klass
+    # def __reduce__(self):
+    #     state = self.__getstate__()
+    #     if "_id" in state:
+    #         return self.load_class_by_id, (state["_id"],), state
+    #     klass = self.__class__()
+    #     klass.__dict__.update(state)
+    #     return klass
 
     def __setstate__(self, state):
         self.__dict__.update(state)
@@ -303,7 +303,7 @@ class Pipeline(metaclass=PipelineMeta):
     def load_class_by_id(cls, pk: str):
         cache_keys = cls._state.check_cache_exists(pk)
         if not cache_keys:
-            raise
+            return cls()
         cache = cls._state.cache(pk)
 
         # restore fields

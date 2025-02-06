@@ -42,9 +42,37 @@ class EventExecutionContext(object):
         self.state: ExecutionState = ExecutionState.PENDING
 
         self.previous_context: typing.Optional[EventExecutionContext] = None
-        self.next_context: typing.Optional[EventExecutionContext] = None
 
         self._errors: typing.List[PipelineError] = []
+
+    @property
+    def id(self):
+        return generate_unique_id(self)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if self.previous_context:
+            state["previous_context"] = {
+                "_id": self.previous_context.id,
+                "execution_result": self.previous_context.execution_result,
+                "_execution_start_tp": self.previous_context._execution_start_tp,
+                "_execution_end_tp": self.previous_context._execution_end_tp,
+                "state": self.previous_context.state,
+                "_errors": self._errors,
+            }
+        else:
+            state["previous_context"] = None
+        return state
+
+    def __setstate__(self, state):
+        previous = state.pop("previous_context", None)
+        if previous:
+            instance = self.__class__(task=state['task_profile'], pipeline=state["pipeline"])
+            instance.__dict__.update(previous)
+            state["previous_context"] = instance
+        else:
+            state["previous_context"] = None
+        self.__dict__.update(state)
 
     def execution_failed(self):
         if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
@@ -202,6 +230,47 @@ class PipelineTask(object):
 
     def __hash__(self):
         return hash(self.id)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("on_failure_event", None)
+        state.pop("on_success_event", None)
+        state.pop("sink_node", None)
+        state.pop("parent_node", None)
+        # if self.on_failure_event:
+        #     state["on_failure_event"] = {
+        #         "event": self.on_failure_event.event,
+        #         "_id": self.on_failure_event.id,
+        #     }
+        # if self.on_success_event:
+        #     state["on_success_event"] = {
+        #         "event": self.on_success_event.event,
+        #         "_id": self.on_success_event.id,
+        #     }
+        # if self.sink_node:
+        #     state["sink_node"] = {
+        #         "event": self.sink_node.event,
+        #         "_id": self.sink_node.id,
+        #     }
+        for field in ["sink_node", "on_failure_event", "on_success_event"]:
+            node = getattr(self, field, None)
+            if node:
+                state[field] = {"event": node.event, "_id": node.id}
+        # if self.parent_node:
+        #     state["parent_node"] = {
+        #         "event": self.parent_node.event,
+        #         "_id": self.parent_node.id
+        #     }
+        return state
+
+    def __setstate__(self, state):
+        for field in ["sink_node", "on_failure_event", "on_success_event"]:
+            if field in state and state[field] is not None:
+                _state = state[field]
+                state[field] = self.__class__(event=_state["event"])
+                state[field]._id = _state["_id"]
+
+        self.__dict__.update(state)
 
     @property
     def is_conditional(self):
