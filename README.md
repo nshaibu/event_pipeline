@@ -96,23 +96,37 @@ class MyPipeline(Pipeline):
     }
 ```
 
+# Pointy Language
 
+- Single event: 
 
-- Single Task:
+```pty
+A    # single event
+```
 
-```A```
+- Directional operation
 
-- Two tasks with result piping
+```pty
+A -> B   # Execute A then move to B
+```
 
-```A|->B```
+- Two events with result piping
 
-- Multiple tasks with branching
+```pty
+A |-> B   # Piping result of execution of A to event B
+```
 
-```A->B(0->C,1->D)```
+- Multiple events with branching
 
-- Multiple tasks with sink
+```pty
+A -> B (0 -> C, 1 -> D) # 0 for failure, 1 for success 
+```
 
-```A(0->B,1->C)->D```
+- Multiple events with sink
+
+```pty
+A (0 -> B, 1 -> C) -> D
+```
 
 # Example
 
