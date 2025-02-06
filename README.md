@@ -1,5 +1,102 @@
-# event_pipeline
-Simple tool for writing events and pipelines in python
+# Event Pipeline
+
+## Introduction
+This library provides an easy-to-use framework for defining and managing events and pipelines. 
+It allows you to create events, process data through a series of tasks, and manage complex workflows
+with minimal overhead. The library is designed to be extensible and flexible, enabling developers to 
+easily integrate it into their projects.
+
+## Features
+- Define and manage events and pipelines in Python.
+- Support for conditional task execution.
+- Easy integration of custom event processing logic.
+- Supports remote task execution and distributed processing.
+- Seamless handling of task dependencies and event execution flow.
+
+## Installation
+To install the library, simply use pip:
+
+```bash
+pip install event_pipeline
+```
+
+# Usage
+
+## Define Pipeline
+
+To define a pipeline, import the Pipeline class from the event_pipeline module and create a new class that
+inherits from it. This custom class will define the behavior and structure of your pipeline.
+
+```python
+from event_pipeline import Pipeline
+
+class MyPipeline(Pipeline):
+    # Your input data fields will go here
+    pass
+
+```
+
+## Defining Input Data Field
+Import the `InputDataField` or another class from the fields module. 
+
+The InputDataField class is used to define the input fields for your pipeline. These fields are assigned as attributes 
+within your pipeline class and represent the data that will flow through the pipeline.
+Events within the pipeline can request for the values of the Input fields by including the name 
+of the field in their `process` method arguments.
+
+```python
+from event_pipeline import Pipeline
+from event_pipeline.fields import InputDataField
+
+class MyPipeline(Pipeline):
+    # Define input fields as attributes
+    input_field = InputDataField(data_type=str, required=True)  # Define an input field
+
+```
+
+## Defining Pipeline Structure
+The next step is to define the structure and flow of your pipeline using the pointy language. 
+The pointy file provides a structured format to describe how the pipeline should execute, 
+including the order of tasks, conditions, and dependencies.
+
+```pty
+Fetch->Process->Execute->SaveToDB->Return
+```
+
+The pointy file `.pty` describes the flow of tasks and their dependencies, allowing you to build dynamic 
+and conditional pipelines based on the results of previous executed event.
+
+By default, if the name of your pointy file matches the name of your pipeline class, the library 
+will automatically load the pointy file for you. For example, if your class is named MyPipeline, 
+it will automatically look for a file named `MyPipeline.pty`.
+
+If you want to use a pointy file with a different name, you can define a Meta subclass inside 
+your pipeline class. 
+
+This subclass should specify the file or pointy property:
+
+- `pointy`: The string of the pointy script.
+- `file`: The full path to your pointy file.
+
+Example of how to define the Meta subclass:
+```python
+class MyPipeline(Pipeline):
+    class Meta:
+        pointy = "A->B->C"  # Pointy script
+        # OR
+        file = "/path/to/your/custom_pipeline.pty"  # Full path to your pointy file
+
+# You can also define the options as dictionary
+
+class MyPipeline(Pipeline):
+    meta = {
+        "pointy": "A->B->C",
+        # OR
+        "file": "/path/to/your/custom_pipeline.pty"
+    }
+```
+
+
 
 - Single Task:
 
@@ -31,3 +128,9 @@ A -> B (
     1 -> Z
 )
 ```
+
+# Contributing
+We welcome contributions! If you have any improvements, fixes, or new features, feel free to fork the repository and create a pull request.
+
+# License
+This project is licensed under the GNU License - see the LICENSE file for details.
