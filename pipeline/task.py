@@ -30,6 +30,17 @@ class ExecutionState(Enum):
 
 
 class EventExecutionContext(object):
+    """
+    Represents the execution context for a particular event in the pipeline.
+
+    This class encapsulates the necessary data and state associated with
+    executing an event, such as the task being processed and the pipeline
+    it belongs to.
+
+    Attributes:
+        task: The specific PipelineTask that is being executed.
+        pipeline: The Pipeline that orchestrates the execution of the task.
+    """
 
     def __init__(self, task: "PipelineTask", pipeline: "Pipeline"):
         generate_unique_id(self)
@@ -87,6 +98,15 @@ class EventExecutionContext(object):
         return not self._errors and self.execution_result
 
     def dispatch(self):
+        """
+        Dispatches an action or event to the appropriate handler or process.
+
+        This method is responsible for routing the event or action to the correct
+        handler based on the context, ensuring that the proper logic is executed
+        for the given task or event.
+
+        """
+
         event_klass = self.task_profile.get_event_klass()
         if not issubclass(event_klass.get_executor_class(), Executor):
             raise ImproperlyConfigured(f"Event executor must inherit {Executor}")
@@ -169,12 +189,6 @@ class EventExecutionContext(object):
 
 
 @unique
-class TaskState(Enum):
-    INITIALISED = "INITIALISED"
-    READY = "ready"
-
-
-@unique
 class PipeType(Enum):
     POINTER = "pointer"
     PIPE_POINTER = "pipe_pointer"
@@ -199,8 +213,6 @@ class PipelineTask(object):
         generate_unique_id(self)
 
         self._task = None
-        self._errors: typing.List = []
-        self._state: TaskState = TaskState.INITIALISED
 
         # attributes for when a task is created from a descriptor
         self._descriptor: typing.Optional[int] = None
@@ -239,30 +251,15 @@ class PipelineTask(object):
         state.pop("on_success_event", None)
         state.pop("sink_node", None)
         state.pop("parent_node", None)
-        # if self.on_failure_event:
-        #     state["on_failure_event"] = {
-        #         "event": self.on_failure_event.event,
-        #         "_id": self.on_failure_event.id,
-        #     }
-        # if self.on_success_event:
-        #     state["on_success_event"] = {
-        #         "event": self.on_success_event.event,
-        #         "_id": self.on_success_event.id,
-        #     }
-        # if self.sink_node:
-        #     state["sink_node"] = {
-        #         "event": self.sink_node.event,
-        #         "_id": self.sink_node.id,
-        #     }
         for field in ["sink_node", "on_failure_event", "on_success_event"]:
             node = getattr(self, field, None)
             if node:
-                state[field] = {"event": node.event, "_id": node.id}
-        # if self.parent_node:
-        #     state["parent_node"] = {
-        #         "event": self.parent_node.event,
-        #         "_id": self.parent_node.id
-        #     }
+                state[field] = {
+                    "event": node.event,
+                    "_id": node.id,
+                    "_descriptor": node._descriptor,
+                    "_descriptor_pipe": node._descriptor_pipe,
+                }
         return state
 
     def __setstate__(self, state):
@@ -280,10 +277,30 @@ class PipelineTask(object):
 
     @property
     def is_descriptor_task(self):
+        """
+        Determines if the current task is a descriptor node.
+
+        A descriptor node is a conditional node that is executed based on the result
+        of its parent node's execution. In the pointy language, a value of 0 represents
+        a failure descriptor, and a value of 1 represents a success descriptor.
+
+        Returns:
+            bool: True if the task is a descriptor node, False otherwise.
+        """
         return self._descriptor is not None or self._descriptor_pipe is not None
 
     @property
     def is_sink(self) -> bool:
+        """
+        Determines if the current PipelineTask is a sink node.
+
+        A sink node is executed after all the child nodes of its parent have
+        finished executing. This method checks if the current task is classified
+        as a sink node in the pipeline.
+
+        Returns:
+            bool: True if the task is a sink node, False otherwise.
+        """
         parent = self.parent_node
         if parent and not self.is_descriptor_task:
             return parent.sink_node == self
@@ -292,16 +309,10 @@ class PipelineTask(object):
     def get_event_klass(self):
         return self.resolve_event_name(self.event)
 
-    def get_errors(self) -> typing.Dict[str, typing.Any]:
-        error_dict = {"event_name": self.__class__.__name__.lower(), "errors": []}
-        if self._errors:
-            error_dict["errors"] = self._errors
-            return error_dict
-        return error_dict
-
     @classmethod
     @lru_cache()
     def resolve_event_name(cls, event_name: str) -> typing.Type[EventBase]:
+        """Resolve event class"""
         for event in cls.get_event_klasses():
             klass_name = event.__name__.lower()
             if klass_name == event_name.lower():
@@ -324,9 +335,18 @@ class PipelineTask(object):
     @classmethod
     def _parse_ast(cls, ast):
         """
-        TODO: add comment to explain the algorithm
-        :param ast:
-        :return:
+        Parses the provided abstract syntax tree (AST) to extract relevant information.
+
+        Args:
+            ast: The abstract syntax tree (AST) to be parsed, typically representing
+                 structured data or code for further processing.
+
+        Returns:
+            The parsed result, which may vary depending on the AST structure and
+            the implementation of the parsing logic.
+
+        TODO:
+            - Add detailed explanation of the algorithm and its steps.
         """
         if isinstance(ast, parser.BinOp):
             left_node = cls._parse_ast(ast.left)
@@ -460,6 +480,20 @@ class PipelineTask(object):
         sink_queue: deque,
         previous_context: typing.Optional[EventExecutionContext] = None,
     ):
+        """
+        Executes a specific task in the pipeline and manages the flow of data.
+
+        Args:
+            cls: The class that the method is bound to.
+            task: The pipeline task to be executed.
+            pipeline: The pipeline object that orchestrates the task execution.
+            sink_queue: A deque used to store or pass the task results.
+            previous_context: An optional EventExecutionContext containing previous
+                              execution context, if available.
+
+        This method performs the necessary operations for executing a task, handles
+        task-specific logic, and updates the sink queue with the results.
+        """
         if task:
             if previous_context is None:
                 execution_context = EventExecutionContext(pipeline=pipeline, task=task)

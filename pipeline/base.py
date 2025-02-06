@@ -13,6 +13,27 @@ logger = logging.getLogger(__name__)
 
 
 class EventBase(abc.ABC):
+    """
+    Abstract base class for event in the pipeline system.
+
+    This class serves as a base for event-related tasks and defines common
+    properties for event execution, which can be customized in subclasses.
+
+    Attributes:
+        executor (Type[Executor]): The executor type used to handle event execution.
+                                    Defaults to DefaultExecutor.
+        max_workers (Union[int, EMPTY]): The maximum number of workers allowed
+                                          for event processing. Defaults to EMPTY.
+        max_tasks_per_child (Union[int, EMPTY]): The maximum number of tasks
+                                                  that can be assigned to each worker.
+                                                  Defaults to EMPTY.
+        thread_name_prefix (Union[str, EMPTY]): The prefix to use for naming threads
+                                                 in the event execution. Defaults to EMPTY.
+
+    Subclasses must implement the `process` method to define the logic for
+    processing pipeline data.
+    """
+
     executor: typing.Type[Executor] = DefaultExecutor
 
     max_workers: typing.Union[int, EMPTY] = EMPTY
@@ -44,6 +65,20 @@ class EventBase(abc.ABC):
 
     @abc.abstractmethod
     def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
+        """
+        Processes pipeline data and executes the associated logic.
+
+        This method must be implemented by any class inheriting from EventBase.
+        It defines the logic for processing pipeline data, taking in any necessary
+        arguments, and returning a tuple containing:
+            - A boolean indicating the success or failure of the processing.
+            - The result of the processing, which could vary based on the event logic.
+
+        Returns:
+            A tuple (success_flag, result), where:
+                - success_flag (bool): True if processing is successful, False otherwise.
+                - result (Any): The output or result of the processing, which can vary.
+        """
         raise NotImplementedError()
 
     def on_success(self, execution_result) -> EventResult:

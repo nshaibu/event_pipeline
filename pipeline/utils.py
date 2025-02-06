@@ -21,6 +21,15 @@ PipelineParam = object()
 
 
 def _extend_recursion_depth(limit: int = 1048576):
+    """
+    Extends the maximum recursion depth of the Python interpreter.
+
+    Args:
+        limit: The new recursion depth limit. Defaults to 1048576.
+
+    This function adjusts the system’s recursion limit to allow deeper recursion
+    in cases where the default limit might cause a RecursionError.
+    """
     rec_limit = sys.getrecursionlimit()
     if rec_limit == limit:
         return
@@ -99,6 +108,21 @@ def generate_unique_id(obj: object):
 def build_event_arguments_from_pipeline(
     event_klass: typing.Type["EventBase"], pipeline: "Pipeline"
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.Dict[str, typing.Any]]:
+    """
+    Builds the event arguments by extracting necessary data from the pipeline
+    for a given event class.
+
+    Args:
+        event_klass: The class of the event (subclass of EventBase) for which
+                     the arguments are being constructed.
+        pipeline: The Pipeline object containing the data required to build
+                  the event arguments.
+
+    Returns:
+        A tuple of two dictionaries:
+            - The first dictionary contains the primary event arguments.
+            - The second dictionary contains additional or optional event arguments.
+    """
     return get_function_call_args(
         event_klass.__init__, pipeline
     ), get_function_call_args(event_klass.__call__, pipeline)
@@ -107,6 +131,18 @@ def build_event_arguments_from_pipeline(
 def get_function_call_args(
     func, params: typing.Union[typing.Dict[str, typing.Any], "Pipeline"]
 ) -> typing.Dict[str, typing.Any]:
+    """
+    Extracts the arguments for a function call from the provided parameters.
+
+    Args:
+        func: The function for which arguments are to be extracted.
+        params: A dictionary of parameters or a Pipeline object containing
+                the necessary arguments for the function.
+
+    Returns:
+        A dictionary where the keys are the function argument names
+        and the values are the corresponding argument values.
+    """
     params_dict = dict()
     try:
         sig = signature(func)
