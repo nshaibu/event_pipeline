@@ -159,6 +159,74 @@ pipeline.draw_graphviz_image(directory=...)
 
 ```
 
+# Defining Events
+
+## Define the Event Class
+
+To define an event, you need to inherit from the EventBase class and override the process method. 
+This process method defines the logic for how the event is executed.
+
+```python
+from event_pipeline import EventBase
+
+class MyEvent(EventBase):
+    def process(self, *args, **kwargs):
+        # Event processing logic here
+        return True, "Event processed successfully"
+```
+
+## Specify the Executor for the Event
+
+Every event must specify an executor that defines how the event will be executed. Executors are 
+responsible for managing the concurrency or parallelism when the event is processed.
+
+Executors implement the Executor interface from the concurrent.futures._base module in the 
+Python standard library. If no executor is specified, the DefaultExecutor will be used by default.
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+class MyEvent(EventBase):
+    executor = ThreadPoolExecutor  # Specify executor for the event
+    
+    def process(self, *args, **kwargs):
+        # Event processing logic here
+        return True, "Event processed successfully"
+
+```
+
+If you are using `ProcessPoolExecutor` or `ThreadPoolExecutor`, you can configure additional properties
+to control the behavior of the executor:
+
+- `max_workers`: Specifies the maximum number of workers (processes or threads) that can be used to 
+execute the event. If not provided, the number of workers will default to the number of processors on the machine.
+
+- `max_tasks_per_child`: Defines the maximum number of tasks a worker can complete before being replaced with a 
+fresh worker. By default, workers will live as long as the executor unless this property is set.
+
+- `thread_name_prefix`: A prefix to use for naming threads. This helps identify threads related to your event during execution.
+
+Here’s how you can set these properties:
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+class MyEvent(EventBase):
+    executor = ProcessPoolExecutor
+    
+    # Configure the executor
+    max_workers = 4  # Max number of workers
+    max_tasks_per_child = 10  # Max tasks per worker before replacement
+    thread_name_prefix = "my_event_executor"  # Prefix for thread names
+    
+    def process(self, *args, **kwargs):
+        # Event processing logic here
+        return True, "Event processed successfully"
+
+```
+
+
+
 # Contributing
 We welcome contributions! If you have any improvements, fixes, or new features, feel free to fork the repository and create a pull request.
 
