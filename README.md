@@ -212,7 +212,7 @@ Here’s how you can set these properties:
 from concurrent.futures import ThreadPoolExecutor
 
 class MyEvent(EventBase):
-    executor = ProcessPoolExecutor
+    executor = ThreadPoolExecutor
     
     # Configure the executor
     max_workers = 4  # Max number of workers
