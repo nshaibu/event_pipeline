@@ -237,7 +237,12 @@ class MyEvent(EventBase):
 TODO: pytest
 
 # Contributing
-We welcome contributions! If you have any improvements, fixes, or new features, feel free to fork the repository and create a pull request.
+We welcome contributions! If you have any improvements, fixes, or new features, 
+feel free to fork the repository and create a pull request.
+
+# Reporting Issues
+If you find a bug or have suggestions for improvements, please open an issue in the repository. 
+Provide as much detail as possible, including steps to reproduce the issue, expected vs. actual behavior, and any relevant logs or error messages.
 
 # License
 This project is licensed under the GNU License - see the LICENSE file for details.
