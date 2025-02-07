@@ -32,7 +32,9 @@ def event(
 
         @wraps(func)
         def task(*args, **kwargs):
-            warnings.warn("This is an event. It must be called by executors")
+            warnings.warn(
+                "This is an event that must be executed by an executor", Warning
+            )
             return func(*args, **kwargs)
 
         return task
