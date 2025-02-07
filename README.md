@@ -234,7 +234,7 @@ class MyEvent(EventBase):
 
 # Testing
 
-TODO: pytst
+TODO: pytest
 
 # Contributing
 We welcome contributions! If you have any improvements, fixes, or new features, feel free to fork the repository and create a pull request.
