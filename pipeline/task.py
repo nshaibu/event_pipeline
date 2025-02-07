@@ -498,11 +498,10 @@ class PipelineTask(object):
             if previous_context is None:
                 execution_context = EventExecutionContext(pipeline=pipeline, task=task)
                 pipeline.execution_context = execution_context
-            elif task.is_sink:
-                sink_queue.append(task)
-                execution_context = EventExecutionContext(pipeline=pipeline, task=task)
-                execution_context.previous_context = previous_context
             else:
+                if task.sink_node:
+                    sink_queue.append(task.sink_node)
+
                 execution_context = EventExecutionContext(pipeline=pipeline, task=task)
                 execution_context.previous_context = previous_context
 
