@@ -20,6 +20,12 @@ To install the library, simply use pip:
 pip install event_pipeline
 ```
 
+# Requirements
+- Python 3.11
+- ply==3.11 
+- treelib==1.7.0 
+- graphviz==0.20.3 (Optional)
+
 # Usage
 
 ## Define Pipeline
@@ -226,6 +232,9 @@ class MyEvent(EventBase):
 ```
 
 
+# Testing
+
+TODO: pytst
 
 # Contributing
 We welcome contributions! If you have any improvements, fixes, or new features, feel free to fork the repository and create a pull request.
