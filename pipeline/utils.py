@@ -4,7 +4,6 @@ import time
 import uuid
 import sys
 import resource
-from functools import wraps
 from inspect import signature
 
 try:
@@ -16,8 +15,6 @@ from treelib.tree import Tree
 from .constants import EMPTY
 
 logger = logging.getLogger(__name__)
-
-PipelineParam = object()
 
 
 def _extend_recursion_depth(limit: int = 1048576):
@@ -51,6 +48,7 @@ class GraphTree(Tree):
         reverse=False,
         sorting=True,
     ) -> str:
+        """Exports the tree in the dot format of the graphviz software"""
         nodes, connections = [], []
         if self.nodes:
             for n in self.expand_tree(
@@ -87,17 +85,12 @@ class GraphTree(Tree):
         return f.getvalue()
 
 
-def coroutine(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        cor = func(*args, **kwargs)
-        cor.send(None)
-        return cor
-
-    return wrapper
-
-
 def generate_unique_id(obj: object):
+    """
+    Generate unique identify for objects
+    :param obj: The object to generate the id for
+    :return: string
+    """
     pk = getattr(obj, "_id", None)
     if pk is None:
         pk = f"{obj.__class__.__name__}_{time.time()}_{str(uuid.uuid4())}"
@@ -143,7 +136,7 @@ def get_function_call_args(
         A dictionary where the keys are the function argument names
         and the values are the corresponding argument values.
     """
-    params_dict = dict()
+    params_dict = {}
     try:
         sig = signature(func)
         for param in sig.parameters.values():
