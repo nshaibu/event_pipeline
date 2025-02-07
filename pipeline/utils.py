@@ -117,7 +117,7 @@ def build_event_arguments_from_pipeline(
             - The second dictionary contains additional or optional event arguments.
     """
     return get_function_call_args(
-        event_klass.__init__, pipeline
+        event_klass.process, pipeline
     ), get_function_call_args(event_klass.__call__, pipeline)
 
 

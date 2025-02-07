@@ -231,6 +231,44 @@ class MyEvent(EventBase):
 
 ```
 
+# Function-Based Events
+In addition to defining events using classes, you can also define events as functions. 
+This is achieved by using the event decorator from the decorators module.
+
+The decorator allows you to configure the executor, just like in class-based events, 
+providing flexibility for execution.
+
+```python
+from event_pipeline.decorators import event
+
+# Define a function-based event using the @event decorator
+@event()
+def my_event(*args, **kwargs):
+    # Event processing logic here
+    return True, "Event processed successfully"
+```
+
+The event decorator allows you to define an event as a simple function. You can also configure the 
+executor for the event's execution using parameters like max_workers, max_tasks_per_child, and thread_name_prefix.
+
+```python
+from event_pipeline.decorators import event
+from concurrent.futures import ThreadPoolExecutor
+
+# Define a function-based event using the @event decorator
+@event(
+    executor=ThreadPoolExecutor,               # Define the executor to use for event execution
+    max_workers=4,                             # Specify max workers for ThreadPoolExecutor
+    max_tasks_per_child=10,                    # Limit tasks per worker
+    thread_name_prefix="my_event_executor",    # Prefix for thread names
+    stop_on_exception=True                     # Flag to stop execution if an exception occurs
+)
+def my_event(*args, **kwargs):
+    # Event processing logic here
+    return True, "Event processed successfully"
+```
+The `@event` decorator registers the function as an event in the pipeline and configures the executor for the event execution.
+
 
 # Testing
 

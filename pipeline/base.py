@@ -46,6 +46,21 @@ class EventBase(abc.ABC):
         previous_result=EMPTY,
         stop_on_exception: bool = False,
     ):
+        """
+        Initializes an EventBase instance with the provided execution context and configuration.
+
+        This constructor is used to set up the event with the necessary context for execution,
+        as well as optional configuration for handling previous results and exceptions.
+
+        Args:
+            execution_context (EventExecutionContext): The context in which the event will be executed,
+                                                      providing access to execution-related data.
+            previous_result (Any, optional): The result of the previous event execution.
+                                              Defaults to `EMPTY` if not provided.
+            stop_on_exception (bool, optional): Flag to indicate whether the event should stop execution
+                                                 if an exception occurs. Defaults to `False`.
+
+        """
         self._execution_context = execution_context
         self.previous_result = previous_result
         self.stop_on_exception = stop_on_exception
@@ -120,6 +135,21 @@ class EventBase(abc.ABC):
         return self.get_executor_class() == ProcessPoolExecutor
 
     def get_executor_context(self) -> typing.Dict[str, typing.Any]:
+        """
+        Retrieves the execution context for the event's executor.
+
+        This method determines the appropriate execution context (e.g., multiprocessing context)
+        based on the executor class used for the event. If the executor is configured to use
+        multiprocessing, the context is set to "spawn". Additionally, any parameters required
+        for the executor's initialization are fetched and added to the context.
+
+        The resulting context dictionary is used to configure the executor for the event execution.
+
+        Returns:
+            dict: A dictionary containing the execution context for the event's executor,
+                  including any necessary parameters for initialization and multiprocessing context.
+
+        """
         executor = self.get_executor_class()
         context = dict()
         if self.is_multiprocessing_executor():

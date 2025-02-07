@@ -1,17 +1,29 @@
+import typing
+import warnings
 from functools import wraps
+from concurrent.futures import Executor
 from .base import EventBase
+from .utils import EMPTY
+from .executors.default_executor import DefaultExecutor
 
 
 def event(
-    execution_context: "EventExecutionContext",
-    previous_result="",
+    executor: typing.Type[Executor] = DefaultExecutor,
+    max_workers: typing.Union[int, EMPTY] = EMPTY,
+    max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY,
+    thread_name_prefix: typing.Union[str, EMPTY] = EMPTY,
     stop_on_exception: bool = False,
 ):
 
     def worker(func):
         namespace = {
-            "execution_context": execution_context,
-            "previous_result": previous_result,
+            "__module__": func.__module__,
+            "executor": executor,
+            "max_workers": max_workers,
+            "max_tasks_per_child": max_tasks_per_child,
+            "thread_name_prefix": thread_name_prefix,
+            "execution_context": None,
+            "previous_result": None,
             "stop_on_exception": stop_on_exception,
             "process": func,
         }
@@ -20,9 +32,9 @@ def event(
 
         @wraps(func)
         def task(*args, **kwargs):
+            warnings.warn("This is an event. It must be called by executors")
             return func(*args, **kwargs)
 
-        setattr(task, "__class__", _event)
         return task
 
     return worker
