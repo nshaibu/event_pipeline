@@ -245,4 +245,4 @@ If you find a bug or have suggestions for improvements, please open an issue in 
 Provide as much detail as possible, including steps to reproduce the issue, expected vs. actual behavior, and any relevant logs or error messages.
 
 # License
-This project is licensed under the GNU License - see the LICENSE file for details.
+This project is licensed under the GNU GPL-3.0 License - see the LICENSE file for details.
