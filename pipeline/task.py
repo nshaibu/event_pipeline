@@ -272,6 +272,20 @@ class PipeType(Enum):
 
 
 class PipelineTask(object):
+    """
+    Represents a task in a pipeline, with event-driven behavior and conditional execution flows.
+
+    Each `PipelineTask` is part of a tree structure, where tasks can have dependent tasks that execute
+    on success or failure. These dependencies are defined through `on_success_event`, `on_failure_event`,
+    and associated pipes. The task tree is built based on the instructions provided in the pointy script.
+
+    Attributes:
+        event (typing.Type[EventBase] | str): The event type or event name that triggers the task execution.
+        on_success_event (typing.Optional["PipelineTask"]): A task to execute if this task is successful.
+        on_failure_event (typing.Optional["PipelineTask"]): A task to execute if this task fails.
+        on_success_pipe (typing.Optional[PipeType]): A pipe to use if the task is successful.
+        on_failure_pipe (typing.Optional[PipeType]): A pipe to use if the task fails.
+    """
 
     def __init__(
         self,
@@ -308,7 +322,7 @@ class PipelineTask(object):
         return generate_unique_id(self)
 
     def __str__(self):
-        return f"{self.event}:{self._state}"
+        return self.event
 
     def __repr__(self):
         return f"{self.event} -> [{repr(self.on_success_event)}, {repr(self.on_failure_event)}]"
@@ -384,6 +398,9 @@ class PipelineTask(object):
     @lru_cache()
     def resolve_event_name(cls, event_name: str) -> typing.Type[EventBase]:
         """Resolve event class"""
+        if issubclass(event_name, EventBase):
+            return event_name
+
         for event in cls.get_event_klasses():
             klass_name = event.__name__.lower()
             if klass_name == event_name.lower():
