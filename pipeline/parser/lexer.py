@@ -6,6 +6,7 @@ class PointyLexer(object):
         "SEPERATOR",
         "POINTER",
         "PPOINTER",
+        "PARALLEL",
         "TASKNAME",
         "COMMENT",
         "LPAREN",
@@ -19,8 +20,9 @@ class PointyLexer(object):
     t_TASKNAME = r"[a-zA-Z_][a-zA-Z0-9_]*"
     t_POINTER = r"\-\>"
     t_PPOINTER = r"\|\-\>"
+    t_PARALLEL = r"\|\|"
     t_SEPERATOR = r","
-    t_DESCRIPTOR = r"[0|1]"
+    t_DESCRIPTOR = r"[01]"
     t_ignore_COMMENT = r"\#.*"
 
     def t_newline(self, t):

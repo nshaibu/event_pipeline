@@ -8,15 +8,16 @@ from .ast import BinOp, Descriptor, TaskName, ConditionalBinOP
 pointy_lexer = lexer.PointyLexer()
 tokens = pointy_lexer.tokens
 
+precedence = (("left", "POINTER", "PPOINTER", "PARALLEL"),)
+
 
 def p_expression(p):
     """
-    expression : term POINTER term
-                | term PPOINTER term
-                | expression POINTER term
-                | expression PPOINTER term
-                | descriptor POINTER term
-                | descriptor PPOINTER term
+    expression :  expression POINTER expression
+                | expression PPOINTER expression
+                | expression PARALLEL expression
+                | descriptor POINTER expression
+                | descriptor PPOINTER expression
     """
     p[0] = BinOp(p[2], p[1], p[3])
 

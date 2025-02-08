@@ -3,6 +3,7 @@ import time
 import typing
 from functools import lru_cache
 from collections import deque
+from threading import Condition
 from concurrent.futures import Executor, wait
 from enum import Enum, unique
 from .base import EventBase
@@ -16,7 +17,11 @@ from .exceptions import (
     StopProcessingError,
     EventDoesNotExist,
 )
-from .utils import build_event_arguments_from_pipeline, get_function_call_args
+from .utils import (
+    build_event_arguments_from_pipeline,
+    get_function_call_args,
+    AcquireReleaseLock,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +42,10 @@ class EventExecutionContext(object):
     executing an event, such as the task being processed and the pipeline
     it belongs to.
 
+    Individual events executing concurrently must acquire the "conditional_variable"
+    before they can make any changes to the execution context. This ensures that only one
+    event can modify the context at a time, preventing race conditions and ensuring thread safety.
+
     Attributes:
         task: The specific PipelineTask that is being executed.
         pipeline: The Pipeline that orchestrates the execution of the task.
@@ -44,6 +53,7 @@ class EventExecutionContext(object):
 
     def __init__(self, task: "PipelineTask", pipeline: "Pipeline"):
         generate_unique_id(self)
+        self.conditional_variable = Condition()
 
         self._execution_start_tp: float = time.time()
         self._execution_end_tp: float = 0
@@ -87,15 +97,74 @@ class EventExecutionContext(object):
             state["previous_context"] = None
         self.__dict__.update(state)
 
+    def __hash__(self):
+        return hash(self.id)
+
     def execution_failed(self):
-        if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
-            return True
-        return self._errors
+        with self.conditional_variable:
+            if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
+                return True
+            return self._errors
 
     def execution_success(self):
-        if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
-            return False
-        return not self._errors and self.execution_result
+        with self.conditional_variable:
+            if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
+                return False
+            return not self._errors and self.execution_result
+
+    def _get_executor_context_and_event(
+        self, task_profile: "PipelineTask"
+    ) -> typing.Tuple[
+        EventBase, typing.Dict[str, typing.Any], typing.Dict[str, typing.Any]
+    ]:
+        """
+        Retrieves the executor context and associated event information for a given pipeline task.
+
+        Args:
+            task_profile (PipelineTask): The task profile containing the necessary information
+                                         for context and event extraction.
+
+        Returns:
+            Tuple[EventBase, dict, dict]:
+                - The first element is an EventBase object representing the event related
+                  to the task execution.
+                - The second element is a dictionary containing context-specific data
+                  required by the executor.
+                - The third element is a dictionary that holds additional metadata or
+                  configuration settings relevant to the event.
+        """
+
+        event_klass = task_profile.get_event_klass()
+        if not issubclass(event_klass.get_executor_class(), Executor):
+            raise ImproperlyConfigured(f"Event executor must inherit {Executor}")
+
+        logger.info(f"Executing event '{task_profile.event}'")
+
+        event_init_arguments, event_call_arguments = (
+            build_event_arguments_from_pipeline(event_klass, self.pipeline)
+        )
+
+        event_init_arguments = event_init_arguments or {}
+        event_call_arguments = event_call_arguments or {}
+
+        event_init_arguments["execution_context"] = self
+
+        pointer_type = task_profile.get_pointer_type_to_this_event()
+        if pointer_type == PipeType.PIPE_POINTER:
+            if self.previous_context:
+                event_init_arguments["previous_event_result"] = (
+                    self.previous_context.execution_result
+                )
+            else:
+                event_init_arguments["previous_event_result"] = EMPTY
+
+        event = event_klass(**event_init_arguments)
+        executor_klass = event.get_executor_class()
+        context = event.get_executor_context()
+
+        context = get_function_call_args(executor_klass.__init__, context)
+
+        return event, context, event_call_arguments
 
     def dispatch(self):
         """
@@ -107,45 +176,57 @@ class EventExecutionContext(object):
 
         """
 
-        event_klass = self.task_profile.get_event_klass()
-        if not issubclass(event_klass.get_executor_class(), Executor):
-            raise ImproperlyConfigured(f"Event executor must inherit {Executor}")
-
         try:
-            # import pdb;pdb.set_trace()
             self.state = ExecutionState.EXECUTING
 
-            logger.info(f"Executing event '{self.task_profile.event}'")
-
-            event_init_arguments, event_call_arguments = (
-                build_event_arguments_from_pipeline(event_klass, self.pipeline)
+            event, context, event_call_arguments = self._get_executor_context_and_event(
+                self.task_profile
             )
-
-            event_init_arguments = event_init_arguments or {}
-            event_call_arguments = event_call_arguments or {}
-
-            event_init_arguments["execution_context"] = self
-
-            pointer_type = self.task_profile.get_pointer_type_to_this_event()
-            if pointer_type != PipeType.POINTER:
-                if self.previous_context:
-                    event_init_arguments["previous_event_result"] = (
-                        self.previous_context.execution_result
-                    )
-                else:
-                    event_init_arguments["previous_event_result"] = EMPTY
-
-            event = event_klass(**event_init_arguments)
             executor_klass = event.get_executor_class()
-            context = event.get_executor_context()
-
-            context = get_function_call_args(executor_klass.__init__, context)
 
             with executor_klass(**context) as executor:
                 future = executor.submit(event, **event_call_arguments)
 
                 waited_results = wait([future])
                 self._execution_end_tp = time.time()
+
+            self.process_executor_results(event, waited_results)
+
+            self.state = ExecutionState.FINISHED
+        except Exception as e:
+            self.state = ExecutionState.ABORTED
+            task_error = BadPipelineError(
+                message={"status": 0, "message": str(e)},
+                exception=e,
+            )
+            self._errors.append(task_error)
+
+            try:
+                self.conditional_variable.notify()
+            except RuntimeError:
+                pass
+
+        logger.info(
+            f"Finished executing task '{self.task_profile.event}' with status {self.state}"
+        )
+
+    def process_executor_results(self, event, waited_results):
+        """
+        Processes the results from the executor after an event has been executed, handling any awaited results.
+
+        Args:
+            event (EventBase): The event object that was executed, containing relevant execution data.
+            waited_results (Any): The results that were awaited during execution, which need to be processed.
+
+        Returns:
+            None: This method modifies internal states of the execution context and performs actions based on the event and results,
+                  without returning a value.
+
+        Side Effects:
+            This method may update internal attributes or trigger additional operations based on the results
+            from the event and waited results.
+        """
+        with AcquireReleaseLock(self.conditional_variable):
 
             for fut in waited_results.done:
                 try:
@@ -174,30 +255,20 @@ class EventExecutionContext(object):
                 else:
                     self.execution_result.append(result)
 
-            self.state = ExecutionState.FINISHED
-        except Exception as e:
-            self.state = ExecutionState.ABORTED
-            task_error = BadPipelineError(
-                message={"status": 0, "message": str(e)},
-                exception=e,
-            )
-            self._errors.append(task_error)
-
-        logger.info(
-            f"Finished executing task '{self.task_profile.event}' with status {self.state}"
-        )
-
 
 @unique
 class PipeType(Enum):
     POINTER = "pointer"
     PIPE_POINTER = "pipe_pointer"
+    PARALLELISM = "parallelism"
 
     def token(self):
         if self == self.POINTER:
             return "->"
         elif self == self.PIPE_POINTER:
             return "|->"
+        elif self == self.PARALLELISM:
+            return "||"
 
 
 class PipelineTask(object):
@@ -325,6 +396,26 @@ class PipelineTask(object):
 
     @classmethod
     def build_pipeline_from_execution_code(cls, code: str):
+        """
+        Constructs a pipeline based on the provided execution code.
+
+        This method parses and processes the given execution code to build a corresponding pipeline
+        that can be executed within the system.
+
+        Args:
+            code (str): The execution code as a string, typically representing a sequence of
+                        operations or instructions to construct the pipeline.
+
+        Returns:
+            Pipeline: The constructed pipeline based on the provided execution code.
+
+        Raises:
+            SyntaxError: If the execution code is invalid or cannot be parsed to form a pipeline.
+            Index: If not code provided.
+
+        Example:
+            pipeline = PipelineTask.build_pipeline_from_execution_code("A->B->V")
+        """
         if not code:
             raise IndexError("No pointy code provided")
 
@@ -355,11 +446,12 @@ class PipelineTask(object):
             if isinstance(left_node, PipelineTask) and isinstance(
                 right_node, PipelineTask
             ):
-                pipe_type = (
-                    PipeType.POINTER
-                    if ast.op == PipeType.POINTER.token()
-                    else PipeType.PIPE_POINTER
-                )
+                if ast.op == PipeType.PIPE_POINTER.token():
+                    pipe_type = PipeType.PIPE_POINTER
+                elif ast.op == PipeType.POINTER.token():
+                    pipe_type = PipeType.POINTER
+                else:
+                    pipe_type = PipeType.PARALLELISM
 
                 if left_node.is_conditional:
                     left_node.sink_node = right_node
@@ -387,7 +479,8 @@ class PipelineTask(object):
                     node._descriptor = descriptor_value
                     node._descriptor_pipe = ast.op
                     return node
-                raise SyntaxError
+                # TODO : Better error message
+                raise SyntaxError(f"AST is malformed {ast}")
             else:
                 return left_node or right_node
         elif isinstance(ast, parser.TaskName):

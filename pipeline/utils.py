@@ -155,3 +155,16 @@ def get_function_call_args(
         if key in params_dict and params_dict[key] is None:
             params_dict.pop(key, None)
     return params_dict
+
+
+class AcquireReleaseLock(object):
+    """A context manager for acquiring and releasing locks."""
+
+    def __init__(self, lock):
+        self.lock = lock
+
+    def __enter__(self):
+        self.lock.acquire()
+
+    def __exit__(self, *args):
+        self.lock.release()

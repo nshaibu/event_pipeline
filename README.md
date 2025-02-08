@@ -116,6 +116,14 @@ A    # single event
 A -> B   # Execute A then move to B
 ```
 
+- Parallel operation
+
+```pty
+A || B  # Execute A and B in parallel # TODO
+
+A || B |-> C # Execute A and B in parallel then pipe their results to C
+```
+
 - Two events with result piping
 
 ```pty
