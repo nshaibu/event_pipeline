@@ -398,7 +398,7 @@ class PipelineTask(object):
     @lru_cache()
     def resolve_event_name(cls, event_name: str) -> typing.Type[EventBase]:
         """Resolve event class"""
-        if issubclass(event_name, EventBase):
+        if not isinstance(event_name, str):
             return event_name
 
         for event in cls.get_event_klasses():
