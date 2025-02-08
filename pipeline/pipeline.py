@@ -15,7 +15,12 @@ except ImportError:
 from .task import PipelineTask, EventExecutionContext
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
 from .utils import generate_unique_id, GraphTree
-from .exceptions import ImproperlyConfigured, BadPipelineError, EventDone
+from .exceptions import (
+    ImproperlyConfigured,
+    BadPipelineError,
+    EventDone,
+    EventDoesNotExist,
+)
 
 
 class CacheFieldDescriptor(object):
@@ -310,3 +315,27 @@ class Pipeline(metaclass=PipelineMeta):
         # i.e. current and next from pipeline_cache
 
         return instance
+
+    def get_task_by_id(self, pk: str):
+        """
+        Retrieves a task from the pipeline by its unique identifier.
+
+        This method searches for a task in the pipeline using the provided unique identifier.
+        If the task is not found, it raises an `EventDoesNotExist` exception to signal that the requested
+        task does not exist in the queue.
+
+        Args:
+            pk (str): The unique identifier (primary key) of the task to retrieve.
+
+        Returns:
+            Task: The task object associated with the given primary key if found.
+
+        Raises:
+            EventDoesNotExist: If no task with the given primary key exists in the pipeline.
+        """
+        state: PipelineTask = self._state.start
+        if state:
+            for task in state.bf_traversal(state):
+                if task.id == pk:
+                    return task
+        raise EventDoesNotExist(f"Task '{pk}' does not exists", code=pk)

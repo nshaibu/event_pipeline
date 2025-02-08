@@ -202,7 +202,9 @@ class EventExecutionContext(object):
 
         for executor_klass, execution_config in executor_maps.items():
 
-            executor_klass_config: typing.Dict[str, typing.Any] = execution_config.pop("context", {})
+            executor_klass_config: typing.Dict[str, typing.Any] = execution_config.pop(
+                "context", {}
+            )
 
             if len(execution_config) == 1:
                 event_config = list(execution_config.values())[0]
@@ -710,7 +712,7 @@ class PipelineTask(object):
             cls: The class that the method is bound to.
             task: The pipeline task to be executed.
             pipeline: The pipeline object that orchestrates the task execution.
-            sink_queue: A deque used to store or pass the task results.
+            sink_queue: The queue used to store sink nodes for later processing.
             previous_context: An optional EventExecutionContext containing previous
                               execution context, if available.
 
@@ -725,7 +727,23 @@ class PipelineTask(object):
                 if task.sink_node:
                     sink_queue.append(task.sink_node)
 
-                execution_context = EventExecutionContext(pipeline=pipeline, task=task)
+                parallel_tasks = set()
+
+                # Loop through the chain of tasks, adding each task to the 'parallel_tasks' set,
+                # until we encounter a task where the 'on_success_pipe' is no longer equal
+                # to PipeType.PARALLELISM.
+                # This indicates that the task is part of a parallel execution chain.
+                while task.on_success_pipe == PipeType.PARALLELISM:
+                    parallel_tasks.add(task)
+                    task = task.on_success_event
+
+                if parallel_tasks:
+                    parallel_tasks.add(task)
+
+                execution_context = EventExecutionContext(
+                    pipeline=pipeline,
+                    task=list(parallel_tasks) if parallel_tasks else task,
+                )
 
                 with AcquireReleaseLock(lock=previous_context.conditional_variable):
                     execution_context.previous_context = previous_context
