@@ -43,6 +43,7 @@ class EventBase(abc.ABC):
     def __init__(
         self,
         execution_context: "EventExecutionContext",
+        task_id: str,
         previous_result=EMPTY,
         stop_on_exception: bool = False,
     ):
@@ -55,6 +56,7 @@ class EventBase(abc.ABC):
         Args:
             execution_context (EventExecutionContext): The context in which the event will be executed,
                                                       providing access to execution-related data.
+            task_id (str): The PipelineTask for this event.
             previous_result (Any, optional): The result of the previous event execution.
                                               Defaults to `EMPTY` if not provided.
             stop_on_exception (bool, optional): Flag to indicate whether the event should stop execution
@@ -62,6 +64,7 @@ class EventBase(abc.ABC):
 
         """
         self._execution_context = execution_context
+        self._task_id = task_id
         self.previous_result = previous_result
         self.stop_on_exception = stop_on_exception
 
@@ -100,9 +103,10 @@ class EventBase(abc.ABC):
         return EventResult(
             is_error=False,
             detail=execution_result,
-            task_id=self._execution_context.task_profile.id,
-            init_params=self._init_args,
+            task_id=self._task_id,
+            event_name=self.__class__.__name__,
             call_params=self._call_args,
+            init_params=self._init_args,
         )
 
     def on_failure(self, execution_result) -> EventResult:
@@ -112,15 +116,17 @@ class EventBase(abc.ABC):
                     message=f"Error occurred while processing event '{self.__class__.__name__}'",
                     exception=execution_result,
                     params={
-                        "init": self._init_args,
-                        "call": self._call_args,
-                        "event": self.__class__.__name__,
+                        "init_args": self._init_args,
+                        "call_args": self._call_args,
+                        "event_name": self.__class__.__name__,
+                        "task_id": self._task_id,
                     },
                 )
         return EventResult(
             is_error=True,
             detail=execution_result,
-            task_id=self._execution_context.task_profile.id,
+            task_id=self._task_id,
+            event_name=self.__class__.__name__,
             init_params=self._init_args,
             call_params=self._call_args,
         )

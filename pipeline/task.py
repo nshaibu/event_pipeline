@@ -4,7 +4,7 @@ import typing
 from functools import lru_cache
 from collections import deque
 from threading import Condition
-from concurrent.futures import Executor, wait
+from concurrent.futures import Executor, wait, Future
 from enum import Enum, unique
 from .base import EventBase
 from . import parser
@@ -51,13 +51,17 @@ class EventExecutionContext(object):
         pipeline: The Pipeline that orchestrates the execution of the task.
     """
 
-    def __init__(self, task: "PipelineTask", pipeline: "Pipeline"):
+    def __init__(
+        self,
+        task: typing.Union["PipelineTask", typing.List["PipelineTask"]],
+        pipeline: "Pipeline",
+    ):
         generate_unique_id(self)
         self.conditional_variable = Condition()
 
         self._execution_start_tp: float = time.time()
         self._execution_end_tp: float = 0
-        self.task_profile = task
+        self.task_profiles = task if isinstance(task, (tuple, list)) else [task]
         self.pipeline = pipeline
         self.execution_result: typing.List[EventResult] = []
         self.state: ExecutionState = ExecutionState.PENDING
@@ -69,6 +73,65 @@ class EventExecutionContext(object):
     @property
     def id(self):
         return generate_unique_id(self)
+
+    def _gather_executors_for_parallel_executions(
+        self,
+    ) -> typing.Dict[typing.Type[Executor], typing.Dict[str, typing.Any]]:
+        """
+        Gathers and returns the executors required for parallel executions, along with their associated configurations.
+
+        This method is responsible for identifying the executors that will be used to execute tasks in parallel
+        and collects their respective configuration settings. The result is a dictionary where each key is a
+        type of executor (e.g., `Executor` type), and each value is a dictionary containing the specific parameters
+        or settings for that executor.
+
+        Returns:
+            dict: A dictionary where:
+                - The key is the type of the executor (Executor class/type).
+                - The value is a dictionary containing configuration data or parameters required by that executor
+                  for parallel execution.
+
+        Example:
+            executors = self._gather_executors_for_parallel_executions()
+            for executor_type, config in executors.items():
+                # Use the executor_type and its config to perform parallel execution
+        """
+        executors_map = {}
+
+        for task in self.task_profiles:
+            event, context, event_call_args = self._get_executor_context_and_event(task)
+            executor = event.get_executor_class()
+
+            if executor in executors_map:
+                executors_map[executor][event] = {
+                    "event": event,
+                    "call_args": event_call_args,
+                }
+                previous_context = executors_map[executor]["context"]
+                if previous_context:
+                    executors_map[executor]["context"] = previous_context
+                else:
+                    for key, value in context.items():
+                        if previous_context.get(key, 0) == value:
+                            continue
+                        elif isinstance(value, EMPTY):
+                            continue
+                        elif str(value).isnumeric():
+                            previous_value = previous_context.get(key, 0)
+                            if str(previous_value).isnumeric():
+                                executors_map[executor]["context"][key] = max(
+                                    [int(value), int(previous_value)]
+                                )
+            else:
+                executors_map[executor] = {
+                    "context": context,
+                    event: {
+                        "event": event,
+                        "call_args": event_call_args,
+                    },
+                }
+
+        return executors_map
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -89,7 +152,7 @@ class EventExecutionContext(object):
         previous = state.pop("previous_context", None)
         if previous:
             instance = self.__class__(
-                task=state["task_profile"], pipeline=state["pipeline"]
+                task=state["task_profiles"], pipeline=state["pipeline"]
             )
             instance.__dict__.update(previous)
             state["previous_context"] = instance
@@ -104,13 +167,63 @@ class EventExecutionContext(object):
         with self.conditional_variable:
             if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
                 return True
-            return self._errors
+            return len(self.execution_result) == 0 and self._errors
 
     def execution_success(self):
         with self.conditional_variable:
             if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
                 return False
-            return not self._errors and self.execution_result
+            return self.execution_result
+
+    def init_and_execute_events(self) -> typing.List[Future]:
+        """
+        Initializes and executes events in parallel, returning a list of Future objects representing the execution
+         progress.
+
+        This method first gathers the executors required for parallel execution using the
+        `_gather_executors_for_parallel_executions` method.
+        It then initializes the execution of events across multiple executors. The method returns a list of `Future`
+        objects which allow tracking the status of each parallel execution.
+
+        The `Future` objects can be used to monitor or retrieve the results of each event execution once completed.
+
+        Returns:
+            List[Future]: A list of `Future` objects, each representing an ongoing or completed event execution.
+
+        Example:
+            futures = self.init_and_execute_events()
+            for future in futures:
+                result = future.result()  # Wait for and get the result of the event execution
+        """
+
+        futures = []
+
+        executor_maps = self._gather_executors_for_parallel_executions()
+
+        for executor_klass, execution_config in executor_maps.items():
+
+            executor_klass_config: typing.Dict[str, typing.Any] = execution_config.pop("context", {})
+
+            if len(execution_config) == 1:
+                event_config = list(execution_config.values())[0]
+
+                with executor_klass(**executor_klass_config) as executor:
+                    future = executor.submit(
+                        event_config["event"], **event_config["call_args"]
+                    )
+                    futures.append(future)
+            else:
+                # parallel execution with common executor
+                with executor_klass(**executor_klass_config) as executor:
+                    future = [
+                        executor.submit(
+                            event_config["event"], **event_config["call_args"]
+                        )
+                        for _, event_config in execution_config.items()
+                    ]
+                    futures.extend(future)
+
+        return futures
 
     def _get_executor_context_and_event(
         self, task_profile: "PipelineTask"
@@ -148,6 +261,7 @@ class EventExecutionContext(object):
         event_call_arguments = event_call_arguments or {}
 
         event_init_arguments["execution_context"] = self
+        event_init_arguments["task_id"] = task_profile.id
 
         pointer_type = task_profile.get_pointer_type_to_this_event()
         if pointer_type == PipeType.PIPE_POINTER:
@@ -160,8 +274,8 @@ class EventExecutionContext(object):
 
         event = event_klass(**event_init_arguments)
         executor_klass = event.get_executor_class()
-        context = event.get_executor_context()
 
+        context = event.get_executor_context()
         context = get_function_call_args(executor_klass.__init__, context)
 
         return event, context, event_call_arguments
@@ -179,21 +293,14 @@ class EventExecutionContext(object):
         try:
             self.state = ExecutionState.EXECUTING
 
-            event, context, event_call_arguments = self._get_executor_context_and_event(
-                self.task_profile
-            )
-            executor_klass = event.get_executor_class()
+            futures = self.init_and_execute_events()
+            waited_results = wait(futures)
 
-            with executor_klass(**context) as executor:
-                future = executor.submit(event, **event_call_arguments)
-
-                waited_results = wait([future])
-                self._execution_end_tp = time.time()
-
-            self.process_executor_results(event, waited_results)
+            self.process_executor_results(waited_results)
 
             self.state = ExecutionState.FINISHED
         except Exception as e:
+            logger.exception(str(e), exc_info=e)
             self.state = ExecutionState.ABORTED
             task_error = BadPipelineError(
                 message={"status": 0, "message": str(e)},
@@ -201,26 +308,27 @@ class EventExecutionContext(object):
             )
             self._errors.append(task_error)
 
-            try:
-                self.conditional_variable.notify()
-            except RuntimeError:
-                pass
+        try:
+            self.conditional_variable.notify()
+        except RuntimeError:
+            pass
+
+        self._execution_end_tp = time.time()
 
         logger.info(
-            f"Finished executing task '{self.task_profile.event}' with status {self.state}"
+            f"Finished executing task(s) '{self.task_profiles}' with status {self.state}"
         )
 
-    def process_executor_results(self, event, waited_results):
+    def process_executor_results(self, waited_results):
         """
-        Processes the results from the executor after an event has been executed, handling any awaited results.
+        Processes the results from the executor after events has been executed, handling any awaited results.
 
         Args:
-            event (EventBase): The event object that was executed, containing relevant execution data.
             waited_results (Any): The results that were awaited during execution, which need to be processed.
 
         Returns:
-            None: This method modifies internal states of the execution context and performs actions based on the event and results,
-                  without returning a value.
+            None: This method modifies internal states of the execution context and performs actions based on
+             the event and results, without returning a value.
 
         Side Effects:
             This method may update internal attributes or trigger additional operations based on the results
@@ -232,16 +340,21 @@ class EventExecutionContext(object):
                 try:
                     result = fut.result()
                 except Exception as e:
-                    logger.exception(f"{event.__class__.__name__}: {str(e)}")
+                    params = getattr(e, "params", {})
+                    event_name = params.get("event", "Unknown")
+
+                    logger.exception(f"{event_name}: {str(e)}")
+
                     if isinstance(e, StopProcessingError):
                         self.state = ExecutionState.CANCELLED
 
                     result = EventResult(
                         is_error=True,
                         detail=str(e),
-                        task_id=self.task_profile.id,
-                        init_params=event.get_init_args(),
-                        call_params=event.get_call_args(),
+                        task_id=params.get("task_id"),
+                        event_name=event_name,
+                        init_params=params.get("init_args"),
+                        call_params=params.get("call_args"),
                     )
 
                 if result.is_error:
@@ -602,7 +715,7 @@ class PipelineTask(object):
                               execution context, if available.
 
         This method performs the necessary operations for executing a task, handles
-        task-specific logic, and updates the sink queue with the results.
+        task-specific logic, and updates the sink queue with sink nodes for further processing.
         """
         if task:
             if previous_context is None:
@@ -613,9 +726,11 @@ class PipelineTask(object):
                     sink_queue.append(task.sink_node)
 
                 execution_context = EventExecutionContext(pipeline=pipeline, task=task)
-                execution_context.previous_context = previous_context
 
-            execution_context.dispatch()
+                with AcquireReleaseLock(lock=previous_context.conditional_variable):
+                    execution_context.previous_context = previous_context
+
+            execution_context.dispatch()  # execute task
 
             if task.is_conditional:
                 if execution_context.execution_failed():
