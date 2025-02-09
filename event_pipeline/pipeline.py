@@ -12,7 +12,7 @@ try:
 except ImportError:
     graphviz = None
 
-from .task import PipelineTask, EventExecutionContext
+from .task import PipelineTask, EventExecutionContext, PipeType
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
 from .utils import generate_unique_id, GraphTree
 from .exceptions import (
@@ -21,6 +21,11 @@ from .exceptions import (
     EventDone,
     EventDoesNotExist,
 )
+
+
+class TreeExtraData:
+    def __init__(self, pipe_type: PipeType):
+        self.pipe_type = pipe_type
 
 
 class CacheFieldDescriptor(object):
@@ -279,6 +284,7 @@ class Pipeline(metaclass=PipelineMeta):
                     tag=f"{node.event}{tag}",
                     identifier=node.id,
                     parent=node.parent_node.id if node.parent_node else None,
+                    data=TreeExtraData(pipe_type=node.get_pointer_type_to_this_event())
                 )
             return tree
 

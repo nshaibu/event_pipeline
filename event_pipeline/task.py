@@ -311,7 +311,7 @@ class EventExecutionContext(object):
             self._errors.append(task_error)
 
         try:
-            self.conditional_variable.notify()
+            self.conditional_variable.notify_all()
         except RuntimeError:
             pass
 
@@ -411,8 +411,6 @@ class PipelineTask(object):
         on_failure_pipe: typing.Optional[PipeType] = None,
     ):
         generate_unique_id(self)
-
-        self._task = None
 
         # attributes for when a task is created from a descriptor
         self._descriptor: typing.Optional[int] = None
