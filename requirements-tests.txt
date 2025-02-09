@@ -10,7 +10,7 @@ mccabe==0.7.0
 flake8==7.1.1
 pycodestyle==2.12.1
 flake8-black==0.3.6
-black==25.1.0
+black>=22.1.0
 click==8.1.8
 mypy-extensions==1.0.0
 pathspec==0.12.1
