@@ -1,8 +1,9 @@
 [flake8]
-extend-ignore = E203
+extend-ignore = E203, E266, E501, W503, F821
 exclude = .git,__pycache__,docs/source/conf.py,old,build,dist
 statistics = True
 count = True
 show_source = True
 select = E9,F63,F7,F82
 max-complexity = 10
+plugins = mypy-extensions
