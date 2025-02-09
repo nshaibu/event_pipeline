@@ -1,4 +1,4 @@
-# Event Pipeline
+# Event Pipeline (WIP)
 
 ## Introduction
 This library provides an easy-to-use framework for defining and managing events and pipelines. 
