@@ -4,14 +4,40 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "event_pipeline"
 version = "0.0.1"
-requires-python = ">=3.6"
+requires-python = ">=3.8"
+authors = [
+    {name = "nshaibu", email = "nafiushaibu1@gmail.com"},
+]
+description="Simple tool for writing events and pipelines in python"
+keywords=["pipeline","events","concurrency","data","pointy"]
 dependencies = [
     "ply==3.11",
     "six==1.17.0",
     "treelib==1.7.0",
     "graphviz==0.20.3"
 ]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+[project.urls]
+"Issue Tracker"="https://github.com/nshaibu/event_pipeline/issues"
+CI="https://github.com/nshaibu/event_pipeline/actions"
+[project.optional-dependencies]
+dev = ["coverage>=7.4.1", "iniconfig==2.0.0", "packaging==24.2",
+    "pluggy==1.5.0", "pytest==8.3.4", "pyflakes==3.2.0", "mccabe==0.7.0",
+    "flake8==7.1.1", "pycodestyle==2.12.1", "flake8-black==0.3.6", "black>=22.1.0",
+    "click==8.1.8", "mypy-extensions==1.0.0", "pathspec==0.12.1", "platformdirs==4.3.6"]
 [tool.setuptools]
 packages = ["event_pipeline"]
-#[tool.setuptools.packages.find]
-#where = ["event_pipeline"]
