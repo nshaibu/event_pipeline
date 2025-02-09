@@ -284,7 +284,7 @@ class Pipeline(metaclass=PipelineMeta):
                     tag=f"{node.event}{tag}",
                     identifier=node.id,
                     parent=node.parent_node.id if node.parent_node else None,
-                    data=TreeExtraData(pipe_type=node.get_pointer_type_to_this_event())
+                    data=TreeExtraData(pipe_type=node.get_pointer_type_to_this_event()),
                 )
             return tree
 
