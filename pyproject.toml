@@ -11,5 +11,7 @@ dependencies = [
     "treelib==1.7.0",
     "graphviz==0.20.3"
 ]
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = ["event_pipeline"]
+#[tool.setuptools.packages.find]
+#where = ["event_pipeline"]

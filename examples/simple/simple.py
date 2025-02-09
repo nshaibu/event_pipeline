@@ -1,5 +1,5 @@
-from pipeline.pipeline import Pipeline
-from pipeline.fields import InputDataField
+from event_pipeline.pipeline import Pipeline
+from event_pipeline.fields import InputDataField
 
 
 class Simple(Pipeline):

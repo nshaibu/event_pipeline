@@ -1,6 +1,6 @@
 import typing
 
-from pipeline.base import EventBase
+from event_pipeline import EventBase
 
 
 class Process(EventBase):
