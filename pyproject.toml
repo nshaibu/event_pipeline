@@ -10,6 +10,8 @@ authors = [
 ]
 description="Simple tool for writing events and pipelines in python"
 keywords=["pipeline","events","concurrency","data","pointy"]
+readme = "README.md"
+license = "GPL-3.0-or-later"
 dependencies = [
     "ply==3.11",
     "six==1.17.0",
