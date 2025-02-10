@@ -731,7 +731,7 @@ class PipelineTask(object):
                 # until we encounter a task where the 'on_success_pipe' is no longer equal
                 # to PipeType.PARALLELISM.
                 # This indicates that the task is part of a parallel execution chain.
-                while task.on_success_pipe == PipeType.PARALLELISM:
+                while task and task.on_success_pipe == PipeType.PARALLELISM:
                     parallel_tasks.add(task)
                     task = task.on_success_event
 
