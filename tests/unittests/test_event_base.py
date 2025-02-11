@@ -106,6 +106,7 @@ class TestEventBase(unittest.TestCase):
         event1 = self.WithParamEvent({"task": 1}, "1", previous_result="box")
         response = event1(name="box")
         self.assertIsInstance(response, EventResult)
+        self.assertEqual(response.task_id, "1")
         self.assertEqual(
             response.init_params,
             {
