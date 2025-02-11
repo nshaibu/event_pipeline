@@ -30,7 +30,7 @@ jobs:
         if [ -f requirements-tests.txt ]; then pip install -r requirements-tests.txt; fi
     - name: Lint with flake8
       run: |
-        flake8 .
+        flake8 $(git ls-files '*.py')
     - name: Test with pytest
       run: |
         coverage run -m pytest tests
