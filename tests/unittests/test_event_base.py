@@ -101,3 +101,18 @@ class TestEventBase(unittest.TestCase):
     def test_instantiate_events_without_process_implementation_throws_exception(self):
         with pytest.raises(TypeError):
             self.ProcessNotImplementedEvent(None, "1")
+
+    def test_event_has_init_and_call_params(self):
+        event1 = self.WithParamEvent({"task": 1}, "1", previous_result="box")
+        response = event1(name="box")
+        self.assertIsInstance(response, EventResult)
+        self.assertEqual(
+            response.init_params,
+            {
+                "execution_context": {"task": 1},
+                "task_id": "1",
+                "previous_result": "box",
+                "stop_on_exception": False,
+            },
+        )
+        self.assertEqual(response.call_params, {"args": (), "kwargs": {"name": "box"}})
