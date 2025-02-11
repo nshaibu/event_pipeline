@@ -32,6 +32,10 @@ class TestEventBase(unittest.TestCase):
             def process(self, *args, **kwargs):
                 raise Exception
 
+        class ProcessReturnFalseEvent(EventBase):
+            def process(self, *args, **kwargs):
+                return False, "False"
+
         @event()
         def func_with_no_args():
             return True, "function_with_no_args"
@@ -46,11 +50,12 @@ class TestEventBase(unittest.TestCase):
         cls.RaiseErrorEvent = RaiseErrorEvent
         cls.func_with_args = func_with_args
         cls.func_with_no_args = func_with_no_args
+        cls.ProcessReturnFalseEvent = ProcessReturnFalseEvent
 
     def test_get_klasses(self):
         klasses = list(EventBase.get_event_klasses())
 
-        self.assertEqual(len(klasses), 6)
+        self.assertEqual(len(klasses), 7)
 
     def test_function_base_events_create_class(self):
         task1 = PipelineTask(event=self.func_with_no_args.__name__)
@@ -117,3 +122,9 @@ class TestEventBase(unittest.TestCase):
             },
         )
         self.assertEqual(response.call_params, {"args": (), "kwargs": {"name": "box"}})
+
+    def test_event_flow_branch_to_on_failure_when_process_return_false(self):
+        event1 = self.ProcessReturnFalseEvent(None, "1")
+        with patch("event_pipeline.EventBase.on_failure") as f:
+            event1()
+            f.assert_called()

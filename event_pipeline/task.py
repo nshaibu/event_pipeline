@@ -668,7 +668,7 @@ class PipelineTask(object):
 
     def get_task_count(self) -> int:
         root = self.get_root()
-        nodes = yield from self.bf_traversal(root)
+        nodes = list(self.bf_traversal(root))
         return len(nodes)
 
     @classmethod
@@ -680,7 +680,7 @@ class PipelineTask(object):
                 yield from cls.bf_traversal(child)
 
     def get_pointer_type_to_this_event(self) -> PipeType:
-        pipe_type = PipeType.POINTER
+        pipe_type = None
         if self.parent_node is not None:
             if (
                 self.parent_node.on_success_event
