@@ -43,3 +43,38 @@ dev = ["coverage>=7.4.1", "iniconfig==2.0.0", "packaging==24.2",
     "click==8.1.8", "mypy-extensions==1.0.0", "pathspec==0.12.1", "platformdirs==4.3.6"]
 [tool.setuptools]
 packages = ["event_pipeline"]
+
+[tool.coverage.run]
+branch = true
+concurrency=["multiprocessing"]
+source=["event_pipeline"]
+omit = [
+    "event_pipeline/parser/*",
+    "tests/*"
+]
+data_file=".coverage"
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+    ]
+ignore_errors = true
+skip_empty = true
+skip_covered = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"

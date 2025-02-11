@@ -4,7 +4,7 @@ import time
 import uuid
 import sys
 import resource
-from inspect import signature
+from inspect import signature, Parameter
 
 try:
     from StringIO import StringIO
@@ -35,6 +35,8 @@ def _extend_recursion_depth(limit: int = 1048576):
         sys.setrecursionlimit(limit)
     except Exception as e:
         logger.error(f"Extending system recursive depth failed {str(e)}")
+        return e
+    return limit
 
 
 class GraphTree(Tree):
@@ -117,8 +119,8 @@ def build_event_arguments_from_pipeline(
             - The second dictionary contains additional or optional event arguments.
     """
     return get_function_call_args(
-        event_klass.process, pipeline
-    ), get_function_call_args(event_klass.__call__, pipeline)
+        event_klass.__init__, pipeline
+    ), get_function_call_args(event_klass.process, pipeline)
 
 
 def get_function_call_args(
@@ -142,12 +144,14 @@ def get_function_call_args(
         for param in sig.parameters.values():
             if param.name != "self":
                 value = (
-                    params.get(param.name)
+                    params.get(param.name, param.default)
                     if isinstance(params, dict)
-                    else getattr(params, param.name, None)
+                    else getattr(params, param.name, param.default)
                 )
-                if value is not EMPTY:
+                if value is not EMPTY and value is not Parameter.empty:
                     params_dict[param.name] = value
+                else:
+                    params_dict[param.name] = None
     except (ValueError, KeyError) as e:
         logger.warning(f"Parsing {func} for call parameters failed {str(e)}")
 
