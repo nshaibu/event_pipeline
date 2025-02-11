@@ -29,6 +29,7 @@ def event(
         }
 
         _event = type(func.__name__, (EventBase,), namespace)
+        globals()[func.__name__] = _event
 
         @wraps(func)
         def task(*args, **kwargs):
