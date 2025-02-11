@@ -56,19 +56,27 @@ class TestEventBase(unittest.TestCase):
         task1 = PipelineTask(event=self.func_with_no_args.__name__)
         task2 = PipelineTask(event=self.func_with_args.__name__)
 
-        self.assertTrue(issubclass(task1.resolve_event_name(self.func_with_no_args.__name__), EventBase))
-        self.assertTrue(issubclass(task2.resolve_event_name(self.func_with_args.__name__), EventBase))
+        self.assertTrue(
+            issubclass(
+                task1.resolve_event_name(self.func_with_no_args.__name__), EventBase
+            )
+        )
+        self.assertTrue(
+            issubclass(
+                task2.resolve_event_name(self.func_with_args.__name__), EventBase
+            )
+        )
 
     def test_is_multiprocssing(self):
-        event1 = self.WithParamEvent(None, None)
-        event2 = self.WithoutParamEvent(None, None)
+        event1 = self.WithParamEvent(None, "1")
+        event2 = self.WithoutParamEvent(None, "1")
 
         self.assertFalse(event1.is_multiprocessing_executor())
         self.assertTrue(event2.is_multiprocessing_executor())
 
     def test_multiprocess_executor_set_context(self):
-        event1 = self.WithoutParamEvent(None, None)
-        event2 = self.WithParamEvent(None, None)
+        event1 = self.WithoutParamEvent(None, "1")
+        event2 = self.WithParamEvent(None, "1")
 
         self.assertTrue("mp_context" in event1.get_executor_context())
         self.assertTrue("mp_context" not in event2.get_executor_context())
@@ -76,14 +84,14 @@ class TestEventBase(unittest.TestCase):
     def test_on_success_and_on_failure_is_called(self):
         event1 = self.WithoutParamEvent(None, "1")
         event2 = self.RaiseErrorEvent(None, "1")
-        with patch('event_pipeline.EventBase.on_success') as f:
+        with patch("event_pipeline.EventBase.on_success") as f:
             event1()
             f.assert_called()
 
         response = event1()
         self.assertIsInstance(response, EventResult)
 
-        with patch('event_pipeline.EventBase.on_failure') as e:
+        with patch("event_pipeline.EventBase.on_failure") as e:
             event2()
             e.assert_called()
 
@@ -93,4 +101,3 @@ class TestEventBase(unittest.TestCase):
     def test_instantiate_events_without_process_implementation_throws_exception(self):
         with pytest.raises(TypeError):
             self.ProcessNotImplementedEvent(None, "1")
-

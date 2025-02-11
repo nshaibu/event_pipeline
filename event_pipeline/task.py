@@ -404,7 +404,7 @@ class PipelineTask(object):
 
     def __init__(
         self,
-        event: typing.Type[EventBase] | str,
+        event: typing.Union[typing.Type[EventBase], str],
         on_success_event: typing.Optional["PipelineTask"] = None,
         on_failure_event: typing.Optional["PipelineTask"] = None,
         on_success_pipe: typing.Optional[PipeType] = None,
@@ -509,9 +509,11 @@ class PipelineTask(object):
 
     @classmethod
     @lru_cache()
-    def resolve_event_name(cls, event_name: str) -> typing.Type[EventBase]:
+    def resolve_event_name(
+        cls, event_name: typing.Union[str, typing.Type[EventBase]]
+    ) -> typing.Type[EventBase]:
         """Resolve event class"""
-        if not isinstance(event_name, str):
+        if issubclass(event_name, EventBase):
             return event_name
 
         for event in cls.get_event_klasses():
