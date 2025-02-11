@@ -513,7 +513,7 @@ class PipelineTask(object):
         cls, event_name: typing.Union[str, typing.Type[EventBase]]
     ) -> typing.Type[EventBase]:
         """Resolve event class"""
-        if issubclass(event_name, EventBase):
+        if not isinstance(event_name, str):
             return event_name
 
         for event in cls.get_event_klasses():
