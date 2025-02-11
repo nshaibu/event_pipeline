@@ -53,7 +53,7 @@ class InputDataField(CacheInstanceFieldMixin):
 
 class FileInputDataField(InputDataField):
 
-    def __init__(self, path: typing.Union[os.PathLike[str], str, bytes], required=False):
+    def __init__(self, path: typing.Union[os.PathLike, str, bytes], required=False):
         super().__init__(
             name=path, required=required, data_type=os.PathLike, default=None
         )
