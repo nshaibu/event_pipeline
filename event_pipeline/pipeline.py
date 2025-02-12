@@ -198,14 +198,10 @@ class Pipeline(metaclass=PipelineMeta):
                         if instance.data_type is not UNKNOWN
                         else typing.Any
                     ),
-                    "kind": (
-                        Parameter.POSITIONAL_ONLY
-                        if instance.required
-                        else Parameter.POSITIONAL_OR_KEYWORD
-                    ),
+                    "kind": Parameter.POSITIONAL_OR_KEYWORD,
                 }
                 if instance.default is not EMPTY:
-                    kwargs["default"] = instance.default
+                    param_args["default"] = instance.default
 
                 param = Parameter(**param_args)
                 parameters.append(param)

@@ -35,7 +35,7 @@ class InputDataField(CacheInstanceFieldMixin):
 
     def __get__(self, instance, owner=None):
         value = instance.__dict__.get(self.name, None)
-        if value is None:
+        if value is None and self.default is not EMPTY:
             return self.default
         return value
 
@@ -44,6 +44,10 @@ class InputDataField(CacheInstanceFieldMixin):
             raise TypeError(
                 f"{value} is not in the expected data type. {self.data_type} != {type(value)}."
             )
+        if value is None and self.required and self.default is EMPTY:
+            raise ValueError(f"Field '{self.name}' is required")
+        elif value is None and self.default is not EMPTY:
+            value = self.default
         self.set_field_cache_value(instance, value)
         instance.__dict__[self.name] = value
 
@@ -53,17 +57,15 @@ class InputDataField(CacheInstanceFieldMixin):
 
 class FileInputDataField(InputDataField):
 
-    def __init__(self, path: typing.Union[os.PathLike, str, bytes], required=False):
-        super().__init__(
-            name=path, required=required, data_type=os.PathLike, default=None
-        )
+    def __init__(self, path: str = None, required=False):
+        super().__init__(name=path, required=required, data_type=str, default=None)
 
     def __set__(self, instance, value):
-        if os.path.isfile(value):
-            super().__get__(instance, value)
-        else:
+        super().__set__(instance, value)
+        if not os.path.isfile(value):
             raise TypeError(f"{value} is not a file or does not exist")
 
     def __get__(self, instance, owner=None):
-        if isinstance(self.data_type, os.PathLike):
-            return open(self.name, "rwb")
+        value = super().__get__(instance, owner)
+        if value:
+            return open(value)

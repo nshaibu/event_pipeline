@@ -83,3 +83,10 @@ class TestTask(unittest.TestCase):
         p1 = PipelineTask.build_pipeline_from_execution_code("A->B->C")
         self.assertEqual(len(p.get_children()), 3)
         self.assertEqual(len(p1.get_children()), 1)
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.A
+        del cls.B
+        del cls.C
+        del cls.S
