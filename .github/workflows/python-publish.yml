@@ -30,7 +30,7 @@ jobs:
         run: |
           # NOTE: put your own distribution build steps here.
           python -m pip install build
-          python -m build
+          python -m build --sdist
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
@@ -51,7 +51,8 @@ jobs:
     environment:
       name: pypi
       # OPTIONAL: uncomment and update to include your PyPI project URL in the deployment status:
-      url: https://pypi.org/p/event-pipeline
+      # url: https://pypi.org/p/event-pipeline
+      url: https://test.pypi.org/p/event_pipeline
       #
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:
@@ -66,8 +67,5 @@ jobs:
 
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        env:
-          TWINE_USERNAME: __token__ 
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
         with:
           packages-dir: dist/
