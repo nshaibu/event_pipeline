@@ -135,6 +135,7 @@ class EventExecutionContext(object):
 
     def __getstate__(self):
         state = self.__dict__.copy()
+        state.pop("conditional_variable", None)
         if self.previous_context:
             state["previous_context"] = {
                 "_id": self.previous_context.id,
@@ -268,11 +269,11 @@ class EventExecutionContext(object):
         pointer_type = task_profile.get_pointer_type_to_this_event()
         if pointer_type == PipeType.PIPE_POINTER:
             if self.previous_context:
-                event_init_arguments["previous_event_result"] = (
+                event_init_arguments["previous_result"] = (
                     self.previous_context.execution_result
                 )
             else:
-                event_init_arguments["previous_event_result"] = EMPTY
+                event_init_arguments["previous_result"] = EMPTY
 
         event = event_klass(**event_init_arguments)
         executor_klass = event.get_executor_class()

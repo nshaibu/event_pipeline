@@ -184,6 +184,15 @@ class PipelineMeta(type):
 
 
 class Pipeline(metaclass=PipelineMeta):
+    """
+    Represents a pipeline that defines a sequence of tasks or processes
+    to be executed. The class is designed to manage the execution flow
+    and state of the pipeline, including initializing components and
+    handling arguments passed during instantiation.
+
+    The Pipeline class uses a metaclass (`PipelineMeta`) to provide
+    additional functionality or customization at the class level.
+    """
 
     def __init__(self, *args, **kwargs):
         generate_unique_id(self)
@@ -242,6 +251,18 @@ class Pipeline(metaclass=PipelineMeta):
         return hash(self.id)
 
     def start(self, force_rerun: bool = False):
+        """
+        Initiates the execution of the pipeline.
+
+        Args:
+            force_rerun (bool): If True, allows the pipeline to be executed
+                again even if it has already completed. Defaults to False.
+
+        Raises:
+            EventDone: If the pipeline has already been executed and
+                force_rerun is not set to True, this exception is raised
+                to indicate that the execution is complete.
+        """
         if self.execution_context and not force_rerun:
             raise EventDone("Done executing pipeline")
         self.execution_context = None
@@ -258,10 +279,42 @@ class Pipeline(metaclass=PipelineMeta):
 
     @classmethod
     def get_fields(cls):
+        """
+        Yields the fields of the class as key-value pairs.
+
+        This method retrieves the fields defined in the class (stored under
+        the `PIPELINE_FIELDS` attribute) and yields each field's name along
+        with its associated class type. It is useful for inspecting or
+        iterating over the fields of a class dynamically.
+
+        Yields:
+            tuple: A tuple containing the field's name and its associated
+            class type.
+
+        Notes:
+            The method assumes that the class has an attribute `PIPELINE_FIELDS`
+            that contains a dictionary mapping field names to class types.
+        """
         for name, klass in getattr(cls, PIPELINE_FIELDS, {}).items():
             yield name, klass
 
     def get_pipeline_tree(self) -> GraphTree:
+        """
+        Constructs and returns the pipeline's execution tree.
+
+        This method retrieves the current state of the pipeline and
+        builds a tree representation of its structure using breadth-first
+        traversal.
+
+        Returns:
+            GraphTree: A tree structure representing the nodes and
+            connections in the pipeline.
+
+        Notes:
+            The method assumes that the pipeline is in a valid state
+            and will perform a breadth-first traversal starting from
+            the initial task state.
+        """
         state: PipelineTask = self._state.start
         if state:
             tree = GraphTree()
@@ -285,11 +338,39 @@ class Pipeline(metaclass=PipelineMeta):
             return tree
 
     def draw_ascii_graph(self):
+        """
+        Generates and displays an ASCII representation of the pipeline's
+        execution graph.
+
+        This method retrieves the current pipeline tree and converts it
+        into an ASCII format for visualization. It provides a simple
+        way to inspect the structure and flow of tasks within the pipeline.
+
+        Notes:
+            This method relies on the `get_pipeline_tree` method to
+            obtain the graph data.
+        """
         tree = self.get_pipeline_tree()
         if tree:
             tree.show(line_type="ascii-emv")
 
     def draw_graphviz_image(self, directory="pipeline-graphs"):
+        """
+        Generates a visual representation of the pipeline's execution
+        graph using Graphviz and saves it as an image.
+
+        This method constructs the pipeline tree and then uses Graphviz
+        to render it as a graphical image. The resulting image is saved
+        to the specified directory (default: "pipeline-graphs").
+
+        Args:
+            directory (str): The directory where the generated image will
+            be saved. Defaults to "pipeline-graphs".
+
+        Notes:
+            If the Graphviz library is not available, the method will
+            return without performing any operations.
+        """
         if graphviz is None:
             return
         tree = self.get_pipeline_tree()
@@ -300,6 +381,25 @@ class Pipeline(metaclass=PipelineMeta):
 
     @classmethod
     def load_class_by_id(cls, pk: str):
+        """
+        Loads a class instance based on its unique identifier (ID).
+
+        This method checks if the requested instance exists in the cache.
+        If found, it retrieves the object from the cache.
+
+        Args:
+            pk (str): The unique identifier of the class
+            instance to be loaded.
+
+        Returns:
+            The class instance loaded by the provided ID, or None if
+            the instance cannot be found or loaded.
+
+        Notes:
+            The method uses the class's internal state to check for
+            existing cache entries before attempting to load the instance
+            from other sources.
+        """
         cache_keys = cls._state.check_cache_exists(pk)
         if not cache_keys:
             return cls()

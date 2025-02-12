@@ -1,4 +1,17 @@
-# Event Pipeline
+<div style="display: flex; align-items: center;">
+  <img alt="pipeline" height="60" src="img/pipeline.svg" width="60" style="margin-right: 10px; vertical-align: middle;"/>
+  <h1 style="margin: 0; vertical-align: middle;">Event Pipeline</h1>
+</div>
+
+
+[![Build Status](https://github.com/nshaibu/event_pipeline/actions/workflows/python-package.yml/badge.svg)](https://github.com/nshaibu/event_pipeline/actions)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Status](https://img.shields.io/pypi/status/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
+[![Latest](https://img.shields.io/pypi/v/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
+[![PyV](https://img.shields.io/pypi/pyversions/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
+
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
+
 
 ## Introduction
 This library provides an easy-to-use framework for defining and managing events and pipelines. 
@@ -17,7 +30,7 @@ easily integrate it into their projects.
 To install the library, simply use pip:
 
 ```bash
-pip install event_pipeline
+pip install event-pipeline
 ```
 
 # Requirements
@@ -276,6 +289,17 @@ def my_event(*args, **kwargs):
     return True, "Event processed successfully"
 ```
 The `@event` decorator registers the function as an event in the pipeline and configures the executor for the event execution.
+
+# Executing Pipeline
+Execute your pipeline by making calls to the `start` method:
+```python
+# instantiate your pipeline class
+pipeline = MyPipeline(input_field="value")
+
+# call start
+pipeline.start()
+```
+
 
 # Contributing
 We welcome contributions! If you have any improvements, fixes, or new features, 
