@@ -21,7 +21,7 @@ pip install event_pipeline
 ```
 
 # Requirements
-- Python 3.11
+- Python>=3.8
 - ply==3.11 
 - treelib==1.7.0 
 - graphviz==0.20.3 (Optional)
