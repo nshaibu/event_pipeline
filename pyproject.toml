@@ -3,15 +3,15 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "event_pipeline"
-version = "0.0.1"
+version = "1.0.dev1"
 requires-python = ">=3.8"
 authors = [
     {name = "nshaibu", email = "nafiushaibu1@gmail.com"},
 ]
 description="Simple tool for writing events and pipelines in python"
-keywords=["pipeline","events","concurrency","data","pointy"]
+keywords=["pipeline","events","concurrency","data","pointy", "pointy lang"]
 readme = "README.md"
-license = "GPL-3.0-or-later"
+license = { file = "LICENSE" }
 dependencies = [
     "ply==3.11",
     "six==1.17.0",

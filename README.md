@@ -1,4 +1,4 @@
-# Event Pipeline (WIP)
+# Event Pipeline
 
 ## Introduction
 This library provides an easy-to-use framework for defining and managing events and pipelines. 
@@ -276,11 +276,6 @@ def my_event(*args, **kwargs):
     return True, "Event processed successfully"
 ```
 The `@event` decorator registers the function as an event in the pipeline and configures the executor for the event execution.
-
-
-# Testing
-
-TODO: pytest
 
 # Contributing
 We welcome contributions! If you have any improvements, fixes, or new features, 
