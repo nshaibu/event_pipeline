@@ -1,6 +1,13 @@
 import unittest
-from event_pipeline import EventBase
-from event_pipeline.task import PipelineTask, PipeType
+from concurrent.futures import Executor
+from event_pipeline import EventBase, Pipeline
+from event_pipeline.task import (
+    PipelineTask,
+    PipeType,
+    EventExecutionContext,
+    EvaluationContext,
+    EventExecutionEvaluationState,
+)
 
 
 class TestTask(unittest.TestCase):
@@ -90,3 +97,74 @@ class TestTask(unittest.TestCase):
         del cls.B
         del cls.C
         del cls.S
+
+
+class EventExecutionContextTestCase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        class AB(EventBase):
+            execution_evaluation_state = (
+                EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
+            )
+
+            def process(self, *args, **kwargs):
+                return True, "hello world"
+
+        class BC(EventBase):
+            execution_evaluation_state = (
+                EventExecutionEvaluationState.FAILURE_FOR_PARTIAL_ERROR
+            )
+
+            def process(self, name):
+                return True, name
+
+        class CD(EventBase):
+            execution_evaluation_state = (
+                EventExecutionEvaluationState.SUCCESS_FOR_PARTIAL_SUCCESS
+            )
+
+            def process(self, *args, **kwargs):
+                return True, self.previous_result
+
+        class Sink(EventBase):
+            execution_evaluation_state = (
+                EventExecutionEvaluationState.FAILURE_FOR_ALL_EVENTS_FAILURE
+            )
+
+            def process(self, *args, **kwargs):
+                return True, "Sink"
+
+        class Pipe3(Pipeline):
+            class Meta:
+                pointy = "AB||BC||CD"
+
+        cls.AB = AB
+        cls.BC = BC
+        cls.CD = CD
+        cls.Sink = Sink
+        cls.Pipe3 = Pipe3
+
+    def setUp(self):
+        self.pipeline3 = self.Pipe3()
+
+    def test__gather_executors_for_parallel_executions(self):
+        queue = self.pipeline3._state.start
+        tasks = []
+        while queue:
+            tasks.append(queue)
+            queue = queue.on_success_event
+
+        execution_context = EventExecutionContext(tasks, self.pipeline3)
+        executors_map = execution_context._gather_executors_for_parallel_executions()
+        self.assertIsNotNone(executors_map)
+        self.assertIsInstance(executors_map, dict)
+
+        for executor, _map in executors_map.items():
+            self.assertTrue(issubclass(executor, Executor))
+            self.assertIsInstance(_map, dict)
+            self.assertIsInstance(_map["context"], dict)
+
+
+
+
