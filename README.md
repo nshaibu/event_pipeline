@@ -4,7 +4,7 @@
 </div>
 
 
-[![Build Status](https://github.com/nshaibu/event_pipeline/actions/workflows/python-package.yml/badge.svg)](https://github.com/nshaibu/event_pipeline/actions)
+[![Build Status](https://github.com/nshaibu/event_pipeline/actions/workflows/python_package.yml/badge.svg)](https://github.com/nshaibu/event_pipeline/actions)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Status](https://img.shields.io/pypi/status/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
 [![Latest](https://img.shields.io/pypi/v/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
