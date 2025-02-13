@@ -100,6 +100,8 @@ class TestEventBase(unittest.TestCase):
 
         response = event2()
         self.assertIsInstance(response, EventResult)
+        self.assertEqual(response.init_params, event2.get_init_args())
+        self.assertEqual(response.call_params, event2.get_call_args())
 
     def test_instantiate_events_without_process_implementation_throws_exception(self):
         with pytest.raises(TypeError):
