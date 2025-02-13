@@ -13,6 +13,11 @@ from .exceptions import StopProcessingError
 logger = logging.getLogger(__name__)
 
 
+class EvaluationContext(Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+
+
 class EventExecutionEvaluationState(Enum):
     # The event is considered successful only if all the tasks within the event succeeded.If any task fails,
     # the evaluation should be marked as a failure. This state ensures that the event is only successful
@@ -35,7 +40,7 @@ class EventExecutionEvaluationState(Enum):
     FAILURE_FOR_ALL_EVENTS_FAILURE = "Failure (All Tasks Failed)"
 
     def evaluate(
-        self, result: typing.List[EventResult], errors: typing.List[EventResult]
+        self, result: typing.List[EventResult], errors: typing.List[Exception]
     ) -> bool:
         has_success = len(result) > 0
         has_error = len(errors) > 0
@@ -48,6 +53,59 @@ class EventExecutionEvaluationState(Enum):
             return has_error
         else:
             return not has_success and has_error
+
+    def context_evaluation(
+        self,
+        result: typing.List[EventResult],
+        errors: typing.List[Exception],
+        context: EvaluationContext = EvaluationContext.SUCCESS,
+    ) -> bool:
+        """
+        Evaluates the event's outcome based on both the task results and the provided context.
+
+        This method combines the evaluation of the event (via the `evaluate` method) with
+        an additional context (success or failure) to return the final outcome. Depending on
+        the context, the method applies different rules to determine whether the event should
+        be considered a success or failure.
+
+        Parameters:
+            result (typing.List[EventResult]): A list of successful event results.
+            errors (typing.List[Exception]): A list of errors or exceptions encountered during event execution.
+            context (EvaluationContext, optional): The context under which the evaluation should be made.
+                                                   Defaults to `EvaluationContext.SUCCESS`.
+
+        Returns:
+            bool: The final evaluation result of the event. Returns `True` if the event meets
+                  the success or failure criteria defined by the current state and context.
+                  Returns `False` otherwise.
+
+        Logic:
+            - If the context is `EvaluationContext.SUCCESS`:
+                - If the state is either `SUCCESS_ON_ALL_EVENTS_SUCCESS` or `SUCCESS_FOR_PARTIAL_SUCCESS`,
+                  the event is successful if the `evaluate` method returns `True`.
+                - Otherwise, the event is considered a failure if `evaluate` returns `False`.
+            - If the context is not `EvaluationContext.SUCCESS` (i.e., failure-related contexts):
+                - If the state is either `FAILURE_FOR_ALL_EVENTS_FAILURE` or `FAILURE_FOR_PARTIAL_ERROR`,
+                  the event is successful if the `evaluate` method returns `True`.
+                - Otherwise, the event is considered a failure if `evaluate` returns `False`.
+        """
+
+        status = self.evaluate(result, errors)
+
+        if context == EvaluationContext.SUCCESS:
+            if self in [
+                self.SUCCESS_ON_ALL_EVENTS_SUCCESS,
+                self.SUCCESS_FOR_PARTIAL_SUCCESS,
+            ]:
+                return status
+            return not status
+
+        if self in [
+            self.FAILURE_FOR_ALL_EVENTS_FAILURE,
+            self.FAILURE_FOR_PARTIAL_ERROR,
+        ]:
+            return status
+        return not status
 
 
 class EventBase(abc.ABC):

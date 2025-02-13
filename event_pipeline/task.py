@@ -6,7 +6,7 @@ from collections import deque
 from threading import Condition
 from concurrent.futures import Executor, wait, Future
 from enum import Enum, unique
-from .base import EventBase
+from .base import EventBase, EventExecutionEvaluationState, EvaluationContext
 from . import parser
 from .constants import EMPTY, EventResult
 from .utils import generate_unique_id
@@ -168,13 +168,19 @@ class EventExecutionContext(object):
         with self.conditional_variable:
             if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
                 return True
-            return len(self.execution_result) == 0 and self._errors
+            evaluator = self._get_execution_state_evaluator()
+            return evaluator.context_evaluation(
+                self.execution_result, self._errors, context=EvaluationContext.FAILURE
+            )
 
     def execution_success(self):
         with self.conditional_variable:
             if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
                 return False
-            return self.execution_result
+            evaluator = self._get_execution_state_evaluator()
+            return evaluator.context_evaluation(
+                self.execution_result, self._errors, context=EvaluationContext.SUCCESS
+            )
 
     def init_and_execute_events(self) -> typing.List[Future]:
         """
@@ -282,6 +288,39 @@ class EventExecutionContext(object):
         context = get_function_call_args(executor_klass.__init__, context)
 
         return event, context, event_call_arguments
+
+    def _get_last_task_profile_in_chain(self) -> "PipelineTask":
+        """
+        Retrieves the last task profile in the chain of task profiles.
+
+        This method examines the list of task profiles to identify the last task in
+        a pipeline. If there is only one task profile, it returns that profile directly.
+        For multiple task profiles, it iterates through each profile and checks the
+        pointer type associated with the event. Specifically, it looks for a task
+        profile whose pointer type indicates parallelism (PipeType.PARALLELISM) and
+        ensures that its on-success pipe type is not parallelism. This helps in
+        identifying the last task in a sequence when tasks are executed in parallel
+        followed by a task that depends on the success of those parallel tasks.
+
+        Returns:
+            PipelineTask: The last task profile in the chain or the single task profile
+                           if only one exists.
+        """
+        if len(self.task_profiles) == 1:
+            return self.task_profiles[0]
+        for task_profile in self.task_profiles:
+            pointer_to_task = task_profile.get_pointer_type_to_this_event()
+            if (
+                pointer_to_task == PipeType.PARALLELISM
+                and task_profile.on_success_pipe != PipeType.PARALLELISM
+            ):
+                return task_profile
+
+    def _get_execution_state_evaluator(self) -> EventExecutionEvaluationState:
+        # For parallel execution, we use the evaluator of the last task in the chain
+        # i.e for A||B||C, we will use the evaluator of 'C'
+        task_profile = self._get_last_task_profile_in_chain()
+        return task_profile.get_event_klass().execution_evaluation_state
 
     def dispatch(self):
         """
