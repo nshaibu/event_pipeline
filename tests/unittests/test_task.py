@@ -1,4 +1,5 @@
 import unittest
+from collections import deque
 from concurrent.futures import Executor
 from event_pipeline import EventBase, Pipeline
 from event_pipeline.task import (
@@ -164,6 +165,17 @@ class EventExecutionContextTestCase(unittest.TestCase):
             self.assertTrue(issubclass(executor, Executor))
             self.assertIsInstance(_map, dict)
             self.assertIsInstance(_map["context"], dict)
+
+    def test__get_last_task_profile_in_chain(self):
+        queue = self.pipeline3._state.start
+        tasks = deque()
+        while queue:
+            tasks.append(queue)
+            queue = queue.on_success_event
+
+        execution_context = EventExecutionContext(list(tasks), self.pipeline3)
+
+        self.assertEqual(tasks.pop(), execution_context._get_last_task_profile_in_chain())
 
 
 
