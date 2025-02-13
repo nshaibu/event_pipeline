@@ -39,7 +39,7 @@ class EventExecutionEvaluationState(Enum):
     # presence of at least one successful task.
     FAILURE_FOR_ALL_EVENTS_FAILURE = "Failure (All Tasks Failed)"
 
-    def evaluate(
+    def _evaluate(
         self, result: typing.List[EventResult], errors: typing.List[Exception]
     ) -> bool:
         has_success = len(result) > 0
@@ -90,7 +90,7 @@ class EventExecutionEvaluationState(Enum):
                 - Otherwise, the event is considered a failure if `evaluate` returns `False`.
         """
 
-        status = self.evaluate(result, errors)
+        status = self._evaluate(result, errors)
 
         if context == EvaluationContext.SUCCESS:
             if self in [
