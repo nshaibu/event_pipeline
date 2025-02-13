@@ -2,6 +2,7 @@ import abc
 import typing
 import logging
 import multiprocessing as mp
+from enum import Enum
 from concurrent.futures import Executor, ProcessPoolExecutor
 from .constants import EMPTY, EventResult
 from .executors.default_executor import DefaultExecutor
@@ -10,6 +11,43 @@ from .exceptions import StopProcessingError
 
 
 logger = logging.getLogger(__name__)
+
+
+class EventExecutionEvaluationState(Enum):
+    # The event is considered successful only if all the tasks within the event succeeded.If any task fails,
+    # the evaluation should be marked as a failure. This state ensures that the event is only successful
+    # if every task in the execution succeeds. If even one task fails, the overall evaluation will be a failure.
+    SUCCESS_ON_ALL_EVENTS_SUCCESS = "Success (All Tasks Succeeded)"
+
+    # The event is considered a failure if any of the tasks fail. Even if some tasks
+    # succeed, a failure in any one task results in the event being considered a failure.  In this state,
+    # as soon as one task fails, the event is considered a failure, regardless of how many tasks succeed
+    FAILURE_FOR_PARTIAL_ERROR = "Failure (Any Task Failed)"
+
+    # This state treats the event as successful if any task succeeds. Even if other tasks fail, as long as one succeeds,
+    # the event will be considered successful. This can be used in cases where partial success is enough to consider
+    # the event as successful.
+    SUCCESS_FOR_PARTIAL_SUCCESS = "Success (At least one Task Succeeded)"
+
+    # This state ensures the event is only considered a failure if every task fails. If any task succeeds, the event
+    # is marked as successful. This can be helpful in scenarios where the overall success is determined by the
+    # presence of at least one successful task.
+    FAILURE_FOR_ALL_EVENTS_FAILURE = "Failure (All Tasks Failed)"
+
+    def evaluate(
+        self, result: typing.List[EventResult], errors: typing.List[EventResult]
+    ) -> bool:
+        has_success = len(result) > 0
+        has_error = len(errors) > 0
+
+        if self == self.SUCCESS_ON_ALL_EVENTS_SUCCESS:
+            return not has_error and has_success
+        elif self == self.SUCCESS_FOR_PARTIAL_SUCCESS:
+            return has_success
+        elif self == self.FAILURE_FOR_PARTIAL_ERROR:
+            return has_error
+        else:
+            return not has_success and has_error
 
 
 class EventBase(abc.ABC):
@@ -29,6 +67,20 @@ class EventBase(abc.ABC):
                                                   Defaults to EMPTY.
         thread_name_prefix (Union[str, EMPTY]): The prefix to use for naming threads
                                                  in the event execution. Defaults to EMPTY.
+        execution_evaluation_state: (EventExecutionEvaluationState): Focuses purely on the result of the evaluation
+                                    process—whether the event was successful or failed, depending on the tasks.
+
+    SUCCESS_ON_ALL_EVENTS_SUCCESS: The event is considered successful only if all the tasks within the event succeeded.
+    If any task fails, the evaluation should be marked as a failure.
+
+    FAILURE_FOR_PARTIAL_ERROR: The event is considered a failure if any of the tasks fail. Even if some tasks succeed,
+    a failure in any one task results in the event being considered a failure.
+
+    SUCCESS_FOR_PARTIAL_SUCCESS: The event is considered successful if at least one of the tasks succeeded.
+    This means that if any task succeeds, the event will be considered successful, even if others fail.
+
+    FAILURE_FOR_ALL_EVENTS_FAILURE: The event is considered a failure only if all the tasks fail. If any task succeeds,
+    the event is considered a success.
 
     Subclasses must implement the `process` method to define the logic for
     processing pipeline data.
@@ -39,6 +91,10 @@ class EventBase(abc.ABC):
     max_workers: typing.Union[int, EMPTY] = EMPTY
     max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY
     thread_name_prefix: typing.Union[str, EMPTY] = EMPTY
+
+    execution_evaluation_state: EventExecutionEvaluationState = (
+        EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
+    )
 
     def __init__(
         self,
