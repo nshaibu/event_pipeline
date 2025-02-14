@@ -137,6 +137,11 @@ A || B  # Execute A and B in parallel
 A || B |-> C # Execute A and B in parallel then pipe their results to C
 ```
 
+- Broadcasting with one sink node
+```pty
+A !-> B || C || D |-> E
+```
+
 - Two events with result piping
 
 ```pty
