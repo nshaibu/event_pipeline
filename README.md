@@ -290,6 +290,39 @@ def my_event(*args, **kwargs):
 ```
 The `@event` decorator registers the function as an event in the pipeline and configures the executor for the event execution.
 
+## Event Result Evaluation
+The `EventExecutionEvaluationState` class defines the criteria for evaluating the success or failure of an event 
+based on the outcomes of its tasks. The states available are:
+
+- `SUCCESS_ON_ALL_EVENTS_SUCCESS`: The event is considered successful only if all the tasks within the event succeeded. 
+If any task fails, the evaluation is marked as a failure. This is the `default` state.
+
+- `FAILURE_FOR_PARTIAL_ERROR`: The event is considered a failure if any of the tasks fail. Even if some tasks succeed, 
+a failure in any one task results in the event being considered a failure.
+
+- `SUCCESS_FOR_PARTIAL_SUCCESS`: This state treats the event as successful if at least one task succeeds. Even if 
+other tasks fail, the event will be considered successful as long as one succeeds.
+
+- `FAILURE_FOR_ALL_EVENTS_FAILURE`: The event is considered a failure only if all tasks fail. If any task succeeds, 
+the event is marked as successful.
+
+Each state can be used to configure how an event's success or failure is determined, allowing for flexibility 
+in managing workflows.
+
+### Example Usage
+Here's how you can set the execution evaluation state in your event class:
+
+```python
+from event_pipeline import EventBase, EventExecutionEvaluationState
+
+class MyEvent(EventBase):
+    execution_evaluation_state = EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
+    
+    def process(self, *args, **kwargs):
+        return True, "obrafour"
+
+```
+
 # Executing Pipeline
 Execute your pipeline by making calls to the `start` method:
 ```python
