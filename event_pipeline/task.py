@@ -272,7 +272,12 @@ class EventExecutionContext(object):
         event_init_arguments["execution_context"] = self
         event_init_arguments["task_id"] = task_profile.id
 
-        pointer_type = task_profile.get_pointer_type_to_this_event()
+        if task_profile.is_parallel_execution_node:
+            parent = task_profile.get_parallel_execution_parent_node()
+            pointer_type = parent.get_pointer_type_to_this_event()
+        else:
+            pointer_type = task_profile.get_pointer_type_to_this_event()
+
         if pointer_type == PipeType.PIPE_POINTER:
             if self.previous_context:
                 event_init_arguments["previous_result"] = (
@@ -543,6 +548,36 @@ class PipelineTask(object):
         if parent and not self.is_descriptor_task:
             return parent.sink_node == self
         return False
+
+    @property
+    def is_parallel_execution_node(self):
+        """
+        Determines whether the current node is configured for parallel execution.
+
+        This method evaluates whether the current node is configured for parallel execution by
+        checking two conditions:
+        1. It verifies if the `on_success_pipe` of the current node is set to `PipeType.PARALLELISM`.
+        2. It retrieves the pointer type to this event and checks if it is also `PipeType.PARALLELISM`.
+
+        If either of these conditions is true, the method returns True, indicating that parallel execution
+        is applicable; otherwise, it returns False.
+        """
+
+        pointer_to_node = self.get_pointer_type_to_this_event()
+        return (
+            self.on_success_pipe == PipeType.PARALLELISM
+            or pointer_to_node == PipeType.PARALLELISM
+        )
+
+    def get_parallel_execution_parent_node(self):
+        if self.is_parallel_execution_node:
+            if (
+                self.parent_node
+                and self.parent_node.on_success_pipe == PipeType.PARALLELISM
+            ):
+                return self.parent_node.get_parallel_execution_parent_node()
+            else:
+                return self
 
     def get_event_klass(self):
         return self.resolve_event_name(self.event)

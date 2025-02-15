@@ -175,8 +175,6 @@ class EventExecutionContextTestCase(unittest.TestCase):
 
         execution_context = EventExecutionContext(list(tasks), self.pipeline3)
 
-        self.assertEqual(tasks.pop(), execution_context._get_last_task_profile_in_chain())
-
-
-
-
+        self.assertEqual(
+            tasks.pop(), execution_context._get_last_task_profile_in_chain()
+        )

@@ -158,7 +158,7 @@ class EventBase(abc.ABC):
         self,
         execution_context: "EventExecutionContext",
         task_id: str,
-        previous_result=EMPTY,
+        previous_result: typing.Union[typing.List[EventResult], EMPTY] = EMPTY,
         stop_on_exception: bool = False,
     ):
         """
