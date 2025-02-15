@@ -352,7 +352,7 @@ class Pipeline(metaclass=PipelineMeta):
         """
         tree = self.get_pipeline_tree()
         if tree:
-            tree.show(line_type="ascii-emv")
+            print(tree.show(line_type="ascii-emv", stdout=False))
 
     def draw_graphviz_image(self, directory="pipeline-graphs"):
         """
