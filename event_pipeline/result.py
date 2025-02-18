@@ -101,8 +101,8 @@ class ResultSet(Result, MutableSet):
     def __len__(self):
         return len(self.content)
 
-    def __getitem__(self, key: int):
-        return self.content.values()[key]
+    def __getitem__(self, index: int):
+        return self.content.values()[index]
 
     def add(self, result: typing.Union[Result, "ResultSet"]):
         if isinstance(result, ResultSet):
