@@ -6,7 +6,7 @@ from event_pipeline import EventBase
 from event_pipeline.base import EventExecutionEvaluationState, EvaluationContext
 from event_pipeline.task import PipelineTask
 from event_pipeline.decorators import event
-from event_pipeline.constants import EventResult
+from event_pipeline.result import EventResult
 
 
 class TestEventBase(unittest.TestCase):
@@ -135,7 +135,7 @@ class TestEventExecutionEvaluationState(unittest.TestCase):
     def setUp(self):
         self.success_context_without_errors = {
             "context": EvaluationContext.SUCCESS,
-            "result": [EventResult(is_error=False, detail="Success")],
+            "result": [EventResult(error=False, content="Success", event_name="test", task_id="test1")],
             "errors": [],
         }
 
@@ -147,13 +147,13 @@ class TestEventExecutionEvaluationState(unittest.TestCase):
 
         self.success_context_with_both_errors_and_results = {
             "context": EvaluationContext.SUCCESS,
-            "result": [EventResult(is_error=False, detail="Success")],
+            "result": [EventResult(error=False, content="Success", event_name="test", task_id="test2")],
             "errors": [Exception("error")],
         }
 
         self.error_context_without_errors = {
             "context": EvaluationContext.FAILURE,
-            "result": [EventResult(is_error=False, detail="Success")],
+            "result": [EventResult(error=False, content="Success", event_name="test", task_id="test3")],
             "errors": [],
         }
 
@@ -165,7 +165,7 @@ class TestEventExecutionEvaluationState(unittest.TestCase):
 
         self.error_context_with_both_errors_and_results = {
             "context": EvaluationContext.FAILURE,
-            "result": [EventResult(is_error=False, detail="Success")],
+            "result": [EventResult(error=False, content="Success", event_name="test", task_id="test4")],
             "errors": [Exception("error")],
         }
 
