@@ -8,7 +8,8 @@ from concurrent.futures import Executor, wait, Future
 from enum import Enum, unique
 from .base import EventBase, EventExecutionEvaluationState, EvaluationContext
 from . import parser
-from .constants import EMPTY, EventResult
+from .constants import EMPTY
+from .result import EventResult, ResultSet
 from .utils import generate_unique_id
 from .exceptions import (
     PipelineError,
@@ -63,7 +64,7 @@ class EventExecutionContext(object):
         self._execution_end_tp: float = 0
         self.task_profiles = task if isinstance(task, (tuple, list)) else [task]
         self.pipeline = pipeline
-        self.execution_result: typing.List[EventResult] = []
+        self.execution_result: ResultSet = ResultSet([])
         self.state: ExecutionState = ExecutionState.PENDING
 
         self.previous_context: typing.Optional[EventExecutionContext] = None
@@ -385,7 +386,7 @@ class EventExecutionContext(object):
 
             for fut in waited_results.done:
                 try:
-                    result = fut.result()
+                    result: EventResult = fut.result()
                 except Exception as e:
                     params = getattr(e, "params", {})
                     event_name = params.get("event", "Unknown")
@@ -396,24 +397,24 @@ class EventExecutionContext(object):
                         self.state = ExecutionState.CANCELLED
 
                     result = EventResult(
-                        is_error=True,
-                        detail=str(e),
+                        error=True,
+                        content=str(e),
                         task_id=params.get("task_id"),
                         event_name=event_name,
                         init_params=params.get("init_args"),
                         call_params=params.get("call_args"),
                     )
 
-                if result.is_error:
+                if result.error:
                     self._errors.append(
                         PipelineError(
-                            message=result.detail,
+                            message=result.content,
                             code=result.task_id,
-                            params=result._asdict(),
+                            params=result.as_dict(),
                         )
                     )
                 else:
-                    self.execution_result.append(result)
+                    self.execution_result.add(result)
 
 
 @unique

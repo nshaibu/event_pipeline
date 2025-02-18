@@ -6,7 +6,8 @@ import multiprocessing as mp
 from enum import Enum
 from dataclasses import dataclass, field
 from concurrent.futures import Executor, ProcessPoolExecutor
-from .constants import EMPTY, EventResult, MAX_EVENTS_RETRIES, MAX_BACKOFF
+from .result import EventResult
+from .constants import EMPTY, MAX_EVENTS_RETRIES, MAX_BACKOFF
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
 from .exceptions import StopProcessingError, MaxRetryError
@@ -15,6 +16,7 @@ from .exceptions import StopProcessingError, MaxRetryError
 __all__ = [
     "EventBase",
     "RetryPolicy",
+    "EvaluationContext",
     "ExecutorInitializerConfig",
     "EventExecutionEvaluationState",
 ]
@@ -54,10 +56,13 @@ class RetryPolicy(object):
 
 class _RetryMixin(object):
 
-    retry_policy: typing.Optional[RetryPolicy] | typing.Dict[str, typing.Any] = None
+    retry_policy: typing.Union[
+        typing.Optional[RetryPolicy], typing.Dict[str, typing.Any]
+    ] = None
 
     def __init__(self):
         self._retry_count = 0
+        super().__init__()
 
     def get_retry_policy(self) -> RetryPolicy:
         if isinstance(self.retry_policy, dict):
@@ -126,6 +131,61 @@ class _RetryMixin(object):
                     self._sleep_for_backoff()
                     continue
                 raise
+
+
+class _ExecutorInitializerMixin(object):
+
+    executor: typing.Type[Executor] = DefaultExecutor
+
+    executor_config: ExecutorInitializerConfig = None
+
+    def __init__(self):
+        super().__init__()
+
+        self.get_executor_initializer_config()
+
+    @classmethod
+    def get_executor_class(cls) -> typing.Type[Executor]:
+        return cls.executor
+
+    def get_executor_initializer_config(self) -> ExecutorInitializerConfig:
+        if self.executor_config:
+            if isinstance(self.executor_config, dict):
+                self.executor_config = ExecutorInitializerConfig(**self.executor_config)
+        else:
+            self.executor_config = ExecutorInitializerConfig()
+        return self.executor_config
+
+    def is_multiprocessing_executor(self):
+        return self.get_executor_class() == ProcessPoolExecutor
+
+    def get_executor_context(self) -> typing.Dict[str, typing.Any]:
+        """
+        Retrieves the execution context for the event's executor.
+
+        This method determines the appropriate execution context (e.g., multiprocessing context)
+        based on the executor class used for the event. If the executor is configured to use
+        multiprocessing, the context is set to "spawn". Additionally, any parameters required
+        for the executor's initialization are fetched and added to the context.
+
+        The resulting context dictionary is used to configure the executor for the event execution.
+
+        Returns:
+            dict: A dictionary containing the execution context for the event's executor,
+                  including any necessary parameters for initialization and multiprocessing context.
+
+        """
+        executor = self.get_executor_class()
+        context = dict()
+        if self.is_multiprocessing_executor():
+            context["mp_context"] = mp.get_context("spawn")
+        elif hasattr(executor, "get_context"):
+            context["mp_context"] = executor.get_context("spawn")
+        params = get_function_call_args(
+            executor.__init__, self.get_executor_initializer_config()
+        )
+        context.update(params)
+        return context
 
 
 class EvaluationContext(Enum):
@@ -223,43 +283,38 @@ class EventExecutionEvaluationState(Enum):
         return not status
 
 
-class EventBase(_RetryMixin, abc.ABC):
+class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     """
     Abstract base class for event in the pipeline system.
 
     This class serves as a base for event-related tasks and defines common
     properties for event execution, which can be customized in subclasses.
 
-    Attributes:
+    Class Attributes:
         executor (Type[Executor]): The executor type used to handle event execution.
                                     Defaults to DefaultExecutor.
-        max_workers (Union[int, EMPTY]): The maximum number of workers allowed
-                                          for event processing. Defaults to EMPTY.
-        max_tasks_per_child (Union[int, EMPTY]): The maximum number of tasks
-                                                  that can be assigned to each worker.
-                                                  Defaults to EMPTY.
-        thread_name_prefix (Union[str, EMPTY]): The prefix to use for naming threads
-                                                 in the event execution. Defaults to EMPTY.
+        executor_config (ExecutorInitializerConfig): Configuration settings for the executor.
+                                                    Defaults to None.
         execution_evaluation_state: (EventExecutionEvaluationState): Focuses purely on the result of the evaluation
                                     process—whether the event was successful or failed, depending on the tasks.
 
-    SUCCESS_ON_ALL_EVENTS_SUCCESS: The event is considered successful only if all the tasks within the event succeeded.
-    If any task fails, the evaluation should be marked as a failure.
+    Result Evaluation States:
+        SUCCESS_ON_ALL_EVENTS_SUCCESS: The event is considered successful only if all the tasks within the event
+                                        succeeded. If any task fails, the evaluation should be marked as a failure.
 
-    FAILURE_FOR_PARTIAL_ERROR: The event is considered a failure if any of the tasks fail. Even if some tasks succeed,
-    a failure in any one task results in the event being considered a failure.
+        FAILURE_FOR_PARTIAL_ERROR: The event is considered a failure if any of the tasks fail. Even if some tasks
+                                    succeed, a failure in any one task results in the event being considered a failure.
 
-    SUCCESS_FOR_PARTIAL_SUCCESS: The event is considered successful if at least one of the tasks succeeded.
-    This means that if any task succeeds, the event will be considered successful, even if others fail.
+        SUCCESS_FOR_PARTIAL_SUCCESS: The event is considered successful if at least one of the tasks succeeded.
+                                    This means that if any task succeeds, the event will be considered successful,
+                                    even if others fail.
 
-    FAILURE_FOR_ALL_EVENTS_FAILURE: The event is considered a failure only if all the tasks fail. If any task succeeds,
-    the event is considered a success.
+        FAILURE_FOR_ALL_EVENTS_FAILURE: The event is considered a failure only if all the tasks fail. If any task
+                                        succeeds, the event is considered a success.
 
     Subclasses must implement the `process` method to define the logic for
     processing pipeline data.
     """
-
-    executor: typing.Type[Executor] = DefaultExecutor
 
     max_workers: typing.Union[int, EMPTY] = EMPTY
     max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY
@@ -310,13 +365,6 @@ class EventBase(_RetryMixin, abc.ABC):
     def get_call_args(self):
         return self._call_args
 
-    @classmethod
-    def get_executor_class(cls) -> typing.Type[Executor]:
-        return cls.executor
-
-    def get_executor_initializer_config(self) -> typing.Optional[dict]:
-        pass
-
     @abc.abstractmethod
     def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
         """
@@ -337,8 +385,8 @@ class EventBase(_RetryMixin, abc.ABC):
 
     def on_success(self, execution_result) -> EventResult:
         return EventResult(
-            is_error=False,
-            detail=execution_result,
+            error=False,
+            content=execution_result,
             task_id=self._task_id,
             event_name=self.__class__.__name__,
             call_params=self._call_args,
@@ -359,8 +407,8 @@ class EventBase(_RetryMixin, abc.ABC):
                     },
                 )
         return EventResult(
-            is_error=True,
-            detail=execution_result,
+            error=True,
+            content=execution_result,
             task_id=self._task_id,
             event_name=self.__class__.__name__,
             init_params=self._init_args,
@@ -372,35 +420,6 @@ class EventBase(_RetryMixin, abc.ABC):
         for subclass in cls.__subclasses__():
             yield from subclass.get_event_klasses()
             yield subclass
-
-    def is_multiprocessing_executor(self):
-        return self.get_executor_class() == ProcessPoolExecutor
-
-    def get_executor_context(self) -> typing.Dict[str, typing.Any]:
-        """
-        Retrieves the execution context for the event's executor.
-
-        This method determines the appropriate execution context (e.g., multiprocessing context)
-        based on the executor class used for the event. If the executor is configured to use
-        multiprocessing, the context is set to "spawn". Additionally, any parameters required
-        for the executor's initialization are fetched and added to the context.
-
-        The resulting context dictionary is used to configure the executor for the event execution.
-
-        Returns:
-            dict: A dictionary containing the execution context for the event's executor,
-                  including any necessary parameters for initialization and multiprocessing context.
-
-        """
-        executor = self.get_executor_class()
-        context = dict()
-        if self.is_multiprocessing_executor():
-            context["mp_context"] = mp.get_context("spawn")
-        elif hasattr(executor, "get_context"):
-            context["mp_context"] = executor.get_context("spawn")
-        params = get_function_call_args(executor.__init__, self.__class__)
-        context.update(params)
-        return context
 
     def __call__(self, *args, **kwargs):
         self._call_args = get_function_call_args(self.__class__.__call__, locals())

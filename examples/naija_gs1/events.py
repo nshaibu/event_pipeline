@@ -21,7 +21,7 @@ class Upload(EventBase):
 class Commission(EventBase):
     retry_policy = RetryPolicy(
         max_attempts=10,
-        backoff_factor=0.2,
+        backoff_factor=0.02,
         max_backoff=100,
         retry_on_exceptions=[ValueError],
     )
