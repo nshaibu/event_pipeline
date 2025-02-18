@@ -9,7 +9,7 @@ authors = [
     {name = "nshaibu", email = "nafiushaibu1@gmail.com"},
 ]
 description="Simple tool for writing events and pipelines in python"
-keywords=["pipeline","events","concurrency","data","pointy", "pointy lang"]
+keywords=["pipeline","events","concurrency","data","pointy", "pointy lang", "event-pipeline"]
 readme = "README.md"
 license = { file = "LICENSE" }
 dependencies = [
