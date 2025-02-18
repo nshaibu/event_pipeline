@@ -1,6 +1,7 @@
 import typing
 
 from event_pipeline import EventBase
+from event_pipeline.base import RetryPolicy
 
 
 class Serialise(EventBase):
@@ -18,9 +19,16 @@ class Upload(EventBase):
 
 
 class Commission(EventBase):
+    retry_policy = RetryPolicy(
+        max_attempts=10,
+        backoff_factor=0.2,
+        max_backoff=100,
+        retry_on_exceptions=[ValueError],
+    )
 
     def process(self, *args, **kwargs):
         print("Commission")
+        raise ValueError()
         return True, "Commission"
 
 

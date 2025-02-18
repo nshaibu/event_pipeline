@@ -1,16 +1,131 @@
 import abc
 import typing
 import logging
+import time
 import multiprocessing as mp
 from enum import Enum
+from dataclasses import dataclass, field
 from concurrent.futures import Executor, ProcessPoolExecutor
-from .constants import EMPTY, EventResult
+from .constants import EMPTY, EventResult, MAX_EVENTS_RETRIES, MAX_BACKOFF
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
-from .exceptions import StopProcessingError
+from .exceptions import StopProcessingError, MaxRetryError
+
+
+__all__ = [
+    "EventBase",
+    "RetryPolicy",
+    "ExecutorInitializerConfig",
+    "EventExecutionEvaluationState",
+]
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExecutorInitializerConfig(object):
+    """
+    Configuration class for executor initialization.
+
+        max_workers (Union[int, EMPTY]): The maximum number of workers allowed
+                                          for event processing. Defaults to EMPTY.
+        max_tasks_per_child (Union[int, EMPTY]): The maximum number of tasks
+                                                  that can be assigned to each worker.
+                                                  Defaults to EMPTY.
+        thread_name_prefix (Union[str, EMPTY]): The prefix to use for naming threads
+                                                 in the event execution. Defaults to EMPTY.
+    """
+
+    max_workers: typing.Union[int, EMPTY] = EMPTY
+    max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY
+    thread_name_prefix: typing.Union[str, EMPTY] = EMPTY
+
+
+@dataclass
+class RetryPolicy(object):
+    max_attempts: int = field(init=True, default=MAX_EVENTS_RETRIES)
+    backoff_factor: float = field(init=True, default=0.05)
+    max_backoff: float = field(init=True, default=MAX_BACKOFF)
+    retry_on_exceptions: typing.List[typing.Type[Exception]] = field(
+        default_factory=list
+    )
+
+
+class _RetryMixin(object):
+
+    retry_policy: typing.Optional[RetryPolicy] | typing.Dict[str, typing.Any] = None
+
+    def __init__(self):
+        self._retry_count = 0
+
+    def get_retry_policy(self) -> RetryPolicy:
+        if isinstance(self.retry_policy, dict):
+            self.retry_policy = RetryPolicy(**self.retry_policy)
+        return self.retry_policy
+
+    def get_backoff_time(self) -> float:
+        if self.retry_policy is None or self._retry_count <= 1:
+            return 0
+        backoff_value = self.retry_policy.backoff_factor * (
+            2 ** (self._retry_count - 1)
+        )
+        return min(backoff_value, self.retry_policy.max_backoff)
+
+    def _sleep_for_backoff(self):
+        backoff = self.get_backoff_time()
+        if backoff <= 0:
+            return
+        time.sleep(backoff)
+
+    def is_retryable(self, exception: Exception) -> bool:
+        return (
+            self.retry_policy
+            and self.retry_policy.retry_on_exceptions
+            and isinstance(exception, Exception)
+            and any(
+                [
+                    isinstance(exception, exc)
+                    and exception.__class__.__name__ == exc.__name__
+                    for exc in self.retry_policy.retry_on_exceptions
+                    if exc
+                ]
+            )
+        )
+
+    def is_exhausted(self):
+        return (
+            self.retry_policy is None
+            or self._retry_count >= self.retry_policy.max_attempts
+        )
+
+    def retry(
+        self, func: typing.Callable, /, *args, **kwargs
+    ) -> typing.Tuple[bool, typing.Any]:
+        if self.retry_policy is None:
+            return func(*args, **kwargs)
+
+        while True:
+            if self.is_exhausted():
+                raise MaxRetryError(
+                    attempt=self._retry_count,
+                    reason="Retryable event is already exhausted",
+                )
+
+            logger.info(
+                "Retrying event {}, attempt {}...".format(
+                    self.__class__.__name__, self._retry_count
+                )
+            )
+
+            try:
+                self._retry_count += 1
+                return func(*args, **kwargs)
+            except Exception as exc:
+                if self.is_retryable(exc):
+                    self._sleep_for_backoff()
+                    continue
+                raise
 
 
 class EvaluationContext(Enum):
@@ -108,7 +223,7 @@ class EventExecutionEvaluationState(Enum):
         return not status
 
 
-class EventBase(abc.ABC):
+class EventBase(_RetryMixin, abc.ABC):
     """
     Abstract base class for event in the pipeline system.
 
@@ -177,10 +292,14 @@ class EventBase(abc.ABC):
                                                  if an exception occurs. Defaults to `False`.
 
         """
+        super().__init__()
+
         self._execution_context = execution_context
         self._task_id = task_id
         self.previous_result = previous_result
         self.stop_on_exception = stop_on_exception
+
+        self.get_retry_policy()  # config retry if error
 
         self._init_args = get_function_call_args(self.__class__.__init__, locals())
         self._call_args = EMPTY
@@ -194,6 +313,9 @@ class EventBase(abc.ABC):
     @classmethod
     def get_executor_class(cls) -> typing.Type[Executor]:
         return cls.executor
+
+    def get_executor_initializer_config(self) -> typing.Optional[dict]:
+        pass
 
     @abc.abstractmethod
     def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
@@ -283,7 +405,9 @@ class EventBase(abc.ABC):
     def __call__(self, *args, **kwargs):
         self._call_args = get_function_call_args(self.__class__.__call__, locals())
         try:
-            self._execution_status, execution_result = self.process(*args, **kwargs)
+            self._execution_status, execution_result = self.retry(
+                self.process, *args, **kwargs
+            )
         except Exception as e:
             logger.exception(str(e), exc_info=e)
             return self.on_failure(e)

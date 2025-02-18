@@ -43,3 +43,18 @@ class StopProcessingError(RuntimeError, PipelineError):
     def __init__(self, *args, exception=None, **kwargs):
         self.exception = exception
         super().__init__(*args, **kwargs)
+
+
+class MaxRetryError(Exception):
+    """
+    Raised when the maximum number of retries is exceeded.
+    """
+
+    def __init__(self, attempt, reason=None):
+        self.reason = reason
+        self.attempt = attempt
+        message = "Max retries exceeded: %s (Caused by %r)" % (
+            self.attempt,
+            self.reason,
+        )
+        super().__init__(message)
