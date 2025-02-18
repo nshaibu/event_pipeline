@@ -26,6 +26,9 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 
+if typing.TYPE_CHECKING:
+    from .pipeline import Pipeline
+
 
 class ExecutionState(Enum):
     PENDING = "pending"
@@ -603,7 +606,7 @@ class PipelineTask(object):
         yield from EventBase.get_event_klasses()
 
     @classmethod
-    def build_pipeline_from_execution_code(cls, code: str):
+    def build_pipeline_from_execution_code(cls, code: str) -> "PipelineTask":
         """
         Constructs a pipeline based on the provided execution code.
 
@@ -615,7 +618,7 @@ class PipelineTask(object):
                         operations or instructions to construct the pipeline.
 
         Returns:
-            Pipeline: The constructed pipeline based on the provided execution code.
+            PipelineTask: The constructed pipeline based on the provided execution code.
 
         Raises:
             SyntaxError: If the execution code is invalid or cannot be parsed to form a pipeline.

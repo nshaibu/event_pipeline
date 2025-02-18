@@ -135,7 +135,11 @@ class TestEventExecutionEvaluationState(unittest.TestCase):
     def setUp(self):
         self.success_context_without_errors = {
             "context": EvaluationContext.SUCCESS,
-            "result": [EventResult(error=False, content="Success", event_name="test", task_id="test1")],
+            "result": [
+                EventResult(
+                    error=False, content="Success", event_name="test", task_id="test1"
+                )
+            ],
             "errors": [],
         }
 
@@ -147,13 +151,21 @@ class TestEventExecutionEvaluationState(unittest.TestCase):
 
         self.success_context_with_both_errors_and_results = {
             "context": EvaluationContext.SUCCESS,
-            "result": [EventResult(error=False, content="Success", event_name="test", task_id="test2")],
+            "result": [
+                EventResult(
+                    error=False, content="Success", event_name="test", task_id="test2"
+                )
+            ],
             "errors": [Exception("error")],
         }
 
         self.error_context_without_errors = {
             "context": EvaluationContext.FAILURE,
-            "result": [EventResult(error=False, content="Success", event_name="test", task_id="test3")],
+            "result": [
+                EventResult(
+                    error=False, content="Success", event_name="test", task_id="test3"
+                )
+            ],
             "errors": [],
         }
 
@@ -165,7 +177,11 @@ class TestEventExecutionEvaluationState(unittest.TestCase):
 
         self.error_context_with_both_errors_and_results = {
             "context": EvaluationContext.FAILURE,
-            "result": [EventResult(error=False, content="Success", event_name="test", task_id="test4")],
+            "result": [
+                EventResult(
+                    error=False, content="Success", event_name="test", task_id="test4"
+                )
+            ],
             "errors": [Exception("error")],
         }
 

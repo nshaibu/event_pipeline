@@ -1,8 +1,8 @@
 import typing
-from abc import ABC
 from collections.abc import MutableSet
 from .constants import EMPTY
 from .utils import generate_unique_id
+from .exceptions import MultiValueError
 
 __all__ = ["EventResult", "ResultSet"]
 
@@ -16,15 +16,21 @@ EventResultInitVar = typing.TypeVar(
 
 class Result(object):
 
-    def __init__(self, error, content: typing.Any, content_type: typing.Type = None):
+    def __init__(
+        self,
+        error,
+        content: typing.Any,
+        content_type: typing.Type = None,
+        content_processor: typing.Callable[[typing.Any], typing.Any] = None,
+    ):
         generate_unique_id(self)
 
         self.error: bool = error
         self.content: typing.Any = content
         self._content_type: typing.Type = (
-            type(content) if content_type is not None else content_type
+            type(content) if content_type is None else content_type
         )
-        self._content_processors: typing.List[typing.Callable] = []
+        self._content_processor: typing.Callable = content_processor
 
     @property
     def id(self) -> str:
@@ -33,20 +39,23 @@ class Result(object):
     def __hash__(self):
         return hash(self.id)
 
+    def get_content_type(self) -> typing.Any:
+        return self._content_type
+
     @staticmethod
     def _resolve_list(value: typing.Collection, type_: typing.Type) -> typing.Any:
         return type_(
             [val.as_dict() if hasattr(val, "as_dict") else val for val in value]
         )
 
-    def as_dict(self) -> typing.Dict[str, typing.Any]:
+    def as_dict(self, ignore_private: bool = True) -> typing.Dict[str, typing.Any]:
         obj = {"id": self.id}
         for field, value in self.__dict__.items():
-            if callable(value):
+            if callable(value) or ignore_private and field.startswith("_"):
                 continue
 
             if isinstance(value, Result):
-                obj[field] = value.as_dict()
+                obj[field] = value.as_dict(ignore_private=ignore_private)
             elif isinstance(value, list):
                 obj[field] = self._resolve_list(value, list)
             elif isinstance(value, set):
@@ -54,7 +63,13 @@ class Result(object):
             elif isinstance(value, tuple):
                 obj[field] = self._resolve_list(value, tuple)
             else:
-                obj[field] = value
+                if field == "content":
+                    if self._content_processor and callable(self._content_processor):
+                        obj[field] = self._content_processor(value)
+                    else:
+                        obj[field] = value
+                else:
+                    obj[field] = value
         return obj
 
     def __getstate__(self):
@@ -74,8 +89,9 @@ class EventResult(Result):
         content: typing.Any,
         init_params: EventResultInitVar = EMPTY,
         call_params: EventResultInitVar = EMPTY,
+        content_processor: typing.Callable[[typing.Any], typing.Any] = None,
     ):
-        super().__init__(error, content)
+        super().__init__(error, content, content_processor=content_processor)
 
         self.task_id: typing.Union[int, str] = task_id
         self.event_name: typing.Union[str, None] = event_name
@@ -125,8 +141,13 @@ class ResultSet(Result, MutableSet):
         new.content.update(self.content.copy())
         return new
 
-    def filter(self, **filter_params) -> "ResultSet":
+    def get(self, **filters: typing.Any) -> Result:
+        qs = self.filter(**filters)
+        if len(qs) > 1:
+            raise MultiValueError("More than one result found. {}!=1".format(len(qs)))
+        return qs[0]
 
+    def filter(self, **filter_params) -> "ResultSet":
         if "id" in filter_params:
             pk = filter_params["id"]
             try:
@@ -134,32 +155,15 @@ class ResultSet(Result, MutableSet):
             except KeyError:
                 return ResultSet([])
 
-        def match_conditions(item):
-            for key, value in filter_params.items():
-                normalized_key = key.replace("_", ".")
-                parts = normalized_key.split(".")
-
-                # Traverse nested dictionaries
-                current = item
-                for part in parts[:-1]:
-                    if isinstance(current, dict) and part in current:
-                        current = current[part]
-                    else:
-                        break
-                else:
-                    final_key = parts[-1]
-                    if isinstance(current, dict) and final_key in current:
-                        current_value = current[final_key]
-                        # Special handling for list membership
-                        if isinstance(current_value, list):
-                            if value not in current_value:
-                                return False
-                        else:
-                            if current_value != value:
-                                return False
-                    else:
-                        return False
-            return True
+        def match_conditions(result):
+            # TODO: implement filter for nested dict and list
+            return all(
+                [
+                    getattr(result, key, None) == value
+                    for key, value in filter_params.items()
+                    if hasattr(result, key)
+                ]
+            )
 
         return ResultSet(list(filter(match_conditions, self.content.values())))
 

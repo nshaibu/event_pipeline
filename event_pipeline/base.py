@@ -6,7 +6,7 @@ import multiprocessing as mp
 from enum import Enum
 from dataclasses import dataclass, field
 from concurrent.futures import Executor, ProcessPoolExecutor
-from .result import EventResult
+from .result import EventResult, ResultSet
 from .constants import EMPTY, MAX_EVENTS_RETRIES, MAX_BACKOFF
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
@@ -23,6 +23,9 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
+
+if typing.TYPE_CHECKING:
+    from .task import EventExecutionContext
 
 
 @dataclass
@@ -214,9 +217,7 @@ class EventExecutionEvaluationState(Enum):
     # presence of at least one successful task.
     FAILURE_FOR_ALL_EVENTS_FAILURE = "Failure (All Tasks Failed)"
 
-    def _evaluate(
-        self, result: typing.List[EventResult], errors: typing.List[Exception]
-    ) -> bool:
+    def _evaluate(self, result: ResultSet, errors: typing.List[Exception]) -> bool:
         has_success = len(result) > 0
         has_error = len(errors) > 0
 
@@ -231,7 +232,7 @@ class EventExecutionEvaluationState(Enum):
 
     def context_evaluation(
         self,
-        result: typing.List[EventResult],
+        result: ResultSet,
         errors: typing.List[Exception],
         context: EvaluationContext = EvaluationContext.SUCCESS,
     ) -> bool:
@@ -244,7 +245,7 @@ class EventExecutionEvaluationState(Enum):
         be considered a success or failure.
 
         Parameters:
-            result (typing.List[EventResult]): A list of successful event results.
+            result (ResultSet): A list of successful event results.
             errors (typing.List[Exception]): A list of errors or exceptions encountered during event execution.
             context (EvaluationContext, optional): The context under which the evaluation should be made.
                                                    Defaults to `EvaluationContext.SUCCESS`.

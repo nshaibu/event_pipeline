@@ -14,6 +14,10 @@ from treelib.tree import Tree
 
 from .constants import EMPTY
 
+if typing.TYPE_CHECKING:
+    from .base import EventBase
+    from .pipeline import Pipeline
+
 logger = logging.getLogger(__name__)
 
 
@@ -124,7 +128,7 @@ def build_event_arguments_from_pipeline(
 
 
 def get_function_call_args(
-    func, params: typing.Union[typing.Dict[str, typing.Any], "Pipeline"]
+    func, params: typing.Union[typing.Dict[str, typing.Any], "Pipeline", object]
 ) -> typing.Dict[str, typing.Any]:
     """
     Extracts the arguments for a function call from the provided parameters.
