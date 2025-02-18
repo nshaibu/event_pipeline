@@ -10,21 +10,21 @@ class GeneratorEvent(EventBase):
 class ParallelAEvent(EventBase):
 
     def process(self, *args, **kwargs):
-        previous_value = self.previous_result[0].detail
+        previous_value = self.previous_result[0].content
         return True, previous_value
 
 
 class ParallelBEvent(EventBase):
 
     def process(self, *args, **kwargs):
-        previous_value = self.previous_result[0].detail
+        previous_value = self.previous_result[0].content
         return True, previous_value
 
 
 class ParallelCEvent(EventBase):
 
     def process(self, *args, **kwargs):
-        previous_value = self.previous_result[0].detail
+        previous_value = self.previous_result[0].content
         return True, previous_value
 
 
@@ -32,5 +32,5 @@ class PrinterEvent(EventBase):
 
     def process(self, *args, **kwargs):
         for e in self.previous_result:
-            print(f"{e.event_name} -> {e.detail}")
+            print(f"{e.event_name} -> {e.content}")
         return True, None
