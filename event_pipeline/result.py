@@ -15,6 +15,7 @@ EventResultInitVar = typing.TypeVar(
 
 
 class Result(object):
+    backend = None
 
     def __init__(
         self,
