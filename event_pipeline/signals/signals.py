@@ -2,6 +2,7 @@ import typing
 import weakref
 import logging
 import threading
+from inspect import Signature, Parameter
 
 
 logger = logging.getLogger(__name__)
@@ -15,12 +16,29 @@ class SoftSignal(object):
         elif not isinstance(provide_args, (list, tuple)):
             provide_args = tuple(provide_args)
 
-        self.provide_args = set(provide_args)
+        self._provide_args = set(provide_args)
+        if "sender" not in self._provide_args:
+            self._provide_args.add("sender")
+
+        if "signal" not in self._provide_args:
+            self._provide_args.add("signal")
 
         self.lock = threading.Lock()
 
         # Initialize a dict to hold connected listeners as weak references
         self._listeners: typing.Dict[typing.Any, typing.Set[weakref.ReferenceType]] = {}
+
+    def _construct_listener_arguments(self, *args, **kwargs):
+        params = [
+            Parameter(
+                name=name,
+                annotation=typing.Any,
+                default=None,
+                kind=Parameter.KEYWORD_ONLY,
+            )
+            for name in self._provide_args
+        ]
+        return Signature(params)
 
     def emit(
         self, sender: typing.Any, **kwargs
@@ -39,8 +57,11 @@ class SoftSignal(object):
             for weak_listener in self._listeners[sender]:
                 listener = weak_listener()  # Get the listener from the weak reference
                 if listener:  # Check if the listener is still alive
+                    bounded_args = self._construct_listener_arguments().bind(
+                        signal=self, sender=sender, **kwargs
+                    )
                     try:
-                        response = listener(signal=self, sender=sender, **kwargs)
+                        response = listener(**bounded_args.kwargs)
                     except Exception as e:
                         logger.exception(str(e), exc_info=e)
                         response = e
