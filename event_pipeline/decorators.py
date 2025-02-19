@@ -41,3 +41,42 @@ def event(
         return task
 
     return worker
+
+
+def listener(signal, **kwargs):
+    """
+    A decorator to connect a callback function to a specified signal or signals.
+
+    This function allows you to easily connect a callback to one or more signals, enabling
+    it to be invoked when the signal is emitted.
+
+    Usage:
+
+        @listener(task_submit, sender=MyModel)
+        def callback(sender, **kwargs):
+            # This callback will be executed when the post_save signal is emitted
+            ...
+
+        @listener([task_submit, pipeline_init], sender=MyModel)
+        def callback(sender, **kwargs):
+            # This callback will be executed for both post_save and post_delete signals
+            pass
+
+    Args:
+        signal (Union[Signal, List[Signal]]): A single signal or a list of signals to which the
+                                               callback function will be connected.
+        **kwargs: Additional keyword arguments that can be passed to the signal's connect method.
+
+    Returns:
+        function: The original callback function wrapped with the connection logic.
+    """
+
+    def wrapper(func):
+        if isinstance(signal, (list, tuple)):
+            for s in signal:
+                s.connect(func, **kwargs)
+        else:
+            signal.connect(func, **kwargs)
+        return func
+
+    return wrapper
