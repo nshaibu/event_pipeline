@@ -11,7 +11,7 @@ from .constants import EMPTY, MAX_EVENTS_RETRIES, MAX_BACKOFF
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
 from .exceptions import StopProcessingError, MaxRetryError
-from .signals.signals import event_execution_retry, event_execution_retry_done
+from .signal.signals import event_execution_retry, event_execution_retry_done
 
 
 __all__ = [
