@@ -23,7 +23,8 @@ from .utils import (
     get_function_call_args,
     AcquireReleaseLock,
 )
-from .signals.signals import (
+from .signal.signals import (
+    SoftSignal,
     event_execution_start,
     event_execution_end,
     event_execution_init,
@@ -33,6 +34,11 @@ logger = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
     from .pipeline import Pipeline
+
+
+def attach_signal_emitter(future: Future, signal: SoftSignal, **signal_kwargs) -> None:
+    signal_kwargs["future"] = future
+    signal.emit(**signal_kwargs)
 
 
 class ExecutionState(Enum):
@@ -234,20 +240,56 @@ class EventExecutionContext(object):
                 event_config = list(execution_config.values())[0]
 
                 with executor_klass(**executor_klass_config) as executor:
+                    event_execution_start.emit(
+                        sender=self.__class__,
+                        event=event_config["event"],
+                        execution_context=self,
+                    )
+
                     future = executor.submit(
                         event_config["event"], **event_config["call_args"]
+                    )
+                    future.add_done_callback(
+                        lambda fut: attach_signal_emitter(
+                            fut,
+                            signal=event_execution_end,
+                            sender=self.__class__,
+                            event=event_config["event"],
+                            execution_context=self,
+                        )
                     )
                     futures.append(future)
             else:
                 # parallel execution with common executor
                 with executor_klass(**executor_klass_config) as executor:
-                    future = [
-                        executor.submit(
+
+                    # future = [
+                    #     executor.submit(
+                    #         event_config["event"], **event_config["call_args"]
+                    #     )
+                    #     for _, event_config in execution_config.items()
+                    # ]
+                    # futures.extend(future)
+
+                    for _, event_config in execution_config.items():
+                        event_execution_start.emit(
+                            sender=self.__class__,
+                            event=event_config["event"],
+                            execution_context=self,
+                        )
+                        future = executor.submit(
                             event_config["event"], **event_config["call_args"]
                         )
-                        for _, event_config in execution_config.items()
-                    ]
-                    futures.extend(future)
+                        future.add_done_callback(
+                            lambda fut: attach_signal_emitter(
+                                fut,
+                                signal=event_execution_end,
+                                sender=self.__class__,
+                                event=event_config["event"],
+                                execution_context=self,
+                            )
+                        )
+                        futures.append(future)
 
         return futures
 

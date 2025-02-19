@@ -160,7 +160,7 @@ event_execution_init = SoftSignal(
     provide_args=["event", "execution_context", "executor", "call_kwargs"]
 )
 event_execution_start = SoftSignal(provide_args=["event", "execution_context"])
-event_execution_end = SoftSignal(provide_args=["event", "execution_context"])
+event_execution_end = SoftSignal(provide_args=["event", "execution_context", "future"])
 event_execution_retry = SoftSignal(
     provide_args=[
         "event",

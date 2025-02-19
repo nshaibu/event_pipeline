@@ -74,9 +74,9 @@ def listener(signal, **kwargs):
     def wrapper(func):
         if isinstance(signal, (list, tuple)):
             for s in signal:
-                s.connect(func, **kwargs)
+                s.connect(listener=func, **kwargs)
         else:
-            signal.connect(func, **kwargs)
+            signal.connect(listener=func, **kwargs)
         return func
 
     return wrapper

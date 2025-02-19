@@ -12,7 +12,7 @@ try:
 except ImportError:
     graphviz = None
 
-from .signals.signals import (
+from .signal.signals import (
     pipeline_pre_init,
     pipeline_post_init,
     pipeline_execution_start,
