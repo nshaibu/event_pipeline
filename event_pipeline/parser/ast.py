@@ -34,7 +34,7 @@ class Descriptor(object):
 
 
 def df_traverse_post_order(
-    node: typing.Union[BinOp, ConditionalBinOP, TaskName, Descriptor]
+    node: typing.Union[BinOp, ConditionalBinOP, TaskName, Descriptor],
 ):
     if node:
         if isinstance(node, (BinOp, ConditionalBinOP)):

@@ -205,6 +205,40 @@ class EventExecutionContext(object):
                 self.execution_result, self._errors, context=EvaluationContext.SUCCESS
             )
 
+    def _submit_event_to_executor(
+        self, executor: Executor, event_config: typing.Dict[str, typing.Any]
+    ) -> Future:
+        """
+        Submits an event for execution by the provided executor.
+
+        Args:
+            executor (Executor): The executor responsible for running the event task.
+                This could be a ThreadPoolExecutor, ProcessPoolExecutor, or any other
+                executor implementing the 'Executor' interface.
+            event_config (dict): A dictionary containing data for the event.
+
+        Returns:
+            Future
+        """
+
+        event_execution_start.emit(
+            sender=self.__class__,
+            event=event_config["event"],
+            execution_context=self,
+        )
+
+        future = executor.submit(event_config["event"], **event_config["call_args"])
+        future.add_done_callback(
+            lambda fut: attach_signal_emitter(
+                fut,
+                signal=event_execution_end,
+                sender=self.__class__,
+                event=event_config["event"],
+                execution_context=self,
+            )
+        )
+        return future
+
     def init_and_execute_events(self) -> typing.List[Future]:
         """
         Initializes and executes events in parallel, returning a list of Future objects representing the execution
@@ -240,55 +274,13 @@ class EventExecutionContext(object):
                 event_config = list(execution_config.values())[0]
 
                 with executor_klass(**executor_klass_config) as executor:
-                    event_execution_start.emit(
-                        sender=self.__class__,
-                        event=event_config["event"],
-                        execution_context=self,
-                    )
-
-                    future = executor.submit(
-                        event_config["event"], **event_config["call_args"]
-                    )
-                    future.add_done_callback(
-                        lambda fut: attach_signal_emitter(
-                            fut,
-                            signal=event_execution_end,
-                            sender=self.__class__,
-                            event=event_config["event"],
-                            execution_context=self,
-                        )
-                    )
+                    future = self._submit_event_to_executor(executor, event_config)
                     futures.append(future)
             else:
                 # parallel execution with common executor
                 with executor_klass(**executor_klass_config) as executor:
-
-                    # future = [
-                    #     executor.submit(
-                    #         event_config["event"], **event_config["call_args"]
-                    #     )
-                    #     for _, event_config in execution_config.items()
-                    # ]
-                    # futures.extend(future)
-
                     for _, event_config in execution_config.items():
-                        event_execution_start.emit(
-                            sender=self.__class__,
-                            event=event_config["event"],
-                            execution_context=self,
-                        )
-                        future = executor.submit(
-                            event_config["event"], **event_config["call_args"]
-                        )
-                        future.add_done_callback(
-                            lambda fut: attach_signal_emitter(
-                                fut,
-                                signal=event_execution_end,
-                                sender=self.__class__,
-                                event=event_config["event"],
-                                execution_context=self,
-                            )
-                        )
+                        future = self._submit_event_to_executor(executor, event_config)
                         futures.append(future)
 
         return futures

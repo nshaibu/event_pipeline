@@ -1,8 +1,10 @@
+from abc import ABC, abstractmethod
 
-class Connection:
+
+class Connection(ABC):
+
     def __init__(self, connection):
-        self.connection = connection
-        self.cursor = connection.cursor()
+        pass
 
     def runshell(self):
-        pass
+        raise NotImplementedError

@@ -1,3 +1,5 @@
+import os
+import json
 import typing
 from collections.abc import MutableSet
 from .constants import EMPTY
@@ -22,16 +24,17 @@ class Result(object):
         error,
         content: typing.Any,
         content_type: typing.Type = None,
-        content_processor: typing.Callable[[typing.Any], typing.Any] = None,
+        content_serializer: typing.Callable[[typing.Any], typing.Any] = None,
     ):
         generate_unique_id(self)
 
         self.error: bool = error
+        self.process_id = os.getpid()
         self.content: typing.Any = content
-        self._content_type: typing.Type = (
+        self.content_type: typing.Type = (
             type(content) if content_type is None else content_type
         )
-        self._content_processor: typing.Callable = content_processor
+        self._content_serializer: typing.Callable = content_serializer
 
     @property
     def id(self) -> str:
@@ -41,7 +44,7 @@ class Result(object):
         return hash(self.id)
 
     def get_content_type(self) -> typing.Any:
-        return self._content_type
+        return self.content_type
 
     @staticmethod
     def _resolve_list(value: typing.Collection, type_: typing.Type) -> typing.Any:
@@ -65,13 +68,16 @@ class Result(object):
                 obj[field] = self._resolve_list(value, tuple)
             else:
                 if field == "content":
-                    if self._content_processor and callable(self._content_processor):
-                        obj[field] = self._content_processor(value)
+                    if self._content_serializer and callable(self._content_serializer):
+                        obj[field] = self._content_serializer(value)
                     else:
                         obj[field] = value
                 else:
                     obj[field] = value
         return obj
+
+    def as_json(self, ignore_private: bool = True) -> str:
+        return json.dumps(self.as_dict(ignore_private=ignore_private))
 
     def __getstate__(self):
         return self.__dict__.copy()
@@ -90,9 +96,9 @@ class EventResult(Result):
         content: typing.Any,
         init_params: EventResultInitVar = EMPTY,
         call_params: EventResultInitVar = EMPTY,
-        content_processor: typing.Callable[[typing.Any], typing.Any] = None,
+        content_serializer: typing.Callable[[typing.Any], typing.Any] = None,
     ):
-        super().__init__(error, content, content_processor=content_processor)
+        super().__init__(error, content, content_serializer=content_serializer)
 
         self.task_id: typing.Union[int, str] = task_id
         self.event_name: typing.Union[str, None] = event_name
