@@ -148,8 +148,8 @@ pipeline_pre_init = SoftSignal(provide_args=["cls", "args", "kwargs"])
 pipeline_post_init = SoftSignal(provide_args=["pipeline"])
 
 
-pipeline_shutdown = SoftSignal(provide_args=[])
-pipeline_stop = SoftSignal(provide_args=[])
+pipeline_shutdown = SoftSignal(provide_args=["pipeline"])
+pipeline_stop = SoftSignal(provide_args=["pipeline"])
 
 
 pipeline_execution_start = SoftSignal(provide_args=["pipeline"])

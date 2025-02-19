@@ -12,8 +12,17 @@
 
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
+# Table of Contents
+1. [Introduction](#Introduction)
+   1. [Installation](#Installation)
+   2. [Requirements](#Requirements)
+2. [Usage](#Usage)
+   1. [Defining Pipelines](#define-pipeline)
+   2. [Defining input data field](#defining-input-data-field)
+   3. [Defining Pipeline Structure Using Pointy language](#defining-pipeline-structure)
+   4. [Pointy Language](#pointy-language)
 
-## Introduction
+# Introduction
 This library provides an easy-to-use framework for defining and managing events and pipelines. 
 It allows you to create events, process data through a series of tasks, and manage complex workflows
 with minimal overhead. The library is designed to be extensible and flexible, enabling developers to 
