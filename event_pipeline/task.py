@@ -23,6 +23,11 @@ from .utils import (
     get_function_call_args,
     AcquireReleaseLock,
 )
+from .signals.signals import (
+    event_execution_start,
+    event_execution_end,
+    event_execution_init,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +110,14 @@ class EventExecutionContext(object):
         for task in self.task_profiles:
             event, context, event_call_args = self._get_executor_context_and_event(task)
             executor = event.get_executor_class()
+
+            event_execution_init.emit(
+                sender=self.__class__,
+                event=event,
+                execution_context=self,
+                executor=executor,
+                call_kwargs=event_call_args,
+            )
 
             if executor in executors_map:
                 executors_map[executor][event] = {

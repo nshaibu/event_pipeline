@@ -11,6 +11,7 @@ from .constants import EMPTY, MAX_EVENTS_RETRIES, MAX_BACKOFF
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
 from .exceptions import StopProcessingError, MaxRetryError
+from .signals.signals import event_execution_retry, event_execution_retry_done
 
 
 __all__ = [
@@ -80,11 +81,12 @@ class _RetryMixin(object):
         )
         return min(backoff_value, self.retry_policy.max_backoff)
 
-    def _sleep_for_backoff(self):
+    def _sleep_for_backoff(self) -> float:
         backoff = self.get_backoff_time()
         if backoff <= 0:
-            return
+            return 0
         time.sleep(backoff)
+        return backoff
 
     def is_retryable(self, exception: Exception) -> bool:
         return (
@@ -115,6 +117,13 @@ class _RetryMixin(object):
 
         while True:
             if self.is_exhausted():
+                event_execution_retry_done.emit(
+                    sender=self._execution_context.__class__,
+                    event=self,
+                    execution_context=self._execution_context,
+                    task_id=self._task_id,
+                    max_attempts=self.retry_policy.max_attempts,
+                )
                 raise MaxRetryError(
                     attempt=self._retry_count,
                     reason="Retryable event is already exhausted",
@@ -131,7 +140,17 @@ class _RetryMixin(object):
                 return func(*args, **kwargs)
             except Exception as exc:
                 if self.is_retryable(exc):
-                    self._sleep_for_backoff()
+                    back_off = self._sleep_for_backoff()
+
+                    event_execution_retry.emit(
+                        sender=self._execution_context.__class__,
+                        event=self,
+                        backoff=back_off,
+                        retry_count=self._retry_count,
+                        max_attempts=self.retry_policy.max_attempts,
+                        execution_context=self._execution_context,
+                        task_id=self._task_id,
+                    )
                     continue
                 raise
 

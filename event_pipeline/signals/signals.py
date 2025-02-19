@@ -25,15 +25,16 @@ class SoftSignal(object):
 
         self.lock = threading.Lock()
 
+        self._emit_signature = self._construct_listener_arguments()
+
         # Initialize a dict to hold connected listeners as weak references
         self._listeners: typing.Dict[typing.Any, typing.Set[weakref.ReferenceType]] = {}
 
-    def _construct_listener_arguments(self, *args, **kwargs):
+    def _construct_listener_arguments(self):
         params = [
             Parameter(
                 name=name,
                 annotation=typing.Any,
-                default=None,
                 kind=Parameter.KEYWORD_ONLY,
             )
             for name in self._provide_args
@@ -57,7 +58,7 @@ class SoftSignal(object):
             for weak_listener in self._listeners[sender]:
                 listener = weak_listener()  # Get the listener from the weak reference
                 if listener:  # Check if the listener is still alive
-                    bounded_args = self._construct_listener_arguments().bind(
+                    bounded_args = self._emit_signature.bind(
                         signal=self, sender=sender, **kwargs
                     )
                     try:
@@ -141,3 +142,35 @@ class SoftSignal(object):
                         self._listeners[sender].remove(listener)
                     except KeyError:
                         pass
+
+
+pipeline_pre_init = SoftSignal(provide_args=["cls", "args", "kwargs"])
+pipeline_post_init = SoftSignal(provide_args=["pipeline"])
+
+
+pipeline_shutdown = SoftSignal(provide_args=[])
+pipeline_stop = SoftSignal(provide_args=[])
+
+
+pipeline_execution_start = SoftSignal(provide_args=["pipeline"])
+pipeline_execution_end = SoftSignal(provide_args=["execution_context"])
+
+
+event_execution_init = SoftSignal(
+    provide_args=["event", "execution_context", "executor", "call_kwargs"]
+)
+event_execution_start = SoftSignal(provide_args=["event", "execution_context"])
+event_execution_end = SoftSignal(provide_args=["event", "execution_context"])
+event_execution_retry = SoftSignal(
+    provide_args=[
+        "event",
+        "execution_context",
+        "task_id",
+        "backoff",
+        "retry_count",
+        "max_attempts",
+    ]
+)
+event_execution_retry_done = SoftSignal(
+    provide_args=["event", "execution_context", "task_id", "max_attempts"]
+)

@@ -12,6 +12,12 @@ try:
 except ImportError:
     graphviz = None
 
+from .signals.signals import (
+    pipeline_pre_init,
+    pipeline_post_init,
+    pipeline_execution_start,
+    pipeline_execution_end,
+)
 from .task import PipelineTask, EventExecutionContext, PipeType
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
 from .utils import generate_unique_id, GraphTree
@@ -194,8 +200,11 @@ class Pipeline(metaclass=PipelineMeta):
     additional functionality or customization at the class level.
     """
 
+    __signature__ = Signature()
+
     def __init__(self, *args, **kwargs):
         generate_unique_id(self)
+        pipeline_pre_init.emit(sender=self.__class__, args=args, kwargs=kwargs)
 
         parameters = []
         for name, instance in self.get_fields():
@@ -216,14 +225,16 @@ class Pipeline(metaclass=PipelineMeta):
                 parameters.append(param)
 
         if parameters:
-            sig = Signature(parameters)
-            bounded_args = sig.bind(*args, **kwargs)
+            self.__signature__ = Signature(parameters)
+            bounded_args = self.__signature__.bind(*args, **kwargs)
             for name, value in bounded_args.arguments.items():
                 setattr(self, name, value)
 
         self.execution_context: typing.Optional[EventExecutionContext] = None
 
         super().__init__()
+
+        pipeline_post_init.emit(sender=self.__class__, pipeline=self)
 
     @property
     def id(self):
@@ -263,8 +274,11 @@ class Pipeline(metaclass=PipelineMeta):
                 force_rerun is not set to True, this exception is raised
                 to indicate that the execution is complete.
         """
+        pipeline_execution_start.emit(sender=self.__class__, pipeline=self)
+
         if self.execution_context and not force_rerun:
             raise EventDone("Done executing pipeline")
+
         self.execution_context = None
         sink_queue = deque()
         PipelineTask.execute_task(
@@ -272,6 +286,10 @@ class Pipeline(metaclass=PipelineMeta):
             previous_context=self.execution_context,
             pipeline=self,
             sink_queue=sink_queue,
+        )
+
+        pipeline_execution_end.emit(
+            sender=self.__class__, execution_context=self.execution_context
         )
 
     def get_cache_key(self):
