@@ -5,10 +5,18 @@ class ImproperlyConfigured(Exception):
 class PipelineError(Exception):
 
     def __init__(self, message, code=None, params=None):
-        super().__init__(message, code)
+        super().__init__(message)
         self.message = message
         self.code = code
         self.params = params
+
+    def to_dict(self):
+        return {
+            "error_class": self.__class__.__name__,
+            "message": self.message,
+            "code": self.code,
+            "params": self.params,
+        }
 
 
 class TaskError(PipelineError):
@@ -38,11 +46,11 @@ class BadPipelineError(ImproperlyConfigured, PipelineError):
         self.exception = exception
 
 
-class MultiValueError(KeyError, PipelineError):
+class MultiValueError(PipelineError, KeyError):
     pass
 
 
-class StopProcessingError(RuntimeError, PipelineError):
+class StopProcessingError(PipelineError, RuntimeError):
 
     def __init__(self, *args, exception=None, **kwargs):
         self.exception = exception
@@ -54,9 +62,10 @@ class MaxRetryError(Exception):
     Raised when the maximum number of retries is exceeded.
     """
 
-    def __init__(self, attempt, reason=None):
+    def __init__(self, attempt, exception, reason=None):
         self.reason = reason
         self.attempt = attempt
+        self.exception = exception
         message = "Max retries exceeded: %s (Caused by %r)" % (
             self.attempt,
             self.reason,

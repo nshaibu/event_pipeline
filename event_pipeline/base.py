@@ -115,6 +115,8 @@ class _RetryMixin(object):
         if self.retry_policy is None:
             return func(*args, **kwargs)
 
+        exception_causing_retry = None
+
         while True:
             if self.is_exhausted():
                 event_execution_retry_done.emit(
@@ -124,9 +126,13 @@ class _RetryMixin(object):
                     task_id=self._task_id,
                     max_attempts=self.retry_policy.max_attempts,
                 )
+
                 raise MaxRetryError(
                     attempt=self._retry_count,
-                    reason="Retryable event is already exhausted",
+                    exception=exception_causing_retry,
+                    reason="Retryable event is already exhausted: actual error:{reason}".format(
+                        reason=str(exception_causing_retry)
+                    ),
                 )
 
             logger.info(
@@ -140,6 +146,8 @@ class _RetryMixin(object):
                 return func(*args, **kwargs)
             except Exception as exc:
                 if self.is_retryable(exc):
+                    if exception_causing_retry is None:
+                        exception_causing_retry = exc
                     back_off = self._sleep_for_backoff()
 
                     event_execution_retry.emit(
@@ -415,6 +423,12 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
     def on_failure(self, execution_result) -> EventResult:
         if isinstance(execution_result, Exception):
+            execution_result = (
+                execution_result.exception
+                if execution_result.__class__ == MaxRetryError
+                else execution_result
+            )
+
             if self.stop_on_exception:
                 raise StopProcessingError(
                     message=f"Error occurred while processing event '{self.__class__.__name__}'",
@@ -426,6 +440,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                         "task_id": self._task_id,
                     },
                 )
+
         return EventResult(
             error=True,
             content=execution_result,
@@ -447,8 +462,11 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             self._execution_status, execution_result = self.retry(
                 self.process, *args, **kwargs
             )
+        except MaxRetryError as e:
+            logger.error(str(e), exc_info=e.exception)
+            return self.on_failure(e)
         except Exception as e:
-            logger.exception(str(e), exc_info=e)
+            logger.error(str(e), exc_info=e)
             return self.on_failure(e)
         if self._execution_status:
             return self.on_success(execution_result)

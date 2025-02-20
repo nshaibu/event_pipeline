@@ -15,3 +15,8 @@ from event_pipeline.task import EventExecutionContext
 )
 def event_execution_start(*args, **kwargs):
     print(f"Event signals: {args}, {kwargs}")
+
+
+@listener(event_execution_cancelled, sender=EventExecutionContext)
+def event_execution_cancelled(*args, **kwargs):
+    print(f"Event cancelled signal: {args}, {kwargs}")

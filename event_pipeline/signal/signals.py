@@ -160,7 +160,7 @@ event_execution_init = SoftSignal(
     provide_args=["event", "execution_context", "executor", "call_kwargs"]
 )
 event_execution_start = SoftSignal(provide_args=["event", "execution_context"])
-event_execution_end = SoftSignal(provide_args=["event", "execution_context", "future"])
+event_execution_end = SoftSignal(provide_args=["event", "execution_context"])
 event_execution_retry = SoftSignal(
     provide_args=[
         "event",
@@ -173,4 +173,10 @@ event_execution_retry = SoftSignal(
 )
 event_execution_retry_done = SoftSignal(
     provide_args=["event", "execution_context", "task_id", "max_attempts"]
+)
+event_execution_cancelled = SoftSignal(
+    provide_args=["task_profiles", "execution_context", "state"]
+)
+event_execution_aborted = SoftSignal(
+    provide_args=["task_profiles", "execution_context", "state"]
 )

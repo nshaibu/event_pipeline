@@ -21,14 +21,15 @@ class Upload(EventBase):
 class Commission(EventBase):
     retry_policy = RetryPolicy(
         max_attempts=10,
-        backoff_factor=0.02,
+        backoff_factor=0.005,
         max_backoff=100,
         retry_on_exceptions=[ValueError],
     )
 
     def process(self, *args, **kwargs):
+        self.stop_on_exception = True
         print("Commission")
-        raise ValueError()
+        raise ValueError("test error")
         return True, "Commission"
 
 

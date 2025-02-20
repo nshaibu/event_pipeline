@@ -17,6 +17,7 @@ from .exceptions import (
     ImproperlyConfigured,
     StopProcessingError,
     EventDoesNotExist,
+    MaxRetryError,
 )
 from .utils import (
     build_event_arguments_from_pipeline,
@@ -28,6 +29,8 @@ from .signal.signals import (
     event_execution_start,
     event_execution_end,
     event_execution_init,
+    event_execution_aborted,
+    event_execution_cancelled,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,8 +39,7 @@ if typing.TYPE_CHECKING:
     from .pipeline import Pipeline
 
 
-def attach_signal_emitter(future: Future, signal: SoftSignal, **signal_kwargs) -> None:
-    signal_kwargs["future"] = future
+def attach_signal_emitter(signal: SoftSignal, **signal_kwargs) -> None:
     signal.emit(**signal_kwargs)
 
 
@@ -230,7 +232,6 @@ class EventExecutionContext(object):
         future = executor.submit(event_config["event"], **event_config["call_args"])
         future.add_done_callback(
             lambda fut: attach_signal_emitter(
-                fut,
                 signal=event_execution_end,
                 sender=self.__class__,
                 event=event_config["event"],
@@ -391,20 +392,21 @@ class EventExecutionContext(object):
         try:
             self.state = ExecutionState.EXECUTING
 
-            futures = self.init_and_execute_events()
-            waited_results = wait(futures)
+            self.process_executor_results(self.init_and_execute_events())
 
-            self.process_executor_results(waited_results)
-
-            self.state = ExecutionState.FINISHED
+            if self.state == ExecutionState.EXECUTING:
+                self.state = ExecutionState.FINISHED
         except Exception as e:
-            logger.exception(str(e), exc_info=e)
-            self.state = ExecutionState.ABORTED
+            logger.error(
+                f"{self.pipeline.__class__.__name__} : {str(self.task_profiles[0].event)} : {str(e)}"
+            )
+
             task_error = BadPipelineError(
                 message={"status": 0, "message": str(e)},
                 exception=e,
             )
             self._errors.append(task_error)
+            self.abort()
 
         try:
             self.conditional_variable.notify_all()
@@ -417,21 +419,19 @@ class EventExecutionContext(object):
             f"Finished executing task(s) '{self.task_profiles}' with status {self.state}"
         )
 
-    def process_executor_results(self, waited_results):
+    def process_executor_results(self, futures: typing.List[Future]) -> None:
         """
         Processes the results from the executor after events has been executed, handling any awaited results.
 
         Args:
-            waited_results (Any): The results that were awaited during execution, which need to be processed.
+            futures (typing.List[Future]): The results that were awaited during execution, which need to be processed.
 
         Returns:
             None: This method modifies internal states of the execution context and performs actions based on
              the event and results, without returning a value.
-
-        Side Effects:
-            This method may update internal attributes or trigger additional operations based on the results
-            from the event and waited results.
         """
+        waited_results = wait(futures)
+
         with AcquireReleaseLock(self.conditional_variable):
 
             for fut in waited_results.done:
@@ -439,16 +439,18 @@ class EventExecutionContext(object):
                     result: EventResult = fut.result()
                 except Exception as e:
                     params = getattr(e, "params", {})
-                    event_name = params.get("event", "Unknown")
+                    event_name = params.get("event_name", "unknown")
 
-                    logger.exception(f"{event_name}: {str(e)}")
+                    logger.error(
+                        f"{self.pipeline.__class__.__name__} : {event_name} : {str(e)}"
+                    )
 
-                    if isinstance(e, StopProcessingError):
-                        self.state = ExecutionState.CANCELLED
+                    if e.__class__ == StopProcessingError:
+                        self.cancel()
 
                     result = EventResult(
                         error=True,
-                        content=str(e),
+                        content=e.to_dict() if hasattr(e, "to_dict") else str(e),
                         task_id=params.get("task_id"),
                         event_name=event_name,
                         init_params=params.get("init_args"),
@@ -465,6 +467,24 @@ class EventExecutionContext(object):
                     )
                 else:
                     self.execution_result.add(result)
+
+    def cancel(self):
+        self.state = ExecutionState.CANCELLED
+        event_execution_cancelled.emit(
+            sender=self.__class__,
+            task_profiles=self.task_profiles,
+            execution_context=self,
+            state=self.state,
+        )
+
+    def abort(self):
+        self.state = ExecutionState.ABORTED
+        event_execution_aborted.emit(
+            sender=self.__class__,
+            task_profiles=self.task_profiles,
+            execution_context=self,
+            state=self.state,
+        )
 
 
 @unique
@@ -534,7 +554,7 @@ class PipelineTask(object):
         return self.event
 
     def __repr__(self):
-        return f"{self.event} -> [{repr(self.on_success_event)}, {repr(self.on_failure_event)}]"
+        return f"{self.__class__.__name__}<{self.event}>"
 
     def __hash__(self):
         return hash(self.id)
@@ -875,6 +895,15 @@ class PipelineTask(object):
                     execution_context.previous_context = previous_context
 
             execution_context.dispatch()  # execute task
+            # import pdb
+            #
+            # pdb.set_trace()
+
+            if execution_context and execution_context.state in [
+                ExecutionState.CANCELLED,
+                ExecutionState.ABORTED,
+            ]:
+                return
 
             if task.is_conditional:
                 if execution_context.execution_failed():

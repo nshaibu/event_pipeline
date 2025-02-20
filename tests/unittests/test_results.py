@@ -42,7 +42,7 @@ class TestEventResultSet(TestCase):
             event_name="test_5",
             content=EventValue("1"),
             call_params={"b": 2},
-            content_processor=lambda x: {"start": x.start},
+            content_serializer=lambda x: {"start": x.start},
         )
         self.r6 = EventResult(
             error=True,
