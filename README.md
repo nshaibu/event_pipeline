@@ -389,10 +389,12 @@ class RetryPolicy(object):
 
 ### Configuring the RetryPolicy
 To configure a retry policy, you can create an instance of RetryPolicy and set its fields based on your desired 
-settings. For example:
+settings. The retry policy can also be defined as a dictionary.
+
+For example:
 
 ```python
-from your_module import RetryPolicy
+from event_pipeline.base import RetryPolicy
 
 # Define a custom retry policy
 retry_policy = RetryPolicy(
@@ -401,6 +403,14 @@ retry_policy = RetryPolicy(
     max_backoff=5.0,  # Max backoff of 5 seconds
     retry_on_exceptions=[ConnectionError, TimeoutError]  # Retry on specific exceptions
 )
+
+# Or define the retry policy as a dictionary
+retry_policy = {
+    "max_attempts": 5,
+    "backoff_factor": 0.1,
+    "max_backoff": 5.0,
+    "retry_on_exceptions": [ConnectionError, TimeoutError]
+}
 ```
 In this example:
 - `max_attempts` specifies the maximum number of times the event will be retried before it gives up.
@@ -417,25 +427,21 @@ The policy can be passed as a dictionary containing the retry configuration.
 Here’s how you can assign the retry policy to your event class:
 
 ```python
-from event_pipeline import EventProcessor
+import typing
+from event_pipeline import EventBase
 
-# Define the retry policy dictionary
-retry_policy_dict = {
-    "max_attempts": 5,
-    "backoff_factor": 0.1,
-    "max_backoff": 5.0,
-    "retry_on_exceptions": [ConnectionError, TimeoutError]
-}
 
-# Assign the retry policy to your event processor
-event_processor = EventProcessor(retry_policy=retry_policy_dict)
+class MyEvent(EventBase):
+    
+    # assign instance of your RetryPolicy or RetryPolicy dictionary
+    retry_policy = retry_policy 
 
-# Process your event, retrying as needed
-event_processor.process_event(event_data)
+    def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
+        pass
+
 ```
 
-In this example, the retry_policy_dict contains the retry configuration. The EventProcessor class is then initialized 
-with this policy, which will automatically be used during event processing.
+In this example, the `retry_policy` class variable is assign the retry configuration.
 
 # How the Retry Policy Works
 When an event is processed, if it fails due to an exception in the retry_on_exceptions list, the retry logic kicks in:
