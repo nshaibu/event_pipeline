@@ -895,14 +895,15 @@ class PipelineTask(object):
                     execution_context.previous_context = previous_context
 
             execution_context.dispatch()  # execute task
-            # import pdb
-            #
-            # pdb.set_trace()
 
             if execution_context and execution_context.state in [
                 ExecutionState.CANCELLED,
                 ExecutionState.ABORTED,
             ]:
+                logger.warning(
+                    f"Task execution terminated due to state '{execution_context.state.value}'."
+                    f" Skipping task execution..."
+                )
                 return
 
             if task.is_conditional:
