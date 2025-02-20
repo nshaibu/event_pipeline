@@ -64,9 +64,9 @@ class _RetryMixin(object):
         typing.Optional[RetryPolicy], typing.Dict[str, typing.Any]
     ] = None
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self._retry_count = 0
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
     def get_retry_policy(self) -> RetryPolicy:
         if isinstance(self.retry_policy, dict):
@@ -169,8 +169,8 @@ class _ExecutorInitializerMixin(object):
 
     executor_config: ExecutorInitializerConfig = None
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         self.get_executor_initializer_config()
 
@@ -344,10 +344,6 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     processing pipeline data.
     """
 
-    max_workers: typing.Union[int, EMPTY] = EMPTY
-    max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY
-    thread_name_prefix: typing.Union[str, EMPTY] = EMPTY
-
     execution_evaluation_state: EventExecutionEvaluationState = (
         EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
     )
@@ -356,8 +352,10 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         self,
         execution_context: "EventExecutionContext",
         task_id: str,
+        *args,
         previous_result: typing.Union[typing.List[EventResult], EMPTY] = EMPTY,
         stop_on_exception: bool = False,
+        **kwargs,
     ):
         """
         Initializes an EventBase instance with the provided execution context and configuration.
@@ -375,7 +373,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                                                  if an exception occurs. Defaults to `False`.
 
         """
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
         self._execution_context = execution_context
         self._task_id = task_id

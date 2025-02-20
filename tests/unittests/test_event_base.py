@@ -117,8 +117,10 @@ class TestEventBase(unittest.TestCase):
             {
                 "execution_context": {"task": 1},
                 "task_id": "1",
+                "args": (),
                 "previous_result": "box",
                 "stop_on_exception": False,
+                "kwargs": {},
             },
         )
         self.assertEqual(response.call_params, {"args": (), "kwargs": {"name": "box"}})
