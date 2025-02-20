@@ -17,7 +17,6 @@ from .exceptions import (
     ImproperlyConfigured,
     StopProcessingError,
     EventDoesNotExist,
-    MaxRetryError,
 )
 from .utils import (
     build_event_arguments_from_pipeline,
