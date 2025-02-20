@@ -83,6 +83,7 @@ class EventExecutionContext(object):
         self.state: ExecutionState = ExecutionState.PENDING
 
         self.previous_context: typing.Optional[EventExecutionContext] = None
+        self.next_context: typing.Optional[EventExecutionContext] = None
 
         self._errors: typing.List[PipelineError] = []
 
@@ -484,6 +485,18 @@ class EventExecutionContext(object):
             execution_context=self,
             state=self.state,
         )
+
+    def get_execution_context_head(self) -> "EventExecutionContext":
+        current = self
+        while current.previous_context:
+            current = current.previous_context
+        return current
+
+    def get_latest_execution_context(self) -> "EventExecutionContext":
+        current = self.get_execution_context_head()
+        while current.next_context:
+            current = current.next_context
+        return current
 
 
 @unique
@@ -892,6 +905,7 @@ class PipelineTask(object):
 
                 with AcquireReleaseLock(lock=previous_context.conditional_variable):
                     execution_context.previous_context = previous_context
+                    previous_context.next_context = execution_context
 
             execution_context.dispatch()  # execute task
 

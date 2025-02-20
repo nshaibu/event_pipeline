@@ -81,9 +81,7 @@ class SoftSignal(object):
             if sender in self._listeners:
                 del self._listeners[sender]
 
-    def connect(
-        self, sender: typing.Any, listener
-    ) -> None:
+    def connect(self, sender: typing.Any, listener) -> None:
         """
         Connect a listener to a sender.
 
@@ -148,8 +146,8 @@ pipeline_pre_init = SoftSignal(provide_args=["cls", "args", "kwargs"])
 pipeline_post_init = SoftSignal(provide_args=["pipeline"])
 
 
-pipeline_shutdown = SoftSignal(provide_args=["pipeline"])
-pipeline_stop = SoftSignal(provide_args=["pipeline"])
+pipeline_shutdown = SoftSignal(provide_args=["pipeline", "execution_context"])
+pipeline_stop = SoftSignal(provide_args=["pipeline", "execution_context"])
 
 
 pipeline_execution_start = SoftSignal(provide_args=["pipeline"])

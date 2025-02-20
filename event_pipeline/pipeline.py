@@ -17,8 +17,10 @@ from .signal.signals import (
     pipeline_post_init,
     pipeline_execution_start,
     pipeline_execution_end,
+    pipeline_shutdown,
+    pipeline_stop,
 )
-from .task import PipelineTask, EventExecutionContext, PipeType
+from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
 from .utils import generate_unique_id, GraphTree
 from .exceptions import (
@@ -27,6 +29,7 @@ from .exceptions import (
     EventDone,
     EventDoesNotExist,
 )
+from .utils import AcquireReleaseLock
 
 
 class TreeExtraData:
@@ -279,7 +282,8 @@ class Pipeline(metaclass=PipelineMeta):
         if self.execution_context and not force_rerun:
             raise EventDone("Done executing pipeline")
 
-        self.execution_context = None
+        self.execution_context: typing.Optional[EventExecutionContext] = None
+
         sink_queue = deque()
         PipelineTask.execute_task(
             self._state.start,
@@ -288,9 +292,49 @@ class Pipeline(metaclass=PipelineMeta):
             sink_queue=sink_queue,
         )
 
+        latest_context = self.execution_context.get_latest_execution_context()
+
+        if latest_context:
+            if latest_context.state == ExecutionState.CANCELLED:
+                pipeline_stop.emit(
+                    sender=self.__class__,
+                    pipeline=self,
+                    execution_context=latest_context
+                )
+                return
+            elif latest_context.state == ExecutionState.ABORTED:
+                pipeline_shutdown.emit(
+                    sender=self.__class__,
+                    pipeline=self,
+                    execution_context=latest_context,
+                )
+                return
+
         pipeline_execution_end.emit(
             sender=self.__class__, execution_context=self.execution_context
         )
+
+    def shutdown(self):
+        if self.execution_context:
+            latest_context = self.execution_context.get_latest_execution_context()
+            with AcquireReleaseLock(lock=latest_context.conditional_variable):
+                latest_context.abort()
+                pipeline_shutdown.emit(
+                    sender=self.__class__,
+                    pipeline=self,
+                    execution_context=self.execution_context,
+                )
+
+    def stop(self, force_rerun: bool = False):
+        if self.execution_context:
+            latest_context = self.execution_context.get_latest_execution_context()
+            with AcquireReleaseLock(lock=latest_context.conditional_variable):
+                latest_context.cancel()
+                pipeline_stop.emit(
+                    sender=self.__class__,
+                    pipeline=self,
+                    execution_context=self.execution_context,
+                )
 
     def get_cache_key(self):
         return f"pipeline_{self.__class__.__name__}_{self.id}"

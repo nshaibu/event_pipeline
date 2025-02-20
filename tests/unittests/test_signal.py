@@ -50,7 +50,9 @@ class TestSignal(unittest.TestCase):
 
     def test_disconnect_remover_listener(self):
         example_func_signal2.disconnect(sender=Target2, listener=example_func_handler2)
-        response = example_func_signal2.emit(sender=Target2, school="KNUST", school_id="KNUST")
+        response = example_func_signal2.emit(
+            sender=Target2, school="KNUST", school_id="KNUST"
+        )
         self.assertIsInstance(response, list)
         self.assertTrue(len(response) == 0)
 
@@ -62,10 +64,3 @@ class TestSignal(unittest.TestCase):
         response = example_func_signal3.emit(sender=Target1, country="Ghana", town="KU")
         self.assertIsInstance(response, list)
         self.assertTrue(len(response) == 0)
-
-
-
-
-
-
-
