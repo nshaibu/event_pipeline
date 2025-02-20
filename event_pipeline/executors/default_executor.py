@@ -11,5 +11,6 @@ class DefaultExecutor(Executor):
         try:
             f.set_result(fn(*args, **kwargs))
         except Exception as e:
+            logger.error(str(e))
             f.set_exception(e)
         return f

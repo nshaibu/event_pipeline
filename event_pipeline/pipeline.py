@@ -503,3 +503,13 @@ class Pipeline(metaclass=PipelineMeta):
                 if task.id == pk:
                     return task
         raise EventDoesNotExist(f"Task '{pk}' does not exists", code=pk)
+
+
+class PipelineAggregator(object):
+
+    pipeline_template: typing.Type[Pipeline] = None
+
+    def __init__(self):
+        pass
+
+
