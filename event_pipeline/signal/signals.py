@@ -82,7 +82,7 @@ class SoftSignal(object):
                 del self._listeners[sender]
 
     def connect(
-        self, sender: typing.Any, listener: typing.Callable[[typing.Any], typing.Any]
+        self, sender: typing.Any, listener
     ) -> None:
         """
         Connect a listener to a sender.
