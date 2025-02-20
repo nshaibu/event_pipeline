@@ -292,14 +292,14 @@ class Pipeline(metaclass=PipelineMeta):
             sink_queue=sink_queue,
         )
 
-        latest_context = self.execution_context.get_latest_execution_context()
+        if self.execution_context:
+            latest_context = self.execution_context.get_latest_execution_context()
 
-        if latest_context:
             if latest_context.state == ExecutionState.CANCELLED:
                 pipeline_stop.emit(
                     sender=self.__class__,
                     pipeline=self,
-                    execution_context=latest_context
+                    execution_context=latest_context,
                 )
                 return
             elif latest_context.state == ExecutionState.ABORTED:

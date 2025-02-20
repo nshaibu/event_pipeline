@@ -469,6 +469,7 @@ class EventExecutionContext(object):
                     self.execution_result.add(result)
 
     def cancel(self):
+        """Cancels the execution context. This method must acquire the conditional variable before executing it."""
         self.state = ExecutionState.CANCELLED
         event_execution_cancelled.emit(
             sender=self.__class__,
@@ -478,6 +479,7 @@ class EventExecutionContext(object):
         )
 
     def abort(self):
+        """Aborts the execution context. This method must acquire the conditional variable before executing it."""
         self.state = ExecutionState.ABORTED
         event_execution_aborted.emit(
             sender=self.__class__,
