@@ -17,10 +17,26 @@
    1. [Installation](#Installation)
    2. [Requirements](#Requirements)
 2. [Usage](#Usage)
-   1. [Defining Pipelines](#define-pipeline)
-   2. [Defining input data field](#defining-input-data-field)
-   3. [Defining Pipeline Structure Using Pointy language](#defining-pipeline-structure)
-   4. [Pointy Language](#pointy-language)
+    1. [Pipeline](#pipeline)
+       1. [Defining Pipelines](#defining-pipeline)
+       2. [Defining input data field](#defining-input-data-field)
+       3. [Defining Pipeline Structure Using Pointy language](#defining-pipeline-structure)
+       4. [Pointy Language](#pointy-language)
+       5. [Executing Pipeline](#executing-pipeline)
+    2. [Event](#defining-events)
+       1. [Defining Events](#define-the-event-class)
+       2. [Specify the Executor for your Event](#specify-the-executor-for-the-event)
+       3. [Function-Based Events (WIP)](#function-based-events)
+       4. [Event Result Evaluation](#event-result-evaluation)
+       5. [Specifying Event Retry Policy](#specifying-a-retry-policy-for-event)
+          1. [RetryPolicy Class](#retrypolicy-class)
+          2. [Configuring The Retry Policy](#configuring-the-retrypolicy)
+          3. [Assigning Retry Policy](#assigning-the-retry-policy-to-an-event)
+          4. [How the retry Policy Works](#how-the-retry-policy-works)
+   3. [Signals](#signals)
+      1. [Soft Signal framework](#soft-signaling-framework)
+         1. [Default Signals](#default-signals)
+         2. [Connecting Signal Listeners](#connecting-listeners-to-signals)
 
 # Introduction
 This library provides an easy-to-use framework for defining and managing events and pipelines. 
@@ -50,7 +66,9 @@ pip install event-pipeline
 
 # Usage
 
-## Define Pipeline
+# Pipeline
+
+## Defining Pipeline
 
 To define a pipeline, import the Pipeline class from the event_pipeline module and create a new class that
 inherits from it. This custom class will define the behavior and structure of your pipeline.
@@ -124,7 +142,7 @@ class MyPipeline(Pipeline):
     }
 ```
 
-# Pointy Language
+## Pointy Language
 
 - Single event: 
 
@@ -169,7 +187,7 @@ A -> B (0 -> C, 1 -> D) # 0 for failure, 1 for success
 A (0 -> B, 1 -> C) -> D
 ```
 
-# Example
+## Example
 
 ```pty
 A -> B (
@@ -199,6 +217,17 @@ pipeline.draw_ascii_graph()
 pipeline.draw_graphviz_image(directory=...)
 
 ```
+## Executing Pipeline
+Execute your pipeline by making calls to the `start` method:
+
+```python
+# instantiate your pipeline class
+pipeline = MyPipeline(input_field="value")
+
+# call start
+pipeline.start()
+```
+
 
 # Defining Events
 
@@ -219,10 +248,10 @@ class MyEvent(EventBase):
 ## Specify the Executor for the Event
 
 Every event must specify an executor that defines how the event will be executed. Executors are 
-responsible for managing the concurrency or parallelism when the event is processed.
+responsible for managing the concurrency or parallelism when the event is being processed.
 
 Executors implement the Executor interface from the concurrent.futures._base module in the 
-Python standard library. If no executor is specified, the DefaultExecutor will be used by default.
+Python standard library. If no executor is specified, the DefaultExecutor will be used.
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
@@ -266,7 +295,7 @@ class MyEvent(EventBase):
 
 ```
 
-# Function-Based Events
+## Function-Based Events
 In addition to defining events using classes, you can also define events as functions. 
 This is achieved by using the event decorator from the decorators module.
 
@@ -337,15 +366,89 @@ class MyEvent(EventBase):
 
 ```
 
-# Executing Pipeline
-Execute your pipeline by making calls to the `start` method:
-```python
-# instantiate your pipeline class
-pipeline = MyPipeline(input_field="value")
+## Specifying a Retry Policy for Event
+In some scenarios, you may want to define a retry policy for handling events that may fail intermittently. 
+The retry policy allows you to configure things like the maximum number of retry attempts, the backoff strategy, 
+and which exceptions should trigger a retry.
 
-# call start
-pipeline.start()
+The retry policy can be specified by importing the RetryPolicy class and configuring the respective fields. 
+You can then assign this policy to your event class, ensuring that failed events will be retried based on 
+the configured settings.
+
+### RetryPolicy Class
+The RetryPolicy class allows you to define a policy with the following parameters:
+
+```python
+@dataclass
+class RetryPolicy(object):
+    max_attempts: int   # Maximum retry attempts
+    backoff_factor: float  # Backoff time between retries
+    max_backoff: float # Maximum allowed backoff time
+    retry_on_exceptions: typing.List[typing.Type[Exception]]  # List of exceptions that will trigger a retry
 ```
+
+### Configuring the RetryPolicy
+To configure a retry policy, you can create an instance of RetryPolicy and set its fields based on your desired 
+settings. For example:
+
+```python
+from your_module import RetryPolicy
+
+# Define a custom retry policy
+retry_policy = RetryPolicy(
+    max_attempts=5,  # Maximum number of retries
+    backoff_factor=0.1,  # 10% backoff factor
+    max_backoff=5.0,  # Max backoff of 5 seconds
+    retry_on_exceptions=[ConnectionError, TimeoutError]  # Retry on specific exceptions
+)
+```
+In this example:
+- `max_attempts` specifies the maximum number of times the event will be retried before it gives up.
+- `backoff_factor` defines how long the system will wait between retry attempts, increasing with each retry.
+- `max_backoff specifies` the maximum time to wait between retries, ensuring it doesn't grow indefinitely.
+- `retry_on_exceptions` is a list of exception types that should trigger a retry. If an event fails due to 
+one of these exceptions, it will be retried.
+
+### Assigning the Retry Policy to an Event
+
+Once you have defined the RetryPolicy, you can assign it to your event class for processing. 
+The policy can be passed as a dictionary containing the retry configuration.
+
+Here’s how you can assign the retry policy to your event class:
+
+```python
+from event_pipeline import EventProcessor
+
+# Define the retry policy dictionary
+retry_policy_dict = {
+    "max_attempts": 5,
+    "backoff_factor": 0.1,
+    "max_backoff": 5.0,
+    "retry_on_exceptions": [ConnectionError, TimeoutError]
+}
+
+# Assign the retry policy to your event processor
+event_processor = EventProcessor(retry_policy=retry_policy_dict)
+
+# Process your event, retrying as needed
+event_processor.process_event(event_data)
+```
+
+In this example, the retry_policy_dict contains the retry configuration. The EventProcessor class is then initialized 
+with this policy, which will automatically be used during event processing.
+
+# How the Retry Policy Works
+When an event is processed, if it fails due to an exception in the retry_on_exceptions list, the retry logic kicks in:
+
+- The system will retry the event based on the `max_attempts`.
+- After each retry attempt, the system waits for a time interval determined by the `backoff_factor` 
+and will not exceed the `max_backoff`.
+- If the maximum retry attempts are exceeded, the event will be marked as failed.
+
+- This retry mechanism ensures that intermittent failures do not cause a complete halt in processing and 
+allows for better fault tolerance in your system.
+
+# Signals
 
 ## Soft Signaling Framework
 
