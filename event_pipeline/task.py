@@ -31,6 +31,7 @@ from .signal.signals import (
     event_execution_aborted,
     event_execution_cancelled,
 )
+from .mixins import ObjectIdentityMixin
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class ExecutionState(Enum):
     ABORTED = "aborted"
 
 
-class EventExecutionContext(object):
+class EventExecutionContext(ObjectIdentityMixin):
     """
     Represents the execution context for a particular event in the pipeline.
 
@@ -72,7 +73,7 @@ class EventExecutionContext(object):
         task: typing.Union["PipelineTask", typing.List["PipelineTask"]],
         pipeline: "Pipeline",
     ):
-        generate_unique_id(self)
+        super().__init__()
         self.conditional_variable = Condition()
 
         self._execution_start_tp: float = time.time()
@@ -86,10 +87,6 @@ class EventExecutionContext(object):
         self.next_context: typing.Optional[EventExecutionContext] = None
 
         self._errors: typing.List[PipelineError] = []
-
-    @property
-    def id(self):
-        return generate_unique_id(self)
 
     def _gather_executors_for_parallel_executions(
         self,
@@ -516,7 +513,7 @@ class PipeType(Enum):
             return "||"
 
 
-class PipelineTask(object):
+class PipelineTask(ObjectIdentityMixin):
     """
     Represents a task in a pipeline, with event-driven behavior and conditional execution flows.
 
@@ -540,7 +537,7 @@ class PipelineTask(object):
         on_success_pipe: typing.Optional[PipeType] = None,
         on_failure_pipe: typing.Optional[PipeType] = None,
     ):
-        generate_unique_id(self)
+        super().__init__()
 
         # attributes for when a task is created from a descriptor
         self._descriptor: typing.Optional[int] = None
@@ -559,10 +556,6 @@ class PipelineTask(object):
         self.on_failure_event = on_failure_event
         self.on_success_pipe = on_success_pipe
         self.on_failure_pipe = on_failure_pipe
-
-    @property
-    def id(self) -> str:
-        return generate_unique_id(self)
 
     def __str__(self):
         return self.event
