@@ -3,8 +3,8 @@ import json
 import typing
 from collections.abc import MutableSet
 from .constants import EMPTY
-from .utils import generate_unique_id
 from .exceptions import MultiValueError
+from .mixins import ObjectIdentityMixin
 
 __all__ = ["EventResult", "ResultSet"]
 
@@ -16,7 +16,7 @@ EventResultInitVar = typing.TypeVar(
 )
 
 
-class Result(object):
+class Result(ObjectIdentityMixin):
     backend = None
 
     def __init__(
@@ -26,7 +26,7 @@ class Result(object):
         content_type: typing.Type = None,
         content_serializer: typing.Callable[[typing.Any], typing.Any] = None,
     ):
-        generate_unique_id(self)
+        super().__init__()
 
         self.error: bool = error
         self.process_id = os.getpid()
@@ -35,10 +35,6 @@ class Result(object):
             type(content) if content_type is None else content_type
         )
         self._content_serializer: typing.Callable = content_serializer
-
-    @property
-    def id(self) -> str:
-        return generate_unique_id(self)
 
     def __hash__(self):
         return hash(self.id)

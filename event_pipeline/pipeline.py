@@ -30,6 +30,7 @@ from .exceptions import (
     EventDoesNotExist,
 )
 from .utils import AcquireReleaseLock
+from .mixins import ObjectIdentityMixin
 
 
 class TreeExtraData:
@@ -192,7 +193,7 @@ class PipelineMeta(type):
                 cls.directory_walk(os.path.join(root, vdir), file_name)
 
 
-class Pipeline(metaclass=PipelineMeta):
+class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
     """
     Represents a pipeline that defines a sequence of tasks or processes
     to be executed. The class is designed to manage the execution flow
@@ -203,14 +204,30 @@ class Pipeline(metaclass=PipelineMeta):
     additional functionality or customization at the class level.
     """
 
-    __signature__ = Signature()
+    __signature__ = None
 
     def __init__(self, *args, **kwargs):
-        generate_unique_id(self)
         pipeline_pre_init.emit(sender=self.__class__, args=args, kwargs=kwargs)
 
+        self.construct_call_signature()
+
+        bounded_args = self.__signature__.bind(*args, **kwargs)
+        for name, value in bounded_args.arguments.items():
+            setattr(self, name, value)
+
+        self.execution_context: typing.Optional[EventExecutionContext] = None
+
+        super().__init__()
+
+        pipeline_post_init.emit(sender=self.__class__, pipeline=self)
+
+    @classmethod
+    def construct_call_signature(cls):
+        if cls.__signature__:
+            return cls
+
         parameters = []
-        for name, instance in self.get_fields():
+        for name, instance in cls.get_fields():
             if name:
                 param_args = {
                     "name": name,
@@ -227,21 +244,8 @@ class Pipeline(metaclass=PipelineMeta):
                 param = Parameter(**param_args)
                 parameters.append(param)
 
-        if parameters:
-            self.__signature__ = Signature(parameters)
-            bounded_args = self.__signature__.bind(*args, **kwargs)
-            for name, value in bounded_args.arguments.items():
-                setattr(self, name, value)
-
-        self.execution_context: typing.Optional[EventExecutionContext] = None
-
-        super().__init__()
-
-        pipeline_post_init.emit(sender=self.__class__, pipeline=self)
-
-    @property
-    def id(self):
-        return generate_unique_id(self)
+        cls.__signature__ = Signature(parameters)
+        return cls
 
     def __eq__(self, other):
         if not isinstance(other, Pipeline):
@@ -505,11 +509,27 @@ class Pipeline(metaclass=PipelineMeta):
         raise EventDoesNotExist(f"Task '{pk}' does not exists", code=pk)
 
 
-class PipelineAggregator(object):
+class PipelineBatch(ObjectIdentityMixin):
 
     pipeline_template: typing.Type[Pipeline] = None
 
-    def __init__(self):
-        pass
+    __signature__ = None
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
+        if self.pipeline_template is None:
+            raise ImproperlyConfigured(
+                "No pipeline template has been defined. Please define a pipeline template"
+            )
+
+        template_cls = self.pipeline_template.construct_call_signature()
+        self.__signature__ = self.__signature__ or template_cls.__signature__
+
+        bounded_args = self.__signature__.bind(*args, **kwargs)
+
+        for field, value in bounded_args.arguments.items():
+            setattr(self, field, value)
+
+    def get_fields(self):
+        yield from self.pipeline_template.get_fields()
