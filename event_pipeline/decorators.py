@@ -2,30 +2,34 @@ import typing
 import warnings
 from functools import wraps
 from concurrent.futures import Executor
-from .base import EventBase
-from .utils import EMPTY
+from .base import EventBase, RetryPolicy, ExecutorInitializerConfig
 from .executors.default_executor import DefaultExecutor
 
 
 def event(
     executor: typing.Type[Executor] = DefaultExecutor,
-    # max_workers: typing.Union[int, EMPTY] = EMPTY,
-    # max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY,
-    # thread_name_prefix: typing.Union[str, EMPTY] = EMPTY,
-    stop_on_exception: bool = False,
+    retry_policy: typing.Union[RetryPolicy, typing.Dict[str, typing.Any]] = None,
+    executor_config: typing.Union[
+        ExecutorInitializerConfig, typing.Dict[str, typing.Any]
+    ] = None,
 ):
 
     def worker(func):
+
+        @wraps(func)
+        def inner(self, *args, **kwargs):
+            event_ref = self
+            return func(*args, **kwargs)
+
         namespace = {
             "__module__": func.__module__,
             "executor": executor,
-            # "max_workers": max_workers,
-            # "max_tasks_per_child": max_tasks_per_child,
-            # "thread_name_prefix": thread_name_prefix,
+            "retry_policy": retry_policy,
+            "executor_config": executor_config,
             "execution_context": None,
             "previous_result": None,
-            "stop_on_exception": stop_on_exception,
-            "process": func,
+            "stop_on_exception": False,
+            "process": inner,
         }
 
         _event = type(func.__name__, (EventBase,), namespace)

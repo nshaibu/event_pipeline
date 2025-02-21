@@ -154,6 +154,8 @@ pipeline_execution_start = SoftSignal(provide_args=["pipeline"])
 pipeline_execution_end = SoftSignal(provide_args=["execution_context"])
 
 
+event_init = SoftSignal(provide_args=["event", "init_kwargs"])
+
 event_execution_init = SoftSignal(
     provide_args=["event", "execution_context", "executor", "call_kwargs"]
 )

@@ -11,7 +11,11 @@ from .constants import EMPTY, MAX_EVENTS_RETRIES, MAX_BACKOFF
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
 from .exceptions import StopProcessingError, MaxRetryError
-from .signal.signals import event_execution_retry, event_execution_retry_done
+from .signal.signals import (
+    event_execution_retry,
+    event_execution_retry_done,
+    event_init,
+)
 
 
 __all__ = [
@@ -384,6 +388,8 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
         self._init_args = get_function_call_args(self.__class__.__init__, locals())
         self._call_args = EMPTY
+
+        event_init.emit(sender=self.__class__, event=self, init_kwargs=self._init_args)
 
     def get_init_args(self):
         return self._init_args

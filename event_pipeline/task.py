@@ -10,7 +10,6 @@ from .base import EventBase, EventExecutionEvaluationState, EvaluationContext
 from . import parser
 from .constants import EMPTY
 from .result import EventResult, ResultSet
-from .utils import generate_unique_id
 from .exceptions import (
     PipelineError,
     BadPipelineError,

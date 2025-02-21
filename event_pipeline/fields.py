@@ -54,6 +54,11 @@ class InputDataField(CacheInstanceFieldMixin):
     def get_cache_key(self):
         return self.name
 
+    def has_batch_operation(self):
+        # TODO: implement how to include batch processing
+        #  to each field that will require batch processing
+        return False
+
 
 class FileInputDataField(InputDataField):
 

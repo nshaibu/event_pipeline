@@ -515,8 +515,6 @@ class PipelineBatch(ObjectIdentityMixin):
 
     __signature__ = None
 
-    field_batch_map: typing.Mapping[str, typing.Callable[[], typing.Any]] = {}
-
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -533,6 +531,37 @@ class PipelineBatch(ObjectIdentityMixin):
         for field, value in bounded_args.arguments.items():
             setattr(self, field, value)
 
+        self._field_batch_op_map = {}
+
     def get_fields(self):
         yield from self.pipeline_template.get_fields()
+
+    def _gather_and_validate_field_batch_operations(self):
+        if self._field_batch_op_map:
+            return self._field_batch_op_map
+
+        for field_name, field in self.get_fields():
+            if field.has_batch_operation:
+                self._field_batch_op_map[field_name] = field.batch_operation
+
+            method_name = f"{field_name}_batch"
+            if hasattr(self, method_name):
+                batch_operation = getattr(self, method_name)
+                if inspect.iscoroutinefunction(batch_operation) or inspect.isgenerator(
+                    batch_operation
+                ):
+                    if method_name not in self._field_batch_op_map:
+                        self._field_batch_op_map[method_name] = batch_operation
+                    else:
+                        self._field_batch_op_map[method_name] = [
+                            self._field_batch_op_map[method_name]
+                        ]
+                        self._field_batch_op_map[method_name].append(batch_operation)
+                else:
+                    raise ImproperlyConfigured(
+                        f"Field '{field_name}' batch operation must be generator function"
+                    )
+
+        return self._field_batch_op_map
+
 
