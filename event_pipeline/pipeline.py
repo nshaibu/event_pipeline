@@ -564,4 +564,7 @@ class PipelineBatch(ObjectIdentityMixin):
 
         return self._field_batch_op_map
 
+    def start(self, force_run: bool = False) -> None:
+        pass
+
 
