@@ -515,6 +515,8 @@ class PipelineBatch(ObjectIdentityMixin):
 
     __signature__ = None
 
+    field_batch_map: typing.Mapping[str, typing.Callable[[], typing.Any]] = {}
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -533,3 +535,4 @@ class PipelineBatch(ObjectIdentityMixin):
 
     def get_fields(self):
         yield from self.pipeline_template.get_fields()
+
