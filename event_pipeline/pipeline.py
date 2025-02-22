@@ -515,12 +515,18 @@ class PipelineBatch(ObjectIdentityMixin):
 
     __signature__ = None
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.pipeline_template is None:
+        pipeline_template = self.get_pipeline_template()
+
+        if pipeline_template is None:
             raise ImproperlyConfigured(
-                "No pipeline template has been defined. Please define a pipeline template"
+                "No pipeline template provided. Please provide a pipeline template"
+            )
+        elif not issubclass(pipeline_template, Pipeline):
+            raise ImproperlyConfigured(
+                "Pipeline template must be a subclass of Pipeline"
             )
 
         template_cls = self.pipeline_template.construct_call_signature()
@@ -532,14 +538,24 @@ class PipelineBatch(ObjectIdentityMixin):
             setattr(self, field, value)
 
         self._field_batch_op_map = {}
+        self._configured_pipelines: typing.Set[Pipeline] = set()
+
+    def get_pipeline_template(self):
+        return self.pipeline_template
 
     def get_fields(self):
         yield from self.pipeline_template.get_fields()
 
-    def _gather_and_validate_field_batch_operations(self):
-        if self._field_batch_op_map:
-            return self._field_batch_op_map
+    def _gather_field_batch_methods(self, field_name, batch_processor):
+        if field_name not in self._field_batch_op_map:
+            self._field_batch_op_map[field_name] = batch_processor
+        else:
+            self._field_batch_op_map[field_name] = [
+                self._field_batch_op_map[field_name]
+            ]
+            self._field_batch_op_map[field_name].append(batch_processor)
 
+    def _gather_and_validate_field_batch_operations(self):
         for field_name, field in self.get_fields():
             if field.has_batch_operation:
                 self._field_batch_op_map[field_name] = field.batch_operation
@@ -547,24 +563,22 @@ class PipelineBatch(ObjectIdentityMixin):
             method_name = f"{field_name}_batch"
             if hasattr(self, method_name):
                 batch_operation = getattr(self, method_name)
-                if inspect.iscoroutinefunction(batch_operation) or inspect.isgenerator(
+                if inspect.isgenerator(batch_operation) or inspect.isgeneratorfunction(
                     batch_operation
                 ):
-                    if method_name not in self._field_batch_op_map:
-                        self._field_batch_op_map[method_name] = batch_operation
-                    else:
-                        self._field_batch_op_map[method_name] = [
-                            self._field_batch_op_map[method_name]
-                        ]
-                        self._field_batch_op_map[method_name].append(batch_operation)
+                    self._gather_field_batch_methods(field_name, batch_operation)
                 else:
                     raise ImproperlyConfigured(
                         f"Field '{field_name}' batch operation must be generator function"
                     )
 
-        return self._field_batch_op_map
-
     def start(self, force_run: bool = False) -> None:
-        pass
+        if not self._field_batch_op_map:
+            self._gather_and_validate_field_batch_operations()
 
+        if not self._field_batch_op_map:
+            # TODO: figure out what should happen when the pipeline template isn't configured for batch processing
+            return
 
+        for field_name, batch_operation in self._field_batch_op_map.items():
+            pass
