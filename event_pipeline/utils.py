@@ -4,7 +4,9 @@ import time
 import uuid
 import sys
 import resource
-from inspect import signature, Parameter
+from inspect import signature, Parameter, isgeneratorfunction, isgenerator
+
+from .exceptions import ImproperlyConfigured
 
 try:
     from StringIO import StringIO
@@ -12,7 +14,7 @@ except ImportError:
     from io import StringIO
 from treelib.tree import Tree
 
-from .constants import EMPTY
+from .constants import EMPTY, BATCH_PROCESSING_TYPE
 
 if typing.TYPE_CHECKING:
     from .base import EventBase
@@ -176,3 +178,44 @@ class AcquireReleaseLock(object):
 
     def __exit__(self, *args):
         self.lock.release()
+
+
+def validate_batch_processor(batch_processor: BATCH_PROCESSING_TYPE) -> bool:
+    if not callable(batch_processor):
+        raise ImproperlyConfigured(
+            f"Batch processor '{batch_processor}' must be callable"
+        )
+
+    sig = signature(batch_processor)
+    if not sig.parameters or len(sig.parameters) == 2:
+        raise ImproperlyConfigured(
+            f"Batch processor '{batch_processor.__name__}' must have at least two arguments"
+        )
+
+    required_field_names = ["values", "batch_size", "chunk_size"]
+    batch_kwarg = {}  # this is only use during the test
+
+    for field_name, parameter in sig.parameters.items():
+        if field_name == "chunk_size" or field_name == "batch_size":
+            batch_kwarg[field_name] = 2
+            if parameter.default is not Parameter.empty:
+                if isinstance(parameter.default, (int, float)):
+                    raise ImproperlyConfigured(
+                        f"Batch processor '{batch_processor.__name__}' argument 'batch_size/chunk_size' "
+                        f"must have a default value type of int or float "
+                    )
+        if field_name not in required_field_names:
+            raise ImproperlyConfigured(
+                f"Batch processor '{batch_processor.__name__}' arguments must fields named {required_field_names}. "
+                f"{field_name} cannot be use"
+            )
+
+    try:
+        obj = batch_processor(value=[1], **batch_kwarg)
+        return (
+            isinstance(obj, typing.Iterable)
+            or isgeneratorfunction(obj)
+            or isgenerator(obj)
+        )
+    except TypeError:
+        return False

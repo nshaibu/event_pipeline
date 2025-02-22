@@ -1,6 +1,7 @@
 import os
 import re
 import inspect
+import logging
 import typing
 import copy
 from collections import OrderedDict, ChainMap, deque
@@ -22,15 +23,19 @@ from .signal.signals import (
 )
 from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
 from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
-from .utils import generate_unique_id, GraphTree
+from .utils import GraphTree
 from .exceptions import (
     ImproperlyConfigured,
     BadPipelineError,
     EventDone,
     EventDoesNotExist,
 )
-from .utils import AcquireReleaseLock
 from .mixins import ObjectIdentityMixin
+from .fields import InputDataField
+from .utils import AcquireReleaseLock, validate_batch_processor
+
+
+logger = logging.getLogger(__name__)
 
 
 class TreeExtraData:
@@ -329,7 +334,7 @@ class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
                     execution_context=self.execution_context,
                 )
 
-    def stop(self, force_rerun: bool = False):
+    def stop(self):
         if self.execution_context:
             latest_context = self.execution_context.get_latest_execution_context()
             with AcquireReleaseLock(lock=latest_context.conditional_variable):
@@ -344,7 +349,9 @@ class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
         return f"pipeline_{self.__class__.__name__}_{self.id}"
 
     @classmethod
-    def get_fields(cls):
+    def get_fields(
+        cls,
+    ) -> typing.Generator[typing.Tuple[str, InputDataField], None, None]:
         """
         Yields the fields of the class as key-value pairs.
 
@@ -543,22 +550,42 @@ class PipelineBatch(ObjectIdentityMixin):
     def get_pipeline_template(self):
         return self.pipeline_template
 
-    def get_fields(self):
+    def get_fields(self) -> typing.Generator[typing.Tuple[str, InputDataField]]:
         yield from self.pipeline_template.get_fields()
 
-    def _gather_field_batch_methods(self, field_name, batch_processor):
-        if field_name not in self._field_batch_op_map:
-            self._field_batch_op_map[field_name] = batch_processor
-        else:
-            self._field_batch_op_map[field_name] = [
-                self._field_batch_op_map[field_name]
-            ]
-            self._field_batch_op_map[field_name].append(batch_processor)
+    @staticmethod
+    def _validate_batch_processor(batch_processor):
+        try:
+            status = validate_batch_processor(batch_processor)
+        except Exception as e:
+            logger.error(str(e))
+            raise ImproperlyConfigured("Batch processor error") from e
 
-    def _gather_and_validate_field_batch_operations(self):
+        if status is False:
+            raise ImproperlyConfigured(
+                "Batch processor error. Batch processor must be iterable and generators"
+            )
+
+    def _gather_field_batch_methods(self, field_name, batch_processor):
+        self._validate_batch_processor(batch_processor)
+
+        if field_name not in self._field_batch_op_map:
+            self._field_batch_op_map[field_name] = batch_processor(
+                getattr(self, field_name)
+            )
+        else:
+            self._field_batch_op_map[field_name] = batch_processor(
+                self._field_batch_op_map[field_name]
+            )
+
+    def _gather_and_init_field_batch_iterators(self):
         for field_name, field in self.get_fields():
             if field.has_batch_operation:
-                self._field_batch_op_map[field_name] = field.batch_operation
+                self._validate_batch_processor(field.batch_processor)
+
+                self._field_batch_op_map[field_name] = field.batch_operation(
+                    getattr(self, field_name, []), field.batch_size
+                )
 
             method_name = f"{field_name}_batch"
             if hasattr(self, method_name):
@@ -572,12 +599,13 @@ class PipelineBatch(ObjectIdentityMixin):
                         f"Field '{field_name}' batch operation must be generator function"
                     )
 
-    def start(self, force_run: bool = False) -> None:
+    def _prepare_pipeline_args_from_batch_fields(self) -> None:
         if not self._field_batch_op_map:
-            self._gather_and_validate_field_batch_operations()
+            self._gather_and_init_field_batch_iterators()
 
         if not self._field_batch_op_map:
-            # TODO: figure out what should happen when the pipeline template isn't configured for batch processing
+            # TODO: figure out what should happen when the pipeline template
+            #  isn't configured for batch processing
             return
 
         for field_name, batch_operation in self._field_batch_op_map.items():

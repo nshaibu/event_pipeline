@@ -14,3 +14,9 @@ UNKNOWN = object()
 
 class EMPTY:
     pass
+
+
+BATCH_PROCESSING_TYPE = typing.Callable[
+    [typing.Collection, typing.Union[int, float]],
+    typing.Union[typing.Iterator[typing.Any], typing.Generator],
+]
