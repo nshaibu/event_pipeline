@@ -349,9 +349,7 @@ class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
         return f"pipeline_{self.__class__.__name__}_{self.id}"
 
     @classmethod
-    def get_fields(
-        cls,
-    ) -> typing.Generator[typing.Tuple[str, InputDataField], None, None]:
+    def get_fields(cls):
         """
         Yields the fields of the class as key-value pairs.
 
@@ -550,7 +548,7 @@ class PipelineBatch(ObjectIdentityMixin):
     def get_pipeline_template(self):
         return self.pipeline_template
 
-    def get_fields(self) -> typing.Generator[typing.Tuple[str, InputDataField]]:
+    def get_fields(self):
         yield from self.pipeline_template.get_fields()
 
     @staticmethod
