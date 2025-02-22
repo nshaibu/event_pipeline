@@ -588,14 +588,24 @@ class PipelineBatch(ObjectIdentityMixin):
             method_name = f"{field_name}_batch"
             if hasattr(self, method_name):
                 batch_operation = getattr(self, method_name)
-                if inspect.isgenerator(batch_operation) or inspect.isgeneratorfunction(
-                    batch_operation
-                ):
-                    self._gather_field_batch_methods(field_name, batch_operation)
-                else:
-                    raise ImproperlyConfigured(
-                        f"Field '{field_name}' batch operation must be generator function"
-                    )
+                self._gather_field_batch_methods(field_name, batch_operation)
+
+    def _batch_processor_executor(self, batch_processor_maps: typing.Dict[str, typing.Any]):
+        all_iterators_consume = True
+        for field, batch_operation in batch_processor_maps.items():
+            try:
+                value = next(batch_operation)
+                all_iterators_consume &= False
+            except StopIteration:
+                all_iterators_consume &= True
+                value = None
+
+            if value is None:
+                pass
+            else:
+                value_type = type(value)
+                if field.data_type != value_type:
+                    value = field.data_type(value)
 
     def _prepare_pipeline_args_from_batch_fields(self) -> None:
         if not self._field_batch_op_map:

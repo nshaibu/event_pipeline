@@ -182,7 +182,7 @@ class AcquireReleaseLock(object):
 
 def validate_batch_processor(batch_processor: BATCH_PROCESSING_TYPE) -> bool:
     if not callable(batch_processor):
-        raise ImproperlyConfigured(
+        raise ValueError(
             f"Batch processor '{batch_processor}' must be callable"
         )
 
@@ -211,7 +211,7 @@ def validate_batch_processor(batch_processor: BATCH_PROCESSING_TYPE) -> bool:
             )
 
     try:
-        obj = batch_processor(value=[1], **batch_kwarg)
+        obj = batch_processor([1], **batch_kwarg)
         return (
             isinstance(obj, typing.Iterable)
             or isgeneratorfunction(obj)
