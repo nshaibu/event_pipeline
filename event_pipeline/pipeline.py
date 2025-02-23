@@ -614,7 +614,7 @@ class BatchPipeline(ObjectIdentityMixin):
         return self.pipeline_template
 
     def get_fields(self):
-        yield from self.pipeline_template.get_fields()
+        yield from self.get_pipeline_template().get_fields()
 
     @staticmethod
     def _validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE):
