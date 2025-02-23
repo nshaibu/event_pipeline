@@ -191,7 +191,7 @@ def validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE) -> bool:
         raise ValueError(f"Batch processor '{batch_processor}' must be callable")
 
     sig = signature(batch_processor)
-    if not sig.parameters or len(sig.parameters) == 2:
+    if not sig.parameters or len(sig.parameters) != 2:
         raise ImproperlyConfigured(
             f"Batch processor '{batch_processor.__name__}' must have at least two arguments"
         )
@@ -203,7 +203,7 @@ def validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE) -> bool:
         if field_name == "chunk_size" or field_name == "batch_size":
             batch_kwarg[field_name] = 2
             if parameter.default is not Parameter.empty:
-                if isinstance(parameter.default, (int, float)):
+                if not isinstance(parameter.default, (int, float)):
                     raise ImproperlyConfigured(
                         f"Batch processor '{batch_processor.__name__}' argument 'batch_size/chunk_size' "
                         f"must have a default value type of int or float "

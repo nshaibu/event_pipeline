@@ -297,6 +297,82 @@ class MyEvent(EventBase):
         return True, "Event processed successfully"
 
 ```
+## Executor Configuration
+
+The `ExecutorInitializerConfig` class is used to configure the initialization of an executor 
+(such as ProcessPoolExecutor or ThreadPoolExecutor) that manages event processing. This class allows you 
+to control several aspects of the executor’s behavior, including the number of workers, task limits, 
+and thread naming conventions.
+
+### Configuration Fields
+The ExecutorInitializerConfig class contains the following configuration fields:
+
+1. `max_workers`
+    - **Type**: `int` or `EMPTY`
+    - ***Description***: Specifies the maximum number of workers (processes or threads) that can be used to execute 
+    the event. If this is not provided, the number of workers defaults to the number of processors available on the machine.
+    - ***Usage***: Set this field to an integer value if you wish to limit the number of workers. If left as EMPTY, 
+    the system will use the default number of workers based on the machine’s processor count.
+
+2. `max_tasks_per_child`
+   - ***Type***: `int` or `EMPTY`
+   - ***Description***: Defines the maximum number of tasks a worker can complete before being replaced by a new worker. 
+   This can be useful for limiting the lifetime of a worker, especially for long-running tasks, to avoid memory buildup 
+   or potential issues with task state.
+   - ***Usage***: Set this field to an integer to limit the number of tasks per worker. If set to EMPTY, workers will 
+   live for as long as the executor runs.
+
+3. `thread_name_prefix`
+    - Type: str or EMPTY
+Description: A string to use as a prefix when naming threads. This helps identify threads related to event processing during execution.
+Usage: Set this field to a string to provide a custom thread naming convention. If left as EMPTY, threads will not have a prefix.
+Example:
+python
+Copy
+config = ExecutorInitializerConfig(thread_name_prefix="event_executor_")
+Configuration with ProcessPoolExecutor or ThreadPoolExecutor
+If you are using ProcessPoolExecutor or ThreadPoolExecutor for handling event processing, you can configure additional properties to control the behavior of the executor:
+
+max_workers
+Defines the maximum number of workers (either processes or threads) that will be used by the executor. If not provided, it defaults to the number of processors available on the machine.
+max_tasks_per_child
+Specifies the maximum number of tasks a worker can handle before being replaced. If this is not provided, workers will continue indefinitely unless explicitly terminated or replaced by the system.
+thread_name_prefix
+Assigns a prefix to thread names, which is especially useful when using a ThreadPoolExecutor. It allows you to easily identify the threads used in processing your events.
+Example Usage
+Here’s an example of how to use the ExecutorInitializerConfig class to configure an executor for event processing:
+
+python
+Copy
+from some_module import ExecutorInitializerConfig
+
+# Configuring an executor with a specific number of workers, max tasks per worker, and thread name prefix
+config = ExecutorInitializerConfig(
+    max_workers=4,
+    max_tasks_per_child=50,
+    thread_name_prefix="event_executor_"
+)
+
+# Pass the config to the executor initializer
+executor_initializer = ExecutorInitializer(config)
+executor_initializer.initialize_executor()
+In this example:
+
+The executor will allow 4 workers (processes or threads, depending on the executor type).
+Each worker will process a maximum of 50 tasks before being replaced.
+The thread names will begin with the prefix event_executor_, making it easier to identify threads related to event processing.
+Default Behavior
+If no fields are specified or left as EMPTY, the executor will use the following default behavior:
+
+max_workers: The number of workers will default to the number of processors on the machine.
+max_tasks_per_child: Workers will continue processing tasks indefinitely, with no limit.
+thread_name_prefix: Threads will not have a custom prefix.
+For example, the following code creates an executor with default behavior:
+
+python
+Copy
+config = ExecutorInitializerConfig()  # Default configuration
+
 
 ## Function-Based Events
 In addition to defining events using classes, you can also define events as functions. 

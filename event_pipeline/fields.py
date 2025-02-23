@@ -1,5 +1,6 @@
 import os.path
 import typing
+from . import default_batch_processors as batch_defaults
 from .exceptions import ImproperlyConfigured
 from .utils import validate_batch_processor
 from .constants import EMPTY, UNKNOWN, BATCH_PROCESSOR_TYPE
@@ -23,24 +24,41 @@ class InputDataField(CacheInstanceFieldMixin):
         self,
         name: str = None,
         required: bool = False,
-        data_type: typing.Type = UNKNOWN,
+        data_type: typing.Union[typing.Type, typing.Tuple[typing.Type]] = UNKNOWN,
         default: typing.Any = EMPTY,
         batch_processor: BATCH_PROCESSOR_TYPE = None,
-        batch_size: int = None,
+        batch_size: int = batch_defaults.DEFAULT_BATCH_SIZE,
     ):
         self.name = name
-        self.data_type = data_type
+        self.data_type = (
+            data_type if isinstance(data_type, (list, tuple)) else (data_type,)
+        )
         self.default = default
         self.required = required
-        self.batch_processor = batch_processor
+        self.batch_processor = None
         self.batch_size: int = batch_size
 
-        if self.batch_processor:
-            valid = validate_batch_processor(self.batch_processor)
+        if batch_processor is None:
+            if any(
+                [
+                    dtype.__name__ in [list.__name__, tuple.__name__]
+                    for dtype in self.data_type
+                ]
+            ):
+                batch_processor = batch_defaults.list_batch_processor
+
+        if batch_processor:
+            self._set_batch_processor(batch_processor)
+
+    def _set_batch_processor(self, processor: BATCH_PROCESSOR_TYPE):
+        if processor:
+            valid = validate_batch_processor(processor)
             if valid is False:
                 raise ImproperlyConfigured(
                     "Batch processor error. Batch processor must be iterable and generators"
                 )
+
+            self.batch_processor = processor
 
     def __set_name__(self, owner, name):
         if self.name is None:
@@ -74,13 +92,26 @@ class InputDataField(CacheInstanceFieldMixin):
 
 class FileInputDataField(InputDataField):
 
-    def __init__(self, path: str = None, required=False):
-        super().__init__(name=path, required=required, data_type=str, default=None)
+    def __init__(
+        self,
+        path: typing.Union[str, os.PathLike] = None,
+        required=False,
+        chunk_size: int = batch_defaults.DEFAULT_CHUNK_SIZE,
+    ):
+        super().__init__(
+            name=path,
+            required=required,
+            data_type=(str, os.PathLike),
+            default=None,
+            batch_size=chunk_size,
+        )
+
+        self._set_batch_processor(batch_defaults.file_stream_batch_processor)
 
     def __set__(self, instance, value):
-        super().__set__(instance, value)
         if not os.path.isfile(value):
             raise TypeError(f"{value} is not a file or does not exist")
+        super().__set__(instance, value)
 
     def __get__(self, instance, owner=None):
         value = super().__get__(instance, owner)
