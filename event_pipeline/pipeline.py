@@ -4,8 +4,10 @@ import inspect
 import logging
 import typing
 import copy
+import threading
 import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor
+from enum import Enum
+from concurrent.futures import ProcessPoolExecutor, as_completed, Future
 from collections import OrderedDict, ChainMap, deque
 from functools import lru_cache
 from inspect import Signature, Parameter
@@ -23,6 +25,7 @@ from .signal.signals import (
     pipeline_execution_end,
     pipeline_shutdown,
     pipeline_stop,
+    DEFAULT_SIGNALS,
 )
 from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
 from .constants import (
@@ -529,14 +532,57 @@ class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
         raise EventDoesNotExist(f"Task '{pk}' does not exists", code=pk)
 
 
-class PipelineBatch(ObjectIdentityMixin):
+class BatchPipelineStatus(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    FINISHED = "finished"
+
+
+class _BatchProcessingMonitor(threading.Thread):
+    def __init__(
+        self,
+        batch_pipeline: "BatchPipeline",
+        executor: ProcessPoolExecutor,
+        futures: typing.List[Future],
+    ):
+        self.batch = batch_pipeline
+        self._results_futures = futures
+        self._executor = executor
+        super().__init__()
+
+    @property
+    def result_futures(self):
+        return self._results_futures
+
+    @result_futures.setter
+    def result_futures(self, future):
+        if isinstance(future, Future):
+            self._results_futures = future
+        raise TypeError(f"'{future}' is not a future object")
+
+    def _listen_for_signals_and_emit_then_again(self):
+        pass
+
+    def _process_futures(self):
+        pass
+
+    def run(self) -> None:
+        while self.executor._pending_work_items:
+            pass
+
+
+class BatchPipeline(ObjectIdentityMixin):
 
     pipeline_template: typing.Type[Pipeline] = None
+
+    list_to_signals: typing.List[SoftSignal] = DEFAULT_SIGNALS
 
     __signature__ = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.status: BatchPipelineStatus = BatchPipelineStatus.PENDING
 
         pipeline_template = self.get_pipeline_template()
 
@@ -562,6 +608,8 @@ class PipelineBatch(ObjectIdentityMixin):
 
         self._signals_queue = None
 
+        self._monitor_thread: typing.Optional[_BatchProcessingMonitor] = None
+
     def get_pipeline_template(self):
         return self.pipeline_template
 
@@ -570,12 +618,7 @@ class PipelineBatch(ObjectIdentityMixin):
 
     @staticmethod
     def _validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE):
-        try:
-            status = validate_batch_processor(batch_processor)
-        except Exception as e:
-            logger.error(str(e))
-            raise ImproperlyConfigured("Batch processor error") from e
-
+        status = validate_batch_processor(batch_processor)
         if status is False:
             raise ImproperlyConfigured(
                 "Batch processor error. Batch processor must be iterable and generators"
@@ -598,7 +641,7 @@ class PipelineBatch(ObjectIdentityMixin):
             if field.has_batch_operation:
                 self._validate_batch_processor(field.batch_processor)
 
-                self._field_batch_op_map[field] = field.batch_operation(
+                self._field_batch_op_map[field] = field.batch_processor(
                     getattr(self, field_name, []), field.batch_size
                 )
 
@@ -663,16 +706,55 @@ class PipelineBatch(ObjectIdentityMixin):
         if not self._configured_pipelines:
             # TODO: raise specific error condition
             raise Exception
+
+        self.status = BatchPipelineStatus.RUNNING
+
         if len(self._configured_pipelines) == 1:
             # if only one pipeline configured, just run it. Don't create any sub process
             for pipeline in self._configured_pipelines:
                 pipeline.start(force_rerun=True)
         else:
+
             mp_context = mp.get_context("spawn")
             self._signals_queue = mp_context.Queue()
 
             with ProcessPoolExecutor(mp_context=mp_context) as executor:
-                pass
+                futures = [
+                    executor.submit(
+                        self._pipeline_executor,
+                        pipeline=pipeline,
+                        focus_on_signals=self.list_to_signals,
+                    )
+                    for pipeline in self._configured_pipelines
+                ]
 
-    def _configure_pipeline_lis_signal_listeners(self, signals: typing.List[SoftSignal]):
+                self._monitor_thread = _BatchProcessingMonitor(self, executor, futures)
+
+                # let's start monitoring the execution
+                self._monitor_thread.start()
+
+    @staticmethod
+    def _pipeline_executor(pipeline: Pipeline, focus_on_signals):
+        exception = None
+
+        def signal_handler(*args, **kwargs):
+            print(args, kwargs)
+
+        for signal in focus_on_signals:
+            signal.connect(signal_handler, sender=pipeline.__class__)
+
+        try:
+            pipeline.start(force_rerun=True)
+        except Exception as e:
+            exception = e
+
+        return pipeline, exception
+
+    def _configure_pipeline_lis_signal_listeners(
+        self, signals: typing.List[SoftSignal]
+    ):
         pass
+
+    def __del__(self):
+        if self._monitor_thread:
+            self._monitor_thread.join()

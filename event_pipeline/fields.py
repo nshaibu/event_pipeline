@@ -1,6 +1,8 @@
 import os.path
 import typing
-from .constants import EMPTY, UNKNOWN
+from .exceptions import ImproperlyConfigured
+from .utils import validate_batch_processor
+from .constants import EMPTY, UNKNOWN, BATCH_PROCESSOR_TYPE
 
 
 class CacheInstanceFieldMixin(object):
@@ -23,11 +25,22 @@ class InputDataField(CacheInstanceFieldMixin):
         required: bool = False,
         data_type: typing.Type = UNKNOWN,
         default: typing.Any = EMPTY,
+        batch_processor: BATCH_PROCESSOR_TYPE = None,
+        batch_size: int = None,
     ):
         self.name = name
         self.data_type = data_type
         self.default = default
         self.required = required
+        self.batch_processor = batch_processor
+        self.batch_size: int = batch_size
+
+        if self.batch_processor:
+            valid = validate_batch_processor(self.batch_processor)
+            if valid is False:
+                raise ImproperlyConfigured(
+                    "Batch processor error. Batch processor must be iterable and generators"
+                )
 
     def __set_name__(self, owner, name):
         if self.name is None:
@@ -56,9 +69,7 @@ class InputDataField(CacheInstanceFieldMixin):
 
     @property
     def has_batch_operation(self):
-        # TODO: implement how to include batch processing
-        #  to each field that will require batch processing
-        return False
+        return self.batch_processor is not None
 
 
 class FileInputDataField(InputDataField):

@@ -180,3 +180,12 @@ event_execution_cancelled = SoftSignal(
 event_execution_aborted = SoftSignal(
     provide_args=["task_profiles", "execution_context", "state"]
 )
+
+
+DEFAULT_SIGNALS = [
+    event_execution_init,
+    event_execution_start,
+    event_execution_end,
+    event_execution_retry_done,
+    event_execution_retry,
+]

@@ -215,47 +215,5 @@ def validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE) -> bool:
             or isgeneratorfunction(obj)
             or isgenerator(obj)
         )
-    except TypeError:
-        return False
-
-
-def convert_invalid_none_value_to_expected_value(value, data_type):
-    if not bool(value) and data_type:
-        type_name = data_type.__name__ if not isinstance(data_type, dict) else "str"
-        if type_name == "list":
-            value = []
-        elif type_name == "dict":
-            value = {}
-        elif type_name in ("int", "float"):
-            value = 0
-        elif type_name == "str":
-            value = ""
-    return value
-
-
-import json
-import datetime
-
-
-def _value_data_type_parser(self, value: typing.Any, data_type) -> typing.Any:
-    if value is not None and data_type is not None and not isinstance(value, data_type):
-        type_name = self.data_type.__name__
-        try:
-            if type_name in ("int", "str", "float"):
-                value = self.data_type(value)
-            elif type_name in ("dict", "list"):
-                value = json.loads(value)
-                if str(value).isnumeric() and type_name == "list":
-                    value = [value]
-            elif type_name in ("datetime", "date"):
-                if self.date_format:
-                    value = datetime.datetime.strptime(value, self.date_format)
-        except json.decoder.JSONDecodeError:
-            if type_name == "list":
-                value = [value]
-        except Exception as err:
-            logging.error(str(err))
-            raise TypeConversionError(
-                message=f"Converting value '{value}' to type '{str(self.data_type)}' failed"
-            )
-    return value
+    except Exception as e:
+        raise ImproperlyConfigured("Batch processor error") from e
