@@ -3,17 +3,21 @@ import logging
 import time
 import uuid
 import sys
-import resource
-from inspect import signature, Parameter, isgeneratorfunction, isgenerator
 
-from .exceptions import ImproperlyConfigured
+try:
+    import resource
+except ImportError:
+    # No windows support for this lib
+    resource = None
+
+from inspect import signature, Parameter, isgeneratorfunction, isgenerator
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
 from treelib.tree import Tree
-
+from .exceptions import ImproperlyConfigured
 from .constants import EMPTY, BATCH_PROCESSOR_TYPE
 
 if typing.TYPE_CHECKING:
@@ -33,6 +37,8 @@ def _extend_recursion_depth(limit: int = 1048576):
     This function adjusts the system’s recursion limit to allow deeper recursion
     in cases where the default limit might cause a RecursionError.
     """
+    if resource is None:
+        return
     rec_limit = sys.getrecursionlimit()
     if rec_limit == limit:
         return
