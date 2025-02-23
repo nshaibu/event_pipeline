@@ -4,6 +4,8 @@ import inspect
 import logging
 import typing
 import copy
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
 from collections import OrderedDict, ChainMap, deque
 from functools import lru_cache
 from inspect import Signature, Parameter
@@ -14,6 +16,7 @@ except ImportError:
     graphviz = None
 
 from .signal.signals import (
+    SoftSignal,
     pipeline_pre_init,
     pipeline_post_init,
     pipeline_execution_start,
@@ -22,7 +25,13 @@ from .signal.signals import (
     pipeline_stop,
 )
 from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
-from .constants import PIPELINE_FIELDS, PIPELINE_STATE, UNKNOWN, EMPTY
+from .constants import (
+    PIPELINE_FIELDS,
+    PIPELINE_STATE,
+    UNKNOWN,
+    EMPTY,
+    BATCH_PROCESSOR_TYPE,
+)
 from .utils import GraphTree
 from .exceptions import (
     ImproperlyConfigured,
@@ -369,6 +378,12 @@ class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
         for name, klass in getattr(cls, PIPELINE_FIELDS, {}).items():
             yield name, klass
 
+    @classmethod
+    def get_non_batch_fields(cls):
+        for name, field in cls.get_fields():
+            if not field.has_batch_operation:
+                yield name, field
+
     def get_pipeline_tree(self) -> GraphTree:
         """
         Constructs and returns the pipeline's execution tree.
@@ -542,7 +557,7 @@ class PipelineBatch(ObjectIdentityMixin):
         for field, value in bounded_args.arguments.items():
             setattr(self, field, value)
 
-        self._field_batch_op_map = {}
+        self._field_batch_op_map: typing.Dict[InputDataField, typing.Iterator] = {}
         self._configured_pipelines: typing.Set[Pipeline] = set()
 
     def get_pipeline_template(self):
@@ -552,7 +567,7 @@ class PipelineBatch(ObjectIdentityMixin):
         yield from self.pipeline_template.get_fields()
 
     @staticmethod
-    def _validate_batch_processor(batch_processor):
+    def _validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE):
         try:
             status = validate_batch_processor(batch_processor)
         except Exception as e:
@@ -564,16 +579,16 @@ class PipelineBatch(ObjectIdentityMixin):
                 "Batch processor error. Batch processor must be iterable and generators"
             )
 
-    def _gather_field_batch_methods(self, field_name, batch_processor):
+    def _gather_field_batch_methods(
+        self, field: InputDataField, batch_processor: BATCH_PROCESSOR_TYPE
+    ):
         self._validate_batch_processor(batch_processor)
 
-        if field_name not in self._field_batch_op_map:
-            self._field_batch_op_map[field_name] = batch_processor(
-                getattr(self, field_name)
-            )
+        if field not in self._field_batch_op_map:
+            self._field_batch_op_map[field] = batch_processor(getattr(self, field.name))
         else:
-            self._field_batch_op_map[field_name] = batch_processor(
-                self._field_batch_op_map[field_name]
+            self._field_batch_op_map[field] = batch_processor(
+                self._field_batch_op_map[field]
             )
 
     def _gather_and_init_field_batch_iterators(self):
@@ -581,17 +596,21 @@ class PipelineBatch(ObjectIdentityMixin):
             if field.has_batch_operation:
                 self._validate_batch_processor(field.batch_processor)
 
-                self._field_batch_op_map[field_name] = field.batch_operation(
+                self._field_batch_op_map[field] = field.batch_operation(
                     getattr(self, field_name, []), field.batch_size
                 )
 
             method_name = f"{field_name}_batch"
             if hasattr(self, method_name):
                 batch_operation = getattr(self, method_name)
-                self._gather_field_batch_methods(field_name, batch_operation)
+                self._gather_field_batch_methods(field, batch_operation)
 
-    def _batch_processor_executor(self, batch_processor_maps: typing.Dict[str, typing.Any]):
+    def _execute_field_batch_processors(
+        self, batch_processor_maps: typing.Dict[InputDataField, typing.Iterator]
+    ):
         all_iterators_consume = True
+        new_batch_maps = {}
+        kwargs = {}
         for field, batch_operation in batch_processor_maps.items():
             try:
                 value = next(batch_operation)
@@ -600,21 +619,54 @@ class PipelineBatch(ObjectIdentityMixin):
                 all_iterators_consume &= True
                 value = None
 
-            if value is None:
-                pass
-            else:
-                value_type = type(value)
-                if field.data_type != value_type:
-                    value = field.data_type(value)
+            value = [] if value is None else value
+            kwargs[field.name] = value
+            new_batch_maps[field] = batch_operation
 
-    def _prepare_pipeline_args_from_batch_fields(self) -> None:
+        yield kwargs
+
+        if all_iterators_consume:
+            yield from self._execute_field_batch_processors(new_batch_maps)
+
+    def _prepare_args_for_non_batch_fields(self):
+        args = {}
+        template = self.get_pipeline_template()
+        for field_name, _ in template.get_non_batch_fields():
+            args[field_name] = getattr(self, field_name, None)
+        return args
+
+    def _init_pipelines(self) -> None:
+        """
+        Initializes and configures processing pipelines, handling both batch and non-batch operations.
+        """
+        template = self.get_pipeline_template()
+
         if not self._field_batch_op_map:
             self._gather_and_init_field_batch_iterators()
 
+        non_batch_kwargs = self._prepare_args_for_non_batch_fields()
+
         if not self._field_batch_op_map:
-            # TODO: figure out what should happen when the pipeline template
-            #  isn't configured for batch processing
+            # Configure only one pipeline
+            self._configured_pipelines.add(template(**non_batch_kwargs))
             return
 
-        for field_name, batch_operation in self._field_batch_op_map.items():
-            pass
+        for kwargs in self._execute_field_batch_processors(self._field_batch_op_map):
+            kwargs.update(non_batch_kwargs)
+            pipeline = template(**kwargs)
+            self._configured_pipelines.add(pipeline)
+
+    def execute(self):
+        self._init_pipelines()
+        if not self._configured_pipelines:
+            # TODO: raise specific error condition
+            raise Exception
+        if len(self._configured_pipelines) == 1:
+            # if only one pipeline configured, just run it. Don't create any sub process
+            for pipeline in self._configured_pipelines:
+                pipeline.start(force_rerun=True)
+        else:
+            mp_context = mp.get_context("spawn")
+
+    def _configure_pipeline_lis_signal_listeners(self, signals: typing.List[SoftSignal]):
+        pass

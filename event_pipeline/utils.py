@@ -14,7 +14,7 @@ except ImportError:
     from io import StringIO
 from treelib.tree import Tree
 
-from .constants import EMPTY, BATCH_PROCESSING_TYPE
+from .constants import EMPTY, BATCH_PROCESSOR_TYPE
 
 if typing.TYPE_CHECKING:
     from .base import EventBase
@@ -180,11 +180,9 @@ class AcquireReleaseLock(object):
         self.lock.release()
 
 
-def validate_batch_processor(batch_processor: BATCH_PROCESSING_TYPE) -> bool:
+def validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE) -> bool:
     if not callable(batch_processor):
-        raise ValueError(
-            f"Batch processor '{batch_processor}' must be callable"
-        )
+        raise ValueError(f"Batch processor '{batch_processor}' must be callable")
 
     sig = signature(batch_processor)
     if not sig.parameters or len(sig.parameters) == 2:
@@ -219,3 +217,45 @@ def validate_batch_processor(batch_processor: BATCH_PROCESSING_TYPE) -> bool:
         )
     except TypeError:
         return False
+
+
+def convert_invalid_none_value_to_expected_value(value, data_type):
+    if not bool(value) and data_type:
+        type_name = data_type.__name__ if not isinstance(data_type, dict) else "str"
+        if type_name == "list":
+            value = []
+        elif type_name == "dict":
+            value = {}
+        elif type_name in ("int", "float"):
+            value = 0
+        elif type_name == "str":
+            value = ""
+    return value
+
+
+import json
+import datetime
+
+
+def _value_data_type_parser(self, value: typing.Any, data_type) -> typing.Any:
+    if value is not None and data_type is not None and not isinstance(value, data_type):
+        type_name = self.data_type.__name__
+        try:
+            if type_name in ("int", "str", "float"):
+                value = self.data_type(value)
+            elif type_name in ("dict", "list"):
+                value = json.loads(value)
+                if str(value).isnumeric() and type_name == "list":
+                    value = [value]
+            elif type_name in ("datetime", "date"):
+                if self.date_format:
+                    value = datetime.datetime.strptime(value, self.date_format)
+        except json.decoder.JSONDecodeError:
+            if type_name == "list":
+                value = [value]
+        except Exception as err:
+            logging.error(str(err))
+            raise TypeConversionError(
+                message=f"Converting value '{value}' to type '{str(self.data_type)}' failed"
+            )
+    return value
