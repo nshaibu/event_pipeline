@@ -323,27 +323,15 @@ The ExecutorInitializerConfig class contains the following configuration fields:
    live for as long as the executor runs.
 
 3. `thread_name_prefix`
-    - Type: str or EMPTY
-Description: A string to use as a prefix when naming threads. This helps identify threads related to event processing during execution.
-Usage: Set this field to a string to provide a custom thread naming convention. If left as EMPTY, threads will not have a prefix.
-Example:
-python
-Copy
-config = ExecutorInitializerConfig(thread_name_prefix="event_executor_")
-Configuration with ProcessPoolExecutor or ThreadPoolExecutor
-If you are using ProcessPoolExecutor or ThreadPoolExecutor for handling event processing, you can configure additional properties to control the behavior of the executor:
+    - ***Type***: `str` or `EMPTY`
+    - ***Description***: A string to use as a prefix when naming threads. This helps identify threads related to event 
+    processing during execution.
+    - ***Usage***: Set this field to a string to provide a custom thread naming convention. If left as EMPTY, 
+    threads will not have a prefix.
 
-max_workers
-Defines the maximum number of workers (either processes or threads) that will be used by the executor. If not provided, it defaults to the number of processors available on the machine.
-max_tasks_per_child
-Specifies the maximum number of tasks a worker can handle before being replaced. If this is not provided, workers will continue indefinitely unless explicitly terminated or replaced by the system.
-thread_name_prefix
-Assigns a prefix to thread names, which is especially useful when using a ThreadPoolExecutor. It allows you to easily identify the threads used in processing your events.
-Example Usage
 Here’s an example of how to use the ExecutorInitializerConfig class to configure an executor for event processing:
 
-python
-Copy
+```python
 from some_module import ExecutorInitializerConfig
 
 # Configuring an executor with a specific number of workers, max tasks per worker, and thread name prefix
@@ -356,12 +344,16 @@ config = ExecutorInitializerConfig(
 # Pass the config to the executor initializer
 executor_initializer = ExecutorInitializer(config)
 executor_initializer.initialize_executor()
+```
+
 In this example:
 
 The executor will allow 4 workers (processes or threads, depending on the executor type).
 Each worker will process a maximum of 50 tasks before being replaced.
-The thread names will begin with the prefix event_executor_, making it easier to identify threads related to event processing.
-Default Behavior
+The thread names will begin with the prefix event_executor_, making it easier to identify threads related 
+to event processing.
+
+## Default Behavior
 If no fields are specified or left as EMPTY, the executor will use the following default behavior:
 
 max_workers: The number of workers will default to the number of processors on the machine.
@@ -369,9 +361,9 @@ max_tasks_per_child: Workers will continue processing tasks indefinitely, with n
 thread_name_prefix: Threads will not have a custom prefix.
 For example, the following code creates an executor with default behavior:
 
-python
-Copy
+```python
 config = ExecutorInitializerConfig()  # Default configuration
+```
 
 
 ## Function-Based Events
