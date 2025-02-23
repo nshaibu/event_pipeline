@@ -560,14 +560,14 @@ class _BatchProcessingMonitor(threading.Thread):
             self._results_futures = future
         raise TypeError(f"'{future}' is not a future object")
 
-    def _listen_for_signals_and_emit_then_again(self):
-        pass
+    def _listen_for_signals_and_emit_in_parent_process(self):
+        data = self.batch._signals_queue.get()
 
     def _process_futures(self):
         pass
 
     def run(self) -> None:
-        while self.executor._pending_work_items:
+        while self._executor._pending_work_items:
             pass
 
 
@@ -724,6 +724,7 @@ class BatchPipeline(ObjectIdentityMixin):
                         self._pipeline_executor,
                         pipeline=pipeline,
                         focus_on_signals=self.list_to_signals,
+                        signals_queue=self._signals_queue,
                     )
                     for pipeline in self._configured_pipelines
                 ]
@@ -734,14 +735,19 @@ class BatchPipeline(ObjectIdentityMixin):
                 self._monitor_thread.start()
 
     @staticmethod
-    def _pipeline_executor(pipeline: Pipeline, focus_on_signals):
+    def _pipeline_executor(
+        pipeline: Pipeline,
+        focus_on_signals: typing.List[SoftSignal],
+        signals_queue: mp.Queue,
+    ):
         exception = None
 
         def signal_handler(*args, **kwargs):
             print(args, kwargs)
+            signals_queue.put({"args": args, "kwargs": kwargs})
 
         for signal in focus_on_signals:
-            signal.connect(signal_handler, sender=pipeline.__class__)
+            signal.connect(listener=signal_handler, sender=pipeline.__class__)
 
         try:
             pipeline.start(force_rerun=True)
