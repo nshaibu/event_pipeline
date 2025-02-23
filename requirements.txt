@@ -1,6 +1,6 @@
 ply==3.11
 six==1.17.0
 treelib==1.7.0
-more-itertools==10.6.0
+more-itertools<=10.6.0
 # graph
 graphviz==0.20.3
