@@ -560,6 +560,8 @@ class PipelineBatch(ObjectIdentityMixin):
         self._field_batch_op_map: typing.Dict[InputDataField, typing.Iterator] = {}
         self._configured_pipelines: typing.Set[Pipeline] = set()
 
+        self._signals_queue = None
+
     def get_pipeline_template(self):
         return self.pipeline_template
 
@@ -667,6 +669,10 @@ class PipelineBatch(ObjectIdentityMixin):
                 pipeline.start(force_rerun=True)
         else:
             mp_context = mp.get_context("spawn")
+            self._signals_queue = mp_context.Queue()
+
+            with ProcessPoolExecutor(mp_context=mp_context) as executor:
+                pass
 
     def _configure_pipeline_lis_signal_listeners(self, signals: typing.List[SoftSignal]):
         pass
