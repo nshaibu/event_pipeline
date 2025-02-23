@@ -7,7 +7,7 @@ import copy
 import threading
 import multiprocessing as mp
 from enum import Enum
-from concurrent.futures import ProcessPoolExecutor, as_completed, Future
+from concurrent.futures import ProcessPoolExecutor, as_completed, Future, CancelledError
 from collections import OrderedDict, ChainMap, deque
 from functools import lru_cache
 from inspect import Signature, Parameter
@@ -532,6 +532,11 @@ class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
         raise EventDoesNotExist(f"Task '{pk}' does not exists", code=pk)
 
 
+class _BatchResult(typing.NamedTuple):
+    pipeline: Pipeline
+    exception: Exception
+
+
 class BatchPipelineStatus(Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -578,8 +583,21 @@ class _BatchProcessingMonitor(threading.Thread):
     def _listen_for_signals_and_emit_in_parent_process(self):
         data = self.batch._signals_queue.get()
 
-    def _process_futures(self):
-        pass
+    @staticmethod
+    def _process_futures(future: Future, batch: "BatchPipeline"):
+        event = None
+        try:
+            data = future.result()
+            event = _BatchResult(*data)
+        except TimeoutError:
+            pass
+        except CancelledError:
+            pass
+        except Exception as exc:
+            exception = exc
+
+        with AcquireReleaseLock(batch.lock):
+            batch.results.append(event)
 
     def run(self) -> None:
         while self._executor._pending_work_items:
@@ -599,12 +617,15 @@ class BatchPipeline(ObjectIdentityMixin):
 
     pipeline_template: typing.Type[Pipeline] = None
 
-    list_to_signals: typing.List[SoftSignal] = DEFAULT_SIGNALS
+    listen_to_signals: typing.List[SoftSignal] = DEFAULT_SIGNALS
 
     __signature__ = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.lock = threading.Lock()
+        self.results: typing.List[_BatchResult] = []
 
         self.status: BatchPipelineStatus = BatchPipelineStatus.PENDING
 
@@ -762,7 +783,7 @@ class BatchPipeline(ObjectIdentityMixin):
                     executor.submit(
                         self._pipeline_executor,
                         pipeline=pipeline,
-                        focus_on_signals=self.list_to_signals,
+                        focus_on_signals=self.listen_to_signals,
                         signals_queue=self._signals_queue,
                     )
                     for pipeline in self._configured_pipelines
