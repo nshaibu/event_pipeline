@@ -539,6 +539,21 @@ class BatchPipelineStatus(Enum):
 
 
 class _BatchProcessingMonitor(threading.Thread):
+    """
+    A thread that monitors the progress of pipeline batch processing, managing
+    execution through a process pool executor and listening for signals.
+
+    This class is responsible for tracking the status of ongoing batch processing tasks
+    by monitoring futures, managing signals between processes, and performing any
+    necessary processing on the results.
+
+    Attributes:
+        batch (BatchPipeline): The batch pipeline being processed.
+        _results_futures (typing.List[Future]): A list of futures representing the ongoing batch operations.
+        _executor (ProcessPoolExecutor): The executor managing the processes for batch operations.
+
+    """
+
     def __init__(
         self,
         batch_pipeline: "BatchPipeline",
@@ -572,6 +587,15 @@ class _BatchProcessingMonitor(threading.Thread):
 
 
 class BatchPipeline(ObjectIdentityMixin):
+    """
+    A class representing a batch pipeline, responsible for managing and processing
+    data through a series of pipeline stages. The pipeline is constructed from a
+    user-defined template that must be a subclass of `Pipeline`.
+
+    Attributes:
+        pipeline_template (typing.Type[Pipeline]): The class used to generate the pipeline.
+        list_to_signals (typing.List[SoftSignal]): A list of signals to be used within the pipeline.
+    """
 
     pipeline_template: typing.Type[Pipeline] = None
 
@@ -627,6 +651,21 @@ class BatchPipeline(ObjectIdentityMixin):
     def _gather_field_batch_methods(
         self, field: InputDataField, batch_processor: BATCH_PROCESSOR_TYPE
     ):
+        """
+        Gathers and applies all batch processing operations for the specified field.
+
+        This method validates the provided batch processor, then checks if the specified field
+        already has a batch operation associated with it. If not, it creates a new batch operation
+        using the provided batch processor and the field's value. If a batch operation already exists
+        for the field, it applies the batch processor to the existing operation.
+
+        Args:
+            field (InputDataField): The input data field for which the batch processing is being applied.
+            batch_processor (BATCH_PROCESSOR_TYPE): A callable function or class used to process the field in batches.
+
+        Raises:
+            ImproperlyConfigured: If the provided batch processor is invalid or improperly configured.
+        """
         self._validate_batch_processor(batch_processor)
 
         if field not in self._field_batch_op_map:
