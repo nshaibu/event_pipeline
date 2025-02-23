@@ -580,8 +580,23 @@ class _BatchProcessingMonitor(threading.Thread):
             self._results_futures = future
         raise TypeError(f"'{future}' is not a future object")
 
-    def _listen_for_signals_and_emit_in_parent_process(self):
-        data = self.batch._signals_queue.get()
+    def attach_future_processors(self):
+        for future in self._results_futures:
+            future.add_done_callback(
+                lambda fut: self._process_futures(fut, batch=self.batch)
+            )
+
+    @staticmethod
+    def construct_signal(signal_data: typing.Dict):
+        data = signal_data.get("kwargs")
+        sender = data.pop("sender", None)
+        signal = data.pop("signal", None)
+
+        if sender and signal:
+            process_id = signal_data.get("process_id")
+            pipeline_id = signal_data.get("pipeline_id")
+
+            signal.emit(sender=sender, **data)
 
     @staticmethod
     def _process_futures(future: Future, batch: "BatchPipeline"):
@@ -600,8 +615,11 @@ class _BatchProcessingMonitor(threading.Thread):
             batch.results.append(event)
 
     def run(self) -> None:
-        while self._executor._pending_work_items:
-            pass
+        self.attach_future_processors()
+
+        while True:
+            signal_data = self.batch.signals_queue.get()
+            self.construct_signal(signal_data)
 
 
 class BatchPipeline(ObjectIdentityMixin):
@@ -660,6 +678,10 @@ class BatchPipeline(ObjectIdentityMixin):
 
     def get_fields(self):
         yield from self.get_pipeline_template().get_fields()
+
+    @property
+    def signals_queue(self):
+        return self._signals_queue
 
     @staticmethod
     def _validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE):
@@ -763,6 +785,7 @@ class BatchPipeline(ObjectIdentityMixin):
 
     def execute(self):
         self._init_pipelines()
+
         if not self._configured_pipelines:
             # TODO: raise specific error condition
             raise Exception
@@ -804,7 +827,13 @@ class BatchPipeline(ObjectIdentityMixin):
 
         def signal_handler(*args, **kwargs):
             print(args, kwargs)
-            signals_queue.put({"args": args, "kwargs": kwargs})
+            signal_data = {
+                "args": args,
+                "kwargs": kwargs,
+                "pipeline_id": pipeline.id,
+                "process_id": os.getpid(),
+            }
+            signals_queue.put(signal_data)
 
         for signal in focus_on_signals:
             signal.connect(listener=signal_handler, sender=pipeline.__class__)
@@ -815,11 +844,6 @@ class BatchPipeline(ObjectIdentityMixin):
             exception = e
 
         return pipeline, exception
-
-    def _configure_pipeline_lis_signal_listeners(
-        self, signals: typing.List[SoftSignal]
-    ):
-        pass
 
     def __del__(self):
         if self._monitor_thread:
