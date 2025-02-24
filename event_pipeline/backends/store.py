@@ -2,7 +2,7 @@ import abc
 from .connection import BackendConnectorBase
 
 
-class keyValueStoreBackendBase(abc.ABC):
+class KeyValueStoreBackendBase(abc.ABC):
     connector: BackendConnectorBase = None
 
     @abc.abstractmethod

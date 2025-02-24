@@ -600,16 +600,19 @@ class _BatchProcessingMonitor(threading.Thread):
 
     @staticmethod
     def _process_futures(future: Future, batch: "BatchPipeline"):
-        event = None
+        event = exception = None
         try:
             data = future.result()
             event = _BatchResult(*data)
-        except TimeoutError:
-            pass
-        except CancelledError:
-            pass
+        except TimeoutError as exc:
+            exception = exc
+        except CancelledError as exc:
+            exception = exc
         except Exception as exc:
             exception = exc
+
+        if event is None:
+            event = _BatchResult(None, exception=exception)
 
         with AcquireReleaseLock(batch.lock):
             batch.results.append(event)
@@ -621,6 +624,9 @@ class _BatchProcessingMonitor(threading.Thread):
             signal_data = self.batch.signals_queue.get()
             self.construct_signal(signal_data)
 
+            if not self._executor._pending_work_items:
+                break
+
 
 class BatchPipeline(ObjectIdentityMixin):
     """
@@ -630,7 +636,7 @@ class BatchPipeline(ObjectIdentityMixin):
 
     Attributes:
         pipeline_template (typing.Type[Pipeline]): The class used to generate the pipeline.
-        list_to_signals (typing.List[SoftSignal]): A list of signals to be used within the pipeline.
+        listen_to_signals (typing.List[SoftSignal]): A list of signals to be used within the pipeline.
     """
 
     pipeline_template: typing.Type[Pipeline] = None
