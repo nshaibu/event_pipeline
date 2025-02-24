@@ -64,7 +64,8 @@ pip install event-pipeline
 # Requirements
 - Python>=3.8
 - ply==3.11 
-- treelib==1.7.0 
+- treelib==1.7.0
+- more-itertools<=10.6.0
 - graphviz==0.20.3 (Optional)
 
 # Usage
@@ -254,7 +255,7 @@ Every event must specify an executor that defines how the event will be executed
 responsible for managing the concurrency or parallelism when the event is being processed.
 
 Executors implement the Executor interface from the concurrent.futures._base module in the 
-Python standard library. If no executor is specified, the DefaultExecutor will be used.
+Python standard library. If no executor is specified, the `DefaultExecutor` will be used.
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
@@ -268,35 +269,6 @@ class MyEvent(EventBase):
 
 ```
 
-If you are using `ProcessPoolExecutor` or `ThreadPoolExecutor`, you can configure additional properties
-to control the behavior of the executor:
-
-- `max_workers`: Specifies the maximum number of workers (processes or threads) that can be used to 
-execute the event. If not provided, the number of workers will default to the number of processors on the machine.
-
-- `max_tasks_per_child`: Defines the maximum number of tasks a worker can complete before being replaced with a 
-fresh worker. By default, workers will live as long as the executor unless this property is set.
-
-- `thread_name_prefix`: A prefix to use for naming threads. This helps identify threads related to your event during execution.
-
-Here’s how you can set these properties:
-
-```python
-from concurrent.futures import ThreadPoolExecutor
-
-class MyEvent(EventBase):
-    executor = ThreadPoolExecutor
-    
-    # Configure the executor
-    max_workers = 4  # Max number of workers
-    max_tasks_per_child = 10  # Max tasks per worker before replacement
-    thread_name_prefix = "my_event_executor"  # Prefix for thread names
-    
-    def process(self, *args, **kwargs):
-        # Event processing logic here
-        return True, "Event processed successfully"
-
-```
 ## Executor Configuration
 
 The `ExecutorInitializerConfig` class is used to configure the initialization of an executor 
@@ -305,10 +277,12 @@ to control several aspects of the executor’s behavior, including the number of
 and thread naming conventions.
 
 ### Configuration Fields
-The ExecutorInitializerConfig class contains the following configuration fields:
+The ExecutorInitializerConfig class contains the following configuration fields. If you are using 
+`ProcessPoolExecutor` or `ThreadPoolExecutor`, you can configure additional properties to control the 
+behavior of the executor:
 
 1. `max_workers`
-    - **Type**: `int` or `EMPTY`
+    - ***Type***: `int` or `EMPTY`
     - ***Description***: Specifies the maximum number of workers (processes or threads) that can be used to execute 
     the event. If this is not provided, the number of workers defaults to the number of processors available on the machine.
     - ***Usage***: Set this field to an integer value if you wish to limit the number of workers. If left as EMPTY, 
@@ -332,7 +306,7 @@ The ExecutorInitializerConfig class contains the following configuration fields:
 Here’s an example of how to use the ExecutorInitializerConfig class to configure an executor for event processing:
 
 ```python
-from some_module import ExecutorInitializerConfig
+from event_pipeline import ExecutorInitializerConfig
 
 # Configuring an executor with a specific number of workers, max tasks per worker, and thread name prefix
 config = ExecutorInitializerConfig(
@@ -341,9 +315,30 @@ config = ExecutorInitializerConfig(
     thread_name_prefix="event_executor_"
 )
 
-# Pass the config to the executor initializer
-executor_initializer = ExecutorInitializer(config)
-executor_initializer.initialize_executor()
+class MyEvent(EventBase):
+    executor = ThreadPoolExecutor
+    
+    # Configure the executor
+    executor_config = config
+    
+    def process(self, *args, **kwargs):
+        # Event processing logic here
+        return True, "Event processed successfully"
+
+# Or you can config it, using dictionary as below
+class MyEvent(EventBase):
+    executor = ThreadPoolExecutor
+    
+    # Configure the executor
+    executor_config = {
+        "max_workers": 4,
+        "max_tasks_per_child": 50,
+        "thread_name_prefix": "event_executor_"
+    }
+    
+    def process(self, *args, **kwargs):
+        # Event processing logic here
+        return True, "Event processed successfully"
 ```
 
 In this example:

@@ -739,17 +739,17 @@ class BatchPipeline(ObjectIdentityMixin):
                 self._gather_field_batch_methods(field, batch_operation)
 
     def _execute_field_batch_processors(
-        self, batch_processor_maps: typing.Dict[InputDataField, typing.Iterator]
+        self, batch_processor_map: typing.Dict[InputDataField, typing.Iterator]
     ):
-        all_iterators_consume = True
+        all_iterators_consumed = True
         new_batch_maps = {}
         kwargs = {}
-        for field, batch_operation in batch_processor_maps.items():
+        for field, batch_operation in batch_processor_map.items():
             try:
                 value = next(batch_operation)
-                all_iterators_consume &= False
+                all_iterators_consumed &= False
             except StopIteration:
-                all_iterators_consume &= True
+                all_iterators_consumed &= True
                 value = None
 
             value = [] if value is None else value
@@ -758,7 +758,7 @@ class BatchPipeline(ObjectIdentityMixin):
 
         yield kwargs
 
-        if all_iterators_consume:
+        if all_iterators_consumed:
             yield from self._execute_field_batch_processors(new_batch_maps)
 
     def _prepare_args_for_non_batch_fields(self):
