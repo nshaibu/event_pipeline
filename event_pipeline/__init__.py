@@ -1,6 +1,6 @@
 """
 ===========================================================================================
-Copyright (C) 2025 Nafiu Shaibu.
+Copyright (C) 2025 Nafiu Shaibu <nafiushaibu1@gmail.com>.
 Purpose: Pipeline and event management
 -------------------------------------------------------------------------------------------
 This is free software; you can redistribute it and/or modify it
