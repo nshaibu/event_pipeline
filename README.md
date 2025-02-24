@@ -624,8 +624,8 @@ def my_listener(pipeline):
 
 # Connect the listener to the signal
 pipeline_execution_start.connect(my_listener, sender=Pipeline)
-```
-### Or
+``` 
+***Or***
 ```python
 from event_pipeline.decorators import listener
 from event_pipeline.signal.signals import pipeline_pre_init
