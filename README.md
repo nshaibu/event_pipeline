@@ -234,51 +234,119 @@ pipeline.start()
 ```
 
 ## Pipeline Batch Processing
+The Pipeline Batch Processing feature enables you to process multiple batches of data in parallel, enhancing performance 
+and efficiency when dealing with large datasets or time-sensitive tasks. This is accomplished using a pipeline template, 
+which defines the structure of the pipeline, and the BatchPipeline class, which orchestrates the parallel execution of 
+pipeline instances.
 
-The Pipeline Batch Processing feature enables the execution of multiple batches of pipelines in parallel, enhancing 
-the efficiency of processing large datasets or handling time-sensitive tasks. It uses a **pipeline template** to define 
-a scheme for the type of pipeline you wish to create and allows for the generation of several execution contexts 
-based on a given set of data.
+### 1. Create a Pipeline Template
+The first step is to create a pipeline template by defining a pipeline class that inherits from the Pipeline class. 
+The pipeline template serves as a scheme that outlines the structure and logic of the pipeline, including inputs, 
+transformations, and outputs. 
 
-### Steps to Set Up Batch Processing:
-- ***Create a Pipeline Template***:
-Start by creating a pipeline template. The pipeline template serves as a scheme that outlines the structure and logic 
-of the pipeline, including inputs, transformations, and outputs. It acts as the blueprint for the kind of pipeline you 
-want to create and execute.
+It acts as the blueprint for the kind of pipeline you want to create and execute. 
 This template will be used to generate multiple instances of the pipeline, each one customized for different execution 
 contexts, depending on the data you plan to process.
 
+***Example:***
+```python
+from event_pipeline import Pipeline
+from event_pipeline.fields import InputDataField, FileInputDataField
 
-- ***Define the Data Set for Processing***:
-Prepare the dataset you want to process in batches. The data should be structured so that it can be divided into 
-smaller, manageable units. Each batch will be processed in parallel, and the size of each batch can vary depending on 
-the task.
+class Simple(Pipeline):
+    name = InputDataField(data_type=list, batch_size=5)
+    book = FileInputDataField(required=True, chunk_size=1024)
+```
 
+***Explanation:***
 
-- ***Configure the Batch Processing Execution***:
-Set up the batch processing configuration to determine how many batches should run in parallel. This setup can be 
-customized based on your system’s capabilities and the amount of data you need to process.
-The batch processing system will create multiple execution contexts from the pipeline template, enabling each batch 
-to be processed in parallel with different data.
+Simple is a subclass of Pipeline that defines the pipeline structure.
+name is an InputDataField with data_type=list and a batch_size of 5, meaning the pipeline will process data in batches of 5.
 
+## 2. Create the Batch Processing Class
+Next, define the batch processing class by inheriting from BatchPipeline. This class is responsible for orchestrating 
+the parallel execution of the pipeline template you just created.
 
-- ***Run the Batches***:
-Once the configuration is in place, trigger the batch execution. The pipeline system will automatically divide the 
-dataset and execute the pipeline template for each batch in parallel, improving efficiency and reducing processing time.
+***Example:***
 
+```python
+from event_pipeline.pipeline import BatchPipeline
+from event_pipeline.signal import SoftSignal
 
-- ***Monitor and Optimize***:
-During execution, monitor the performance of the pipeline. If needed, adjust the number of parallel executions or 
-the size of the data batches to optimize throughput and resource utilization.
-    - **OpenTelemetry Integration**: The batch processing system integrates with OpenTelemetry for telemetry, allowing 
-        you to monitor the performance of the pipeline execution in real time. This provides visibility into each batch’s 
-        performance, helping you identify bottlenecks and optimize resource allocation.
-    - **Soft Signalling Framework**: The system uses the Soft Signalling Framework to signal key events during pipeline 
-      execution, providing insights into the progress, completion, or failure of tasks. This allows for better tracking 
-      of execution states and enables faster reaction times in case of issues.
-    - **Optimize Task Configuration**: The max number of tasks per child configuration can be adjusted to fine-tune the 
-    performance of the batch operation. Increasing or decreasing this value can help balance resource usage and throughput, improving the overall performance of batch processing based on the workload and available system resources.
+class SimpleBatch(BatchPipeline):
+    pipeline_template = Simple
+    listen_to_signals = [SoftSignal('task_completed'), SoftSignal('task_failed')]
+```
 
+***Explanation:***
+
+- `SimpleBatch` inherits from BatchPipeline and sets the pipeline_template to the Simple pipeline class, meaning that 
+SimpleBatch will use the Simple pipeline as its template for processing batches.
+- `listen_to_signals` defines the signals the batch pipeline listens to (such as task_completed or task_failed), allowing 
+you to monitor the progress and react to events during execution.
+
+## 3. How the Batch Pipeline Works
+The BatchPipeline class is the core component that manages the execution of batches. It uses the defined pipeline 
+template to create separate pipeline instances, each of which processes a different batch of data in parallel. 
+The pipeline template must be a subclass of Pipeline.
+
+- ***Attributes:***
+    - `pipeline_template`: The pipeline class (such as Simple) that serves as the template for creating individual pipeline instances.
+    - `listen_to_signals`: A list of signals that the batch pipeline listens to. Signals provide a way to track events 
+    such as task completion or failure.
+
+### How It Works:
+The BatchPipeline class orchestrates the execution of the pipeline template in parallel across multiple batches.
+- `Pipeline template`: The pipeline_template defines the structure of each pipeline in the batch. Each batch processes
+a different subset of data according to the template.
+- `Signal handling`: The `listen_to_signals` attribute is used to capture and respond to events such as task completion 
+or failures. This helps in tracking progress and debugging.
+
+## 4. Define the Data Set for Processing
+Once the pipeline class and batch processing class are set up, prepare the dataset you want to process. This dataset 
+will be split into smaller batches based on the batch size defined in the pipeline template (batch_size=5 in the example).
+
+## 5. Configure and Execute the Batch Pipeline
+After defining the batch pipeline class, you can configure it to process your data. The BatchPipeline will automatically 
+create multiple instances of the pipeline_template (such as Simple) and execute them in parallel.
+
+To trigger the batch pipeline execution, you just need to invoke it, and it will process the batches as defined.
+
+## 6. Monitor and Optimize Execution
+You can integrate OpenTelemetry to monitor the performance of the batch pipeline and collect telemetry data, 
+such as execution time and error rates.
+
+Additionally, Soft Signals are used to signal key events during the execution, like task_completed or task_failed, 
+which helps in tracking the progress and responding to events in real-time.
+
+***Optimization:***
+Adjust the max number of tasks per child configuration to balance the workload and optimize throughput.
+Fine-tune the configuration based on system resources to ensure optimal performance during parallel execution.
+
+***Full Example:***
+Batch Pipeline with Parallel Execution
+Here’s a full example that demonstrates the creation and configuration of a batch processing pipeline:
+
+```python
+from event_pipeline import Pipeline
+from event_pipeline.pipeline import BatchPipeline, InputDataField, SoftSignal
+
+class Simple(Pipeline):
+    name = InputDataField(data_type=list, batch_size=5)
+
+class SimpleBatch(BatchPipeline):
+    pipeline_template = Simple
+    listen_to_signals = []
+
+# Create an instance of SimpleBatch to trigger the batch pipeline
+simple_batch = SimpleBatch()
+simple_batch.execute()  # Trigger execution of the batch pipeline
+```
+***Explanation:***
+- Simple is the pipeline template that processes batches of 5 items at a time.
+- SimpleBatch inherits from `BatchPipeline`, using Simple as the template for parallel execution.
+- The batch pipeline listens for task_completed and task_failed signals, enabling you to monitor events during execution.
+`simple_batch.execute()` runs the pipeline and processes data in parallel batches.
 
 
 # Defining Events
