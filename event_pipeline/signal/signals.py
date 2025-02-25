@@ -3,6 +3,7 @@ import weakref
 import logging
 import threading
 from inspect import Signature, Parameter
+from event_pipeline.utils import FakeLock
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,16 @@ class SoftSignal(object):
 
         # Initialize a dict to hold connected listeners as weak references
         self._listeners: typing.Dict[typing.Any, typing.Set[weakref.ReferenceType]] = {}
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("lock")
+        state["lock"] = FakeLock()
+        return state
+
+    def __setstate__(self, state):
+        state["lock"] = threading.Lock()
+        self.__dict__.update(state)
 
     def _construct_listener_arguments(self):
         params = [

@@ -43,6 +43,7 @@ class InputDataField(CacheInstanceFieldMixin):
                 [
                     dtype.__name__ in [list.__name__, tuple.__name__]
                     for dtype in self.data_type
+                    if hasattr(dtype, "__name__")
                 ]
             ):
                 batch_processor = batch_defaults.list_batch_processor
@@ -104,9 +105,8 @@ class FileInputDataField(InputDataField):
             data_type=(str, os.PathLike),
             default=None,
             batch_size=chunk_size,
+            batch_processor=batch_defaults.file_stream_batch_processor,
         )
-
-        self._set_batch_processor(batch_defaults.file_stream_batch_processor)
 
     def __set__(self, instance, value):
         if not os.path.isfile(value):

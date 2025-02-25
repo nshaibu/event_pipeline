@@ -3,6 +3,7 @@ import logging
 import time
 import uuid
 import sys
+import multiprocessing as mp
 
 try:
     import resource
@@ -223,3 +224,30 @@ def validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE) -> bool:
         )
     except Exception as e:
         raise ImproperlyConfigured("Batch processor error") from e
+
+
+class FakeLock:
+    def __init__(self):
+        pass
+
+    def acquire(self, block=True, timeout=-1):
+        """Simulate acquiring the lock (actually calling threading lock)."""
+        pass
+
+    def release(self):
+        """Simulate releasing the lock (actually calling threading lock)."""
+        pass
+
+    def __getstate__(self):
+        """Return the state for pickling (lock itself is not picklable, so we skip it)."""
+        return {}
+
+    def __setstate__(self, state):
+        """Restores the lock state (since we're simulating, no need to restore anything)."""
+        pass
+
+    def __enter__(self):
+        return self.acquire()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return self.release()

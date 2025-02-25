@@ -7,7 +7,8 @@ import copy
 import threading
 import multiprocessing as mp
 from enum import Enum
-from concurrent.futures import ProcessPoolExecutor, as_completed, Future, CancelledError
+from functools import partial
+from concurrent.futures import ProcessPoolExecutor, Future, CancelledError
 from collections import OrderedDict, ChainMap, deque
 from functools import lru_cache
 from inspect import Signature, Parameter
@@ -549,42 +550,18 @@ class _BatchProcessingMonitor(threading.Thread):
     execution through a process pool executor and listening for signals.
 
     This class is responsible for tracking the status of ongoing batch processing tasks
-    by monitoring futures, managing signals between processes, and performing any
-    necessary processing on the results.
+    by managing soft signals, and performing any necessary processing on the results.
 
     Attributes:
         batch (BatchPipeline): The batch pipeline being processed.
-        _results_futures (typing.List[Future]): A list of futures representing the ongoing batch operations.
-        _executor (ProcessPoolExecutor): The executor managing the processes for batch operations.
-
     """
 
     def __init__(
         self,
         batch_pipeline: "BatchPipeline",
-        executor: ProcessPoolExecutor,
-        futures: typing.List[Future],
     ):
         self.batch = batch_pipeline
-        self._results_futures = futures
-        self._executor = executor
         super().__init__()
-
-    @property
-    def result_futures(self):
-        return self._results_futures
-
-    @result_futures.setter
-    def result_futures(self, future):
-        if isinstance(future, Future):
-            self._results_futures = future
-        raise TypeError(f"'{future}' is not a future object")
-
-    def attach_future_processors(self):
-        for future in self._results_futures:
-            future.add_done_callback(
-                lambda fut: self._process_futures(fut, batch=self.batch)
-            )
 
     @staticmethod
     def construct_signal(signal_data: typing.Dict):
@@ -598,34 +575,12 @@ class _BatchProcessingMonitor(threading.Thread):
 
             signal.emit(sender=sender, **data)
 
-    @staticmethod
-    def _process_futures(future: Future, batch: "BatchPipeline"):
-        event = exception = None
-        try:
-            data = future.result()
-            event = _BatchResult(*data)
-        except TimeoutError as exc:
-            exception = exc
-        except CancelledError as exc:
-            exception = exc
-        except Exception as exc:
-            exception = exc
-
-        if event is None:
-            event = _BatchResult(None, exception=exception)
-
-        with AcquireReleaseLock(batch.lock):
-            batch.results.append(event)
-
     def run(self) -> None:
-        self.attach_future_processors()
-
         while True:
             signal_data = self.batch.signals_queue.get()
-            self.construct_signal(signal_data)
-
-            if not self._executor._pending_work_items:
+            if signal_data is None:
                 break
+            self.construct_signal(signal_data)
 
 
 class BatchPipeline(ObjectIdentityMixin):
@@ -648,7 +603,7 @@ class BatchPipeline(ObjectIdentityMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.lock = threading.Lock()
+        self.lock = mp.Lock()
         self.results: typing.List[_BatchResult] = []
 
         self.status: BatchPipelineStatus = BatchPipelineStatus.PENDING
@@ -718,10 +673,12 @@ class BatchPipeline(ObjectIdentityMixin):
         self._validate_batch_processor(batch_processor)
 
         if field not in self._field_batch_op_map:
-            self._field_batch_op_map[field] = batch_processor(getattr(self, field.name))
+            self._field_batch_op_map[field] = batch_processor(
+                getattr(self, field.name), field.batch_size
+            )
         else:
             self._field_batch_op_map[field] = batch_processor(
-                self._field_batch_op_map[field]
+                self._field_batch_op_map[field], field.batch_size
             )
 
     def _gather_and_init_field_batch_iterators(self):
@@ -738,28 +695,51 @@ class BatchPipeline(ObjectIdentityMixin):
                 batch_operation = getattr(self, method_name)
                 self._gather_field_batch_methods(field, batch_operation)
 
+    @staticmethod
+    def _convert_value_to_field_data_type(field: InputDataField, value: typing.Any):
+        if value is None:
+            # TODO: return type's empty version
+            return
+        value_dtype = type(value)
+        if value_dtype in field.data_type:
+            return value
+        else:
+            return field.data_type[0](value)
+
     def _execute_field_batch_processors(
         self, batch_processor_map: typing.Dict[InputDataField, typing.Iterator]
     ):
-        all_iterators_consumed = True
+        # Initialize the new batch maps to keep track of unprocessed iterators
         new_batch_maps = {}
         kwargs = {}
-        for field, batch_operation in batch_processor_map.items():
-            try:
-                value = next(batch_operation)
-                all_iterators_consumed &= False
-            except StopIteration:
-                all_iterators_consumed &= True
-                value = None
 
-            value = [] if value is None else value
-            kwargs[field.name] = value
-            new_batch_maps[field] = batch_operation
+        # We use a while loop to mimic the recursive calls
+        while batch_processor_map:
+            all_iterators_consumed = True
+            # Iterate over the current batch processor map
+            for field, batch_operation in batch_processor_map.items():
+                try:
+                    value = next(batch_operation)
+                    all_iterators_consumed &= False
+                except StopIteration:
+                    all_iterators_consumed &= True
+                    value = None
 
-        yield kwargs
+                # Convert the value to the appropriate field data type
+                value = self._convert_value_to_field_data_type(field, value)
+                kwargs[field.name] = value
+                new_batch_maps[field] = batch_operation
 
-        if all_iterators_consumed:
-            yield from self._execute_field_batch_processors(new_batch_maps)
+            # Yield the current batch of results
+            yield kwargs
+
+            # If not all iterators are consumed, continue processing the remaining iterators
+            if not all_iterators_consumed:
+                # Update the batch_processor_map with only the remaining iterators
+                batch_processor_map = new_batch_maps
+            else:
+                # If all iterators are consumed, exit the loop
+                break
 
     def _prepare_args_for_non_batch_fields(self):
         args = {}
@@ -785,9 +765,10 @@ class BatchPipeline(ObjectIdentityMixin):
             return
 
         for kwargs in self._execute_field_batch_processors(self._field_batch_op_map):
-            kwargs.update(non_batch_kwargs)
-            pipeline = template(**kwargs)
-            self._configured_pipelines.add(pipeline)
+            if any([value for value in kwargs.values()]):
+                kwargs.update(non_batch_kwargs)
+                pipeline = template(**kwargs)
+                self._configured_pipelines.add(pipeline)
 
     def execute(self):
         self._init_pipelines()
@@ -804,30 +785,53 @@ class BatchPipeline(ObjectIdentityMixin):
                 pipeline.start(force_rerun=True)
         else:
 
+            def _process_futures(fut: Future, batch: "BatchPipeline" = self):
+                event = exception = None
+                try:
+                    data = fut.result()
+                    event = _BatchResult(*data)
+                except TimeoutError as exc:
+                    return
+                except CancelledError as exc:
+                    exception = exc
+                except Exception as exc:
+                    logger.error(str(exc), exc_info=exc)
+                    exception = exc
+                    print(f"Error in processing future: {exc}")
+
+                if event is None:
+                    event = _BatchResult(None, exception=exception)
+
+                with AcquireReleaseLock(batch.lock):
+                    batch.results.append(event)
+
             mp_context = mp.get_context("spawn")
             self._signals_queue = mp_context.Queue()
 
-            with ProcessPoolExecutor(mp_context=mp_context) as executor:
-                futures = [
-                    executor.submit(
+            self._monitor_thread = _BatchProcessingMonitor(self)
+
+            # let's start monitoring the execution
+            self._monitor_thread.start()
+
+            with ProcessPoolExecutor(max_workers=4, mp_context=mp_context) as executor:
+                for pipeline in self._configured_pipelines:
+                    future = executor.submit(
                         self._pipeline_executor,
                         pipeline=pipeline,
                         focus_on_signals=self.listen_to_signals,
-                        signals_queue=self._signals_queue,
+                        # signals_queue=self._signals_queue,
                     )
-                    for pipeline in self._configured_pipelines
-                ]
 
-                self._monitor_thread = _BatchProcessingMonitor(self, executor, futures)
+                    future.add_done_callback(partial(_process_futures, batch=self))
 
-                # let's start monitoring the execution
-                self._monitor_thread.start()
+            self._signals_queue.put(None)
+            self._monitor_thread.join()
 
     @staticmethod
     def _pipeline_executor(
         pipeline: Pipeline,
         focus_on_signals: typing.List[SoftSignal],
-        signals_queue: mp.Queue,
+        # signals_queue: mp.Queue,
     ):
         exception = None
 
@@ -839,7 +843,7 @@ class BatchPipeline(ObjectIdentityMixin):
                 "pipeline_id": pipeline.id,
                 "process_id": os.getpid(),
             }
-            signals_queue.put(signal_data)
+            # signals_queue.put(signal_data)
 
         for signal in focus_on_signals:
             signal.connect(listener=signal_handler, sender=pipeline.__class__)

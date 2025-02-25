@@ -567,28 +567,9 @@ class PipelineTask(ObjectIdentityMixin):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        state.pop("on_failure_event", None)
-        state.pop("on_success_event", None)
-        state.pop("sink_node", None)
-        state.pop("parent_node", None)
-        for field in ["sink_node", "on_failure_event", "on_success_event"]:
-            node = getattr(self, field, None)
-            if node:
-                state[field] = {
-                    "event": node.event,
-                    "_id": node.id,
-                    "_descriptor": node._descriptor,
-                    "_descriptor_pipe": node._descriptor_pipe,
-                }
         return state
 
     def __setstate__(self, state):
-        for field in ["sink_node", "on_failure_event", "on_success_event"]:
-            if field in state and state[field] is not None:
-                _state = state[field]
-                state[field] = self.__class__(event=_state["event"])
-                state[field]._id = _state["_id"]
-
         self.__dict__.update(state)
 
     @property
