@@ -23,7 +23,7 @@
        3. [Defining Pipeline Structure Using Pointy language](#defining-pipeline-structure)
        4. [Pointy Language](#pointy-language)
        5. [Executing Pipeline](#executing-pipeline)
-       6. [Batch Processing (WIP)](#)
+       6. [Batch Processing (WIP)](#pipeline-batch-processing)
        7. [Scheduling (WIP)](#)
           1. [Periodic Scheduling (CRON) (WIP)](#)
     2. [Event](#defining-events)
@@ -221,6 +221,7 @@ pipeline.draw_ascii_graph()
 pipeline.draw_graphviz_image(directory=...)
 
 ```
+
 ## Executing Pipeline
 Execute your pipeline by making calls to the `start` method:
 
@@ -231,6 +232,53 @@ pipeline = MyPipeline(input_field="value")
 # call start
 pipeline.start()
 ```
+
+## Pipeline Batch Processing
+
+The Pipeline Batch Processing feature enables the execution of multiple batches of pipelines in parallel, enhancing 
+the efficiency of processing large datasets or handling time-sensitive tasks. It uses a **pipeline template** to define 
+a scheme for the type of pipeline you wish to create and allows for the generation of several execution contexts 
+based on a given set of data.
+
+### Steps to Set Up Batch Processing:
+- ***Create a Pipeline Template***:
+Start by creating a pipeline template. The pipeline template serves as a scheme that outlines the structure and logic 
+of the pipeline, including inputs, transformations, and outputs. It acts as the blueprint for the kind of pipeline you 
+want to create and execute.
+This template will be used to generate multiple instances of the pipeline, each one customized for different execution 
+contexts, depending on the data you plan to process.
+
+
+- ***Define the Data Set for Processing***:
+Prepare the dataset you want to process in batches. The data should be structured so that it can be divided into 
+smaller, manageable units. Each batch will be processed in parallel, and the size of each batch can vary depending on 
+the task.
+
+
+- ***Configure the Batch Processing Execution***:
+Set up the batch processing configuration to determine how many batches should run in parallel. This setup can be 
+customized based on your system’s capabilities and the amount of data you need to process.
+The batch processing system will create multiple execution contexts from the pipeline template, enabling each batch 
+to be processed in parallel with different data.
+
+
+- ***Run the Batches***:
+Once the configuration is in place, trigger the batch execution. The pipeline system will automatically divide the 
+dataset and execute the pipeline template for each batch in parallel, improving efficiency and reducing processing time.
+
+
+- ***Monitor and Optimize***:
+During execution, monitor the performance of the pipeline. If needed, adjust the number of parallel executions or 
+the size of the data batches to optimize throughput and resource utilization.
+    - **OpenTelemetry Integration**: The batch processing system integrates with OpenTelemetry for telemetry, allowing 
+        you to monitor the performance of the pipeline execution in real time. This provides visibility into each batch’s 
+        performance, helping you identify bottlenecks and optimize resource allocation.
+    - **Soft Signalling Framework**: The system uses the Soft Signalling Framework to signal key events during pipeline 
+      execution, providing insights into the progress, completion, or failure of tasks. This allows for better tracking 
+      of execution states and enables faster reaction times in case of issues.
+    - **Optimize Task Configuration**: The max number of tasks per child configuration can be adjusted to fine-tune the 
+    performance of the batch operation. Increasing or decreasing this value can help balance resource usage and throughput, improving the overall performance of batch processing based on the workload and available system resources.
+
 
 
 # Defining Events

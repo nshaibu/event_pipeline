@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 import typing
 from functools import lru_cache
@@ -180,6 +181,7 @@ class EventExecutionContext(ObjectIdentityMixin):
             state["previous_context"] = instance
         else:
             state["previous_context"] = None
+        state["conditional_variable"] = threading.Condition()
         self.__dict__.update(state)
 
     def __hash__(self):

@@ -4,5 +4,5 @@ from .simple import Simple, SimpleBatch
 # s.start(force_rerun=True)
 # s.draw_ascii_graph()
 
-batch = SimpleBatch(name=list(range(10000)))
+batch = SimpleBatch(name=list(range(1000000000)))
 batch.execute()
