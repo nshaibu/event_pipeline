@@ -47,7 +47,7 @@ packages = [
     "event_pipeline",
     "event_pipeline.parser",
     "event_pipeline.executors",
-    "event_pipeline.mixin",
+    "event_pipeline.mixins",
     "event_pipeline.signal",
     "event_pipeline.backends",
     "event_pipeline.backends.result"
