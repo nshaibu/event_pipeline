@@ -380,17 +380,17 @@ a different subset of data according to the template.
 - `Signal handling`: The `listen_to_signals` attribute is used to capture and respond to events such as task completion 
 or failures. This helps in tracking progress and debugging.
 
-## 4. Define the Data Set for Processing
+## Define the Data Set for Processing
 Once the pipeline class and batch processing class are set up, prepare the dataset you want to process. This dataset 
 will be split into smaller batches based on the batch size defined in the pipeline template (batch_size=5 in the example).
 
-## 5. Configure and Execute the Batch Pipeline
+## Configure and Execute the Batch Pipeline
 After defining the batch pipeline class, you can configure it to process your data. The BatchPipeline will automatically 
 create multiple instances of the pipeline_template (such as Simple) and execute them in parallel.
 
 To trigger the batch pipeline execution, you just need to invoke it, and it will process the batches as defined.
 
-## 6. Monitor and Optimize Execution
+## Monitor and Optimize Execution
 You can integrate OpenTelemetry to monitor the performance of the batch pipeline and collect telemetry data, 
 such as execution time and error rates.
 
