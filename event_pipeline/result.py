@@ -41,6 +41,9 @@ class Result(ObjectIdentityMixin):
     def __hash__(self):
         return hash(self.id)
 
+    def is_error(self) -> bool:
+        return self.error
+
     def get_content_type(self) -> typing.Any:
         return self.content_type
 

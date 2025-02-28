@@ -10,8 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class SoftSignal(object):
+    _signal_map: typing.ClassVar[typing.Dict[str, typing.Dict[str, typing.Any]]] = {}
 
-    def __init__(self, provide_args=None):
+    def __init__(self, name: str, provide_args=None):
+        self.name = name
+        self._signal_map[name] = {}
+
         if provide_args is None:
             provide_args = []
         elif not isinstance(provide_args, (list, tuple)):
@@ -31,14 +35,21 @@ class SoftSignal(object):
         # Initialize a dict to hold connected listeners as weak references
         self._listeners: typing.Dict[typing.Any, typing.Set[weakref.ReferenceType]] = {}
 
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: {self.name!r}>"
+
     def __getstate__(self):
         state = self.__dict__.copy()
-        state.pop("lock")
-        state["lock"] = FakeLock()
+        state.pop("lock", None)
+        state.pop("_listeners", None)
         return state
 
     def __setstate__(self, state):
         state["lock"] = threading.Lock()
+        state["_listeners"] = {}
         self.__dict__.update(state)
 
     def _construct_listener_arguments(self):
@@ -153,26 +164,42 @@ class SoftSignal(object):
                         pass
 
 
-pipeline_pre_init = SoftSignal(provide_args=["cls", "args", "kwargs"])
-pipeline_post_init = SoftSignal(provide_args=["pipeline"])
+pipeline_pre_init = SoftSignal(
+    "pipeline_pre_init", provide_args=["cls", "args", "kwargs"]
+)
+pipeline_post_init = SoftSignal("pipeline_post_init", provide_args=["pipeline"])
 
 
-pipeline_shutdown = SoftSignal(provide_args=["pipeline", "execution_context"])
-pipeline_stop = SoftSignal(provide_args=["pipeline", "execution_context"])
+pipeline_shutdown = SoftSignal(
+    "pipeline_shutdown", provide_args=["pipeline", "execution_context"]
+)
+pipeline_stop = SoftSignal(
+    "pipeline_stop", provide_args=["pipeline", "execution_context"]
+)
 
 
-pipeline_execution_start = SoftSignal(provide_args=["pipeline"])
-pipeline_execution_end = SoftSignal(provide_args=["execution_context"])
+pipeline_execution_start = SoftSignal(
+    "pipeline_execution_start", provide_args=["pipeline"]
+)
+pipeline_execution_end = SoftSignal(
+    "pipeline_execution_end", provide_args=["execution_context"]
+)
 
 
-event_init = SoftSignal(provide_args=["event", "init_kwargs"])
+event_init = SoftSignal("event_init", provide_args=["event", "init_kwargs"])
 
 event_execution_init = SoftSignal(
-    provide_args=["event", "execution_context", "executor", "call_kwargs"]
+    "event_execution_init",
+    provide_args=["event", "execution_context", "executor", "call_kwargs"],
 )
-event_execution_start = SoftSignal(provide_args=["event", "execution_context"])
-event_execution_end = SoftSignal(provide_args=["event", "execution_context"])
+event_execution_start = SoftSignal(
+    "event_execution_start", provide_args=["event", "execution_context"]
+)
+event_execution_end = SoftSignal(
+    "event_execution_end", provide_args=["event", "execution_context"]
+)
 event_execution_retry = SoftSignal(
+    "event_execution_retry",
     provide_args=[
         "event",
         "execution_context",
@@ -180,23 +207,17 @@ event_execution_retry = SoftSignal(
         "backoff",
         "retry_count",
         "max_attempts",
-    ]
+    ],
 )
 event_execution_retry_done = SoftSignal(
-    provide_args=["event", "execution_context", "task_id", "max_attempts"]
+    "event_execution_retry_done",
+    provide_args=["event", "execution_context", "task_id", "max_attempts"],
 )
 event_execution_cancelled = SoftSignal(
-    provide_args=["task_profiles", "execution_context", "state"]
+    "event_execution_cancelled",
+    provide_args=["task_profiles", "execution_context", "state"],
 )
 event_execution_aborted = SoftSignal(
-    provide_args=["task_profiles", "execution_context", "state"]
+    "event_execution_aborted",
+    provide_args=["task_profiles", "execution_context", "state"],
 )
-
-
-DEFAULT_SIGNALS = [
-    event_execution_init,
-    event_execution_start,
-    event_execution_end,
-    event_execution_retry_done,
-    event_execution_retry,
-]

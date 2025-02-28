@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import inspect
 import logging
 import typing
@@ -26,7 +27,6 @@ from .signal.signals import (
     pipeline_execution_end,
     pipeline_shutdown,
     pipeline_stop,
-    DEFAULT_SIGNALS,
 )
 from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
 from .constants import (
@@ -45,10 +45,30 @@ from .exceptions import (
 )
 from .mixins import ObjectIdentityMixin
 from .fields import InputDataField
+from .import_utils import import_string
 from .utils import AcquireReleaseLock, validate_batch_processor
 
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_SIGNALS = [
+    # pipeline signals
+    "event_pipeline.signal.signals.pipeline_stop",
+    "event_pipeline.signal.signals.pipeline_shutdown",
+    "event_pipeline.signal.signals.pipeline_execution_start",
+    "event_pipeline.signal.signals.pipeline_execution_end",
+    # event signals
+    "event_pipeline.signal.signals.event_init",
+    # event execution signals
+    "event_pipeline.signal.signals.event_execution_init",
+    "event_pipeline.signal.signals.event_execution_start",
+    "event_pipeline.signal.signals.event_execution_end",
+    "event_pipeline.signal.signals.event_execution_retry",
+    "event_pipeline.signal.signals.event_execution_retry_done",
+    "event_pipeline.signal.signals.event_execution_cancelled",
+    "event_pipeline.signal.signals.event_execution_aborted",
+]
 
 
 class TreeExtraData:
@@ -579,7 +599,9 @@ class _BatchProcessingMonitor(threading.Thread):
         while True:
             signal_data = self.batch.signals_queue.get()
             if signal_data is None:
+                self.batch.signals_queue.task_done()
                 break
+            print(f"Received signal {signal_data}")
             self.construct_signal(signal_data)
 
 
@@ -591,12 +613,12 @@ class BatchPipeline(ObjectIdentityMixin):
 
     Attributes:
         pipeline_template (typing.Type[Pipeline]): The class used to generate the pipeline.
-        listen_to_signals (typing.List[SoftSignal]): A list of signals to be used within the pipeline.
+        listen_to_signals (typing.List[str]): A list of signal import strings to be used within the pipeline.
     """
 
     pipeline_template: typing.Type[Pipeline] = None
 
-    listen_to_signals: typing.List[SoftSignal] = DEFAULT_SIGNALS
+    listen_to_signals: typing.List[str] = DEFAULT_SIGNALS
 
     __signature__ = None
 
@@ -805,8 +827,9 @@ class BatchPipeline(ObjectIdentityMixin):
                 with AcquireReleaseLock(batch.lock):
                     batch.results.append(event)
 
+            manager = mp.Manager()
             mp_context = mp.get_context("spawn")
-            self._signals_queue = mp_context.Queue()
+            self._signals_queue = manager.Queue()
 
             self._monitor_thread = _BatchProcessingMonitor(self)
 
@@ -819,7 +842,7 @@ class BatchPipeline(ObjectIdentityMixin):
                         self._pipeline_executor,
                         pipeline=pipeline,
                         focus_on_signals=self.listen_to_signals,
-                        # signals_queue=self._signals_queue,
+                        signals_queue=self._signals_queue,
                     )
 
                     future.add_done_callback(partial(_process_futures, batch=self))
@@ -830,23 +853,30 @@ class BatchPipeline(ObjectIdentityMixin):
     @staticmethod
     def _pipeline_executor(
         pipeline: Pipeline,
-        focus_on_signals: typing.List[SoftSignal],
-        # signals_queue: mp.Queue,
+        focus_on_signals: typing.List[str],
+        signals_queue: mp.Queue,
     ):
+        signals = []
+        for signal_str in focus_on_signals:
+            try:
+                module = import_string(signal_str)
+                signals.append(module)
+            except Exception as exc:
+                logger.warning(f"signal: {signal_str}, exception: {exc}")
+
         exception = None
 
         def signal_handler(*args, **kwargs):
-            print(args, kwargs)
             signal_data = {
                 "args": args,
                 "kwargs": kwargs,
                 "pipeline_id": pipeline.id,
                 "process_id": os.getpid(),
             }
-            # signals_queue.put(signal_data)
+            signals_queue.put(signal_data)
 
-        for signal in focus_on_signals:
-            signal.connect(listener=signal_handler, sender=pipeline.__class__)
+        for s in signals:
+            s.connect(listener=signal_handler, sender=pipeline.__class__)
 
         try:
             pipeline.start(force_rerun=True)
