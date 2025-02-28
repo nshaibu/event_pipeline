@@ -317,7 +317,7 @@ and efficiency when dealing with large datasets or time-sensitive tasks. This is
 which defines the structure of the pipeline, and the BatchPipeline class, which orchestrates the parallel execution of 
 pipeline instances.
 
-### 1. Create a Pipeline Template
+### Create a Pipeline Template
 The first step is to create a pipeline template by defining a pipeline class that inherits from the Pipeline class. 
 The pipeline template serves as a scheme that outlines the structure and logic of the pipeline, including inputs, 
 transformations, and outputs. 
@@ -341,7 +341,7 @@ class Simple(Pipeline):
 Simple is a subclass of Pipeline that defines the pipeline structure.
 name is an InputDataField with data_type=list and a batch_size of 5, meaning the pipeline will process data in batches of 5.
 
-## 2. Create the Batch Processing Class
+## Create the Batch Processing Class
 Next, define the batch processing class by inheriting from BatchPipeline. This class is responsible for orchestrating 
 the parallel execution of the pipeline template you just created.
 
@@ -363,7 +363,7 @@ SimpleBatch will use the Simple pipeline as its template for processing batches.
 - `listen_to_signals` defines the signals the batch pipeline listens to (such as task_completed or task_failed), allowing 
 you to monitor the progress and react to events during execution.
 
-## 3. How the Batch Pipeline Works
+## How the Batch Pipeline Works
 The BatchPipeline class is the core component that manages the execution of batches. It uses the defined pipeline 
 template to create separate pipeline instances, each of which processes a different batch of data in parallel. 
 The pipeline template must be a subclass of Pipeline.
