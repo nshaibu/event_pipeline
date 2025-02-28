@@ -52,25 +52,6 @@ from .utils import AcquireReleaseLock, validate_batch_processor
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_SIGNALS = [
-    # pipeline signals
-    "event_pipeline.signal.signals.pipeline_stop",
-    "event_pipeline.signal.signals.pipeline_shutdown",
-    "event_pipeline.signal.signals.pipeline_execution_start",
-    "event_pipeline.signal.signals.pipeline_execution_end",
-    # event signals
-    "event_pipeline.signal.signals.event_init",
-    # event execution signals
-    "event_pipeline.signal.signals.event_execution_init",
-    "event_pipeline.signal.signals.event_execution_start",
-    "event_pipeline.signal.signals.event_execution_end",
-    "event_pipeline.signal.signals.event_execution_retry",
-    "event_pipeline.signal.signals.event_execution_retry_done",
-    "event_pipeline.signal.signals.event_execution_cancelled",
-    "event_pipeline.signal.signals.event_execution_aborted",
-]
-
-
 class TreeExtraData:
     def __init__(self, pipe_type: PipeType):
         self.pipe_type = pipe_type
@@ -618,7 +599,7 @@ class BatchPipeline(ObjectIdentityMixin):
 
     pipeline_template: typing.Type[Pipeline] = None
 
-    listen_to_signals: typing.List[str] = DEFAULT_SIGNALS
+    listen_to_signals: typing.List[str] = SoftSignal.registered_signals()
 
     __signature__ = None
 
