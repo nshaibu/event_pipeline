@@ -16,9 +16,13 @@ class Target2(object):
     pass
 
 
-example_func_signal1 = SoftSignal(provide_args=["country"])
-example_func_signal2 = SoftSignal(provide_args=["school", "school_id"])
-example_func_signal3 = SoftSignal(provide_args=["country", "town"])
+example_func_signal1 = SoftSignal("example_func_signal1", provide_args=["country"])
+example_func_signal2 = SoftSignal(
+    "example_func_signal2", provide_args=["school", "school_id"]
+)
+example_func_signal3 = SoftSignal(
+    "example_func_signal3", provide_args=["country", "town"]
+)
 
 
 @listener(example_func_signal1, sender=Target)

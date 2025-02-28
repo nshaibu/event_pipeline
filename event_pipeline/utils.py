@@ -108,7 +108,7 @@ def generate_unique_id(obj: object):
     """
     pk = getattr(obj, "_id", None)
     if pk is None:
-        pk = f"{obj.__class__.__name__}_{time.time()}_{str(uuid.uuid4())}"
+        pk = f"{obj.__class__.__name__}-{time.time()}-{str(uuid.uuid4())}"
         setattr(obj, "_id", pk)
     return pk
 

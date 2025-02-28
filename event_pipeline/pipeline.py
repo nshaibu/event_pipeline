@@ -867,16 +867,15 @@ class BatchPipeline(ObjectIdentityMixin):
         exception = None
 
         def signal_handler(*args, **kwargs):
+            kwargs = dict(**kwargs, pipeline_id=pipeline.id, process_id=os.getpid())
             signal_data = {
                 "args": args,
                 "kwargs": kwargs,
-                "pipeline_id": pipeline.id,
-                "process_id": os.getpid(),
             }
             signals_queue.put(signal_data)
 
         for s in signals:
-            s.connect(listener=signal_handler, sender=pipeline.__class__)
+            s.connect(listener=signal_handler, sender=None)
 
         try:
             pipeline.start(force_rerun=True)

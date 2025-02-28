@@ -80,6 +80,8 @@ def test_build_event_arguments_from_pipeline():
             "task_id": None,
             "previous_result": None,
             "stop_on_exception": False,
+            "stop_on_success": False,
+            "stop_on_error": False,
         },
         {"name": "nafiu", "school": "knust"},
     )

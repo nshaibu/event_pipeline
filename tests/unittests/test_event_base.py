@@ -120,6 +120,8 @@ class TestEventBase(unittest.TestCase):
                 "args": (),
                 "previous_result": "box",
                 "stop_on_exception": False,
+                "stop_on_success": False,
+                "stop_on_error": False,
                 "kwargs": {},
             },
         )

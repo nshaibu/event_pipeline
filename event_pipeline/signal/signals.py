@@ -9,12 +9,19 @@ from event_pipeline.utils import FakeLock
 logger = logging.getLogger(__name__)
 
 
+class GenericSender:
+    pass
+
+
 class SoftSignal(object):
-    _signal_map: typing.ClassVar[typing.Dict[str, typing.Dict[str, typing.Any]]] = {}
+    _registered_signal: typing.ClassVar[
+        typing.Dict[str, typing.Dict[str, typing.Any]]
+    ] = {}
 
     def __init__(self, name: str, provide_args=None):
         self.name = name
-        self._signal_map[name] = {}
+        signal_import_str = f"{self.__module__}.{self.name}"
+        self._registered_signal[signal_import_str] = {}
 
         if provide_args is None:
             provide_args = []
@@ -63,6 +70,21 @@ class SoftSignal(object):
         ]
         return Signature(params)
 
+    def _execute_listeners(self, listener_ref, sender, **kwargs):
+        responses = []
+        listener = listener_ref()  # Get the listener from the weak reference
+        if listener:  # Check if the listener is still alive
+            bounded_args = self._emit_signature.bind(
+                signal=self, sender=sender, **kwargs
+            )
+            try:
+                response = listener(**bounded_args.kwargs)
+            except Exception as e:
+                logger.exception(str(e), exc_info=e)
+                response = e
+            responses.append((listener, response))
+        return responses
+
     def emit(
         self, sender: typing.Any, **kwargs
     ) -> typing.List[typing.Tuple[typing.Any, typing.Any]]:
@@ -78,17 +100,15 @@ class SoftSignal(object):
         responses = []
         if sender in self._listeners:
             for weak_listener in self._listeners[sender]:
-                listener = weak_listener()  # Get the listener from the weak reference
-                if listener:  # Check if the listener is still alive
-                    bounded_args = self._emit_signature.bind(
-                        signal=self, sender=sender, **kwargs
-                    )
-                    try:
-                        response = listener(**bounded_args.kwargs)
-                    except Exception as e:
-                        logger.exception(str(e), exc_info=e)
-                        response = e
-                    responses.append((listener, response))
+                responses.extend(
+                    self._execute_listeners(weak_listener, sender, **kwargs)
+                )
+
+        if GenericSender in self._listeners:
+            for weak_listener in self._listeners[GenericSender]:
+                responses.extend(
+                    self._execute_listeners(weak_listener, sender, **kwargs)
+                )
 
         return responses
 
@@ -111,8 +131,20 @@ class SoftSignal(object):
             sender: The object sending the signal.
             listener: The function to be called when the signal is emitted.
         """
+        if sender is None:
+            sender = GenericSender
+
         if sender not in self._listeners:
             self._listeners[sender] = set()
+
+        # sender_import_str = getattr(
+        #     sender, "__object_import_str__", f"{sender.__module__}.{sender.__name__}"
+        # )
+
+        # self._signal_map[self.name]["sender"] = sender_import_str
+        # self._signal_map[self.name][
+        #     "listener"
+        # ] = f"{listener.__module__}.{listener.__name__}"
 
         ref = weakref.ref
         listener_obj = listener
@@ -162,6 +194,10 @@ class SoftSignal(object):
                         self._listeners[sender].remove(listener)
                     except KeyError:
                         pass
+
+    @classmethod
+    def registered_signals(cls):
+        return list(cls._registered_signal.keys())
 
 
 pipeline_pre_init = SoftSignal(
