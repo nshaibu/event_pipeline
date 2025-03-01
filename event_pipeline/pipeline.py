@@ -814,6 +814,7 @@ class BatchPipeline(ObjectIdentityMixin):
 
             manager = mp.Manager()
             mp_context = mp.get_context("spawn")
+
             self._signals_queue = manager.Queue()
 
             self._monitor_thread = _BatchProcessingMonitor(self)

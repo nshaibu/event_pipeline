@@ -142,15 +142,6 @@ class SoftSignal(ObjectIdentityMixin):
         if sender not in self._listeners:
             self._listeners[sender] = set()
 
-        # sender_import_str = getattr(
-        #     sender, "__object_import_str__", f"{sender.__module__}.{sender.__name__}"
-        # )
-
-        # self._signal_map[self.name]["sender"] = sender_import_str
-        # self._signal_map[self.name][
-        #     "listener"
-        # ] = f"{listener.__module__}.{listener.__name__}"
-
         ref = weakref.ref
         listener_obj = listener
         if hasattr(listener, "__self__") and hasattr(listener, "__func__"):
