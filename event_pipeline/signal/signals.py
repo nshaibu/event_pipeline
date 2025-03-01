@@ -3,8 +3,7 @@ import weakref
 import logging
 import threading
 from inspect import Signature, Parameter
-from event_pipeline.utils import FakeLock
-
+from event_pipeline.mixins import ObjectIdentityMixin
 
 logger = logging.getLogger(__name__)
 
@@ -13,12 +12,14 @@ class GenericSender:
     pass
 
 
-class SoftSignal(object):
+class SoftSignal(ObjectIdentityMixin):
     _registered_signal: typing.ClassVar[
         typing.Dict[str, typing.Dict[str, typing.Any]]
     ] = {}
 
     def __init__(self, name: str, provide_args=None):
+        super().__init__()
+
         self.name = name
         signal_import_str = f"{self.__module__}.{self.name}"
         self._registered_signal[signal_import_str] = {}
@@ -47,6 +48,10 @@ class SoftSignal(object):
 
     def __repr__(self):
         return f"<{self.__class__.__name__}: {self.name!r}>"
+
+    @property
+    def __instance_import_str__(self):
+        return f"{self.__module__}.{self.name}"
 
     def __getstate__(self):
         state = self.__dict__.copy()

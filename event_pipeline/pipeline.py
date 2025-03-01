@@ -568,13 +568,17 @@ class _BatchProcessingMonitor(threading.Thread):
     def construct_signal(signal_data: typing.Dict):
         data = signal_data.get("kwargs")
         sender = data.pop("sender", None)
-        signal = data.pop("signal", None)
+        signal: SoftSignal = data.pop("signal", None)
 
         if sender and signal:
-            process_id = signal_data.get("process_id")
-            pipeline_id = signal_data.get("pipeline_id")
+            # process_id = data.get("process_id")
+            # pipeline_id = data.get("pipeline_id")
 
-            signal.emit(sender=sender, **data)
+            try:
+                parent_process_signal = import_string(signal.__instance_import_str__)
+                parent_process_signal.emit(sender=sender, **data)
+            except Exception:
+                logger.exception("Exception raised while processing signal %s", signal)
 
     def run(self) -> None:
         while True:
@@ -582,7 +586,7 @@ class _BatchProcessingMonitor(threading.Thread):
             if signal_data is None:
                 self.batch.signals_queue.task_done()
                 break
-            print(f"Received signal {signal_data}")
+            # print(f"Received signal {signal_data}")
             self.construct_signal(signal_data)
 
 
@@ -848,7 +852,7 @@ class BatchPipeline(ObjectIdentityMixin):
         exception = None
 
         def signal_handler(*args, **kwargs):
-            kwargs = dict(**kwargs, pipeline_id=pipeline.id, process_id=os.getpid())
+            # kwargs = dict(**kwargs, pipeline_id=pipeline.id, process_id=os.getpid())
             signal_data = {
                 "args": args,
                 "kwargs": kwargs,
