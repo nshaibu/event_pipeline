@@ -12,6 +12,6 @@ class SimpleBatch(BatchPipeline):
     pipeline_template = Simple
 
 
-@listener(pipeline_execution_start, sender=Simple)
-def simple_listener(**kwargs):
-    print(kwargs)
+# @listener(pipeline_execution_start, sender=Simple)
+# def simple_listener(**kwargs):
+#     print(kwargs)

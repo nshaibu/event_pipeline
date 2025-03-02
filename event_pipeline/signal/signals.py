@@ -17,7 +17,7 @@ class SoftSignal(ObjectIdentityMixin):
         typing.Dict[str, typing.Dict[str, typing.Any]]
     ] = {}
 
-    def __init__(self, name: str, provide_args=None):
+    def __init__(self, name: str, provide_args: typing.List[str] = None):
         super().__init__()
 
         self.name = name
@@ -73,6 +73,19 @@ class SoftSignal(ObjectIdentityMixin):
             )
             for name in self._provide_args
         ]
+
+        default_field_names = ["pipeline_id", "process_id"]
+        params.extend(
+            [
+                Parameter(
+                    name=name,
+                    annotation=typing.Union[str, int],
+                    kind=Parameter.KEYWORD_ONLY,
+                    default=None,
+                )
+                for name in default_field_names
+            ]
+        )
         return Signature(params)
 
     def _execute_listeners(self, listener_ref, sender, **kwargs):

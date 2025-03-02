@@ -571,9 +571,6 @@ class _BatchProcessingMonitor(threading.Thread):
         signal: SoftSignal = data.pop("signal", None)
 
         if sender and signal:
-            # process_id = data.get("process_id")
-            # pipeline_id = data.get("pipeline_id")
-
             try:
                 parent_process_signal = import_string(signal.__instance_import_str__)
                 parent_process_signal.emit(sender=sender, **data)
@@ -720,7 +717,6 @@ class BatchPipeline(ObjectIdentityMixin):
         new_batch_maps = {}
         kwargs = {}
 
-        # We use a while loop to mimic the recursive calls
         while batch_processor_map:
             all_iterators_consumed = True
             # Iterate over the current batch processor map
@@ -737,7 +733,6 @@ class BatchPipeline(ObjectIdentityMixin):
                 kwargs[field.name] = value
                 new_batch_maps[field] = batch_operation
 
-            # Yield the current batch of results
             yield kwargs
 
             # If not all iterators are consumed, continue processing the remaining iterators
@@ -853,7 +848,7 @@ class BatchPipeline(ObjectIdentityMixin):
         exception = None
 
         def signal_handler(*args, **kwargs):
-            # kwargs = dict(**kwargs, pipeline_id=pipeline.id, process_id=os.getpid())
+            kwargs = dict(**kwargs, pipeline_id=pipeline.id, process_id=os.getpid())
             signal_data = {
                 "args": args,
                 "kwargs": kwargs,
