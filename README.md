@@ -24,8 +24,8 @@
        4. [Pointy Language](#pointy-language)
        5. [Executing Pipeline](#executing-pipeline)
        6. [Batch Processing](#pipeline-batch-processing)
-       7. [Scheduling (WIP)](#)
-          1. [Periodic Scheduling (CRON) (WIP)](#)
+       7. [Scheduling](#scheduling)
+          1. [Periodic Scheduling (CRON)](#periodic-scheduling-cron)
     2. [Event](#defining-events)
        1. [Defining Events](#define-the-event-class)
        2. [Specify the Executor for your Event](#specify-the-executor-for-the-event)
@@ -66,6 +66,7 @@ pip install event-pipeline
 - ply==3.11 
 - treelib==1.7.0
 - more-itertools<=10.6.0
+- apscheduler<=3.11.0
 - graphviz==0.20.3 (Optional)
 
 # Usage
@@ -425,6 +426,12 @@ simple_batch.execute()  # Trigger execution of the batch pipeline
 - SimpleBatch inherits from `BatchPipeline`, using Simple as the template for parallel execution.
 - The batch pipeline listens for task_completed and task_failed signals, enabling you to monitor events during execution.
 `simple_batch.execute()` runs the pipeline and processes data in parallel batches.
+
+# Scheduling
+
+## Periodic Scheduling (CRON)
+
+pass
 
 
 # Defining Events
