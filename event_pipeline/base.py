@@ -7,7 +7,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 from concurrent.futures import Executor, ProcessPoolExecutor
 from .result import EventResult, ResultSet
-from .constants import EMPTY, MAX_EVENTS_RETRIES, MAX_BACKOFF
+from .constants import EMPTY, MAX_RETRIES, MAX_BACKOFF, MAX_BACKOFF_FACTOR
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
 from .exceptions import StopProcessingError, MaxRetryError
@@ -54,8 +54,8 @@ class ExecutorInitializerConfig(object):
 
 @dataclass
 class RetryPolicy(object):
-    max_attempts: int = field(init=True, default=MAX_EVENTS_RETRIES)
-    backoff_factor: float = field(init=True, default=0.05)
+    max_attempts: int = field(init=True, default=MAX_RETRIES)
+    backoff_factor: float = field(init=True, default=MAX_BACKOFF_FACTOR)
     max_backoff: float = field(init=True, default=MAX_BACKOFF)
     retry_on_exceptions: typing.List[typing.Type[Exception]] = field(
         default_factory=list
@@ -77,6 +77,29 @@ class _RetryMixin(object):
             self.retry_policy = RetryPolicy(**self.retry_policy)
         return self.retry_policy
 
+    def config_retry_policy(
+        self,
+        max_attempts: int,
+        backoff_factor: float = MAX_BACKOFF_FACTOR,
+        max_backoff: float = MAX_BACKOFF,
+        retry_on_exceptions: typing.Tuple[typing.Type[Exception]] = (),
+    ):
+        config = {
+            "max_attempts": max_attempts,
+            "backoff_factor": backoff_factor,
+            "max_backoff": max_backoff,
+            "retry_on_exceptions": [],
+        }
+        if retry_on_exceptions:
+            retry_on_exceptions = (
+                retry_on_exceptions
+                if isinstance(retry_on_exceptions, (tuple, list))
+                else [retry_on_exceptions]
+            )
+            config["retry_on_exceptions"].extend(retry_on_exceptions)
+
+        self.retry_policy = RetryPolicy(**config)
+
     def get_backoff_time(self) -> float:
         if self.retry_policy is None or self._retry_count <= 1:
             return 0
@@ -93,19 +116,17 @@ class _RetryMixin(object):
         return backoff
 
     def is_retryable(self, exception: Exception) -> bool:
-        return (
-            self.retry_policy
-            and self.retry_policy.retry_on_exceptions
-            and isinstance(exception, Exception)
-            and any(
-                [
-                    isinstance(exception, exc)
-                    and exception.__class__.__name__ == exc.__name__
-                    for exc in self.retry_policy.retry_on_exceptions
-                    if exc
-                ]
-            )
+        if self.retry_policy is None:
+            return False
+        exception_evaluation = not self.retry_policy.retry_on_exceptions or any(
+            [
+                isinstance(exception, exc)
+                and exception.__class__.__name__ == exc.__name__
+                for exc in self.retry_policy.retry_on_exceptions
+                if exc
+            ]
         )
+        return isinstance(exception, Exception) and exception_evaluation
 
     def is_exhausted(self):
         return (
@@ -148,6 +169,9 @@ class _RetryMixin(object):
             try:
                 self._retry_count += 1
                 return func(*args, **kwargs)
+            except MaxRetryError:
+                # ignore this
+                break
             except Exception as exc:
                 if self.is_retryable(exc):
                     if exception_causing_retry is None:

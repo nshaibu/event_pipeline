@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 import typing
+from dataclasses import dataclass, field
 from functools import lru_cache
 from collections import deque
 from threading import Condition
@@ -88,6 +89,16 @@ class EventExecutionContext(ObjectIdentityMixin):
 
         self._errors: typing.List[PipelineError] = []
 
+    @staticmethod
+    def _configure_event(event: EventBase, profile: "PipelineTask"):
+        number_of_retries = profile.extra_config.number_of_retries
+        if number_of_retries:
+            event_retry_policy = event.get_retry_policy()
+            if event_retry_policy:
+                event_retry_policy.max_attempts = number_of_retries
+            else:
+                event.config_retry_policy(max_attempts=number_of_retries)
+
     def _gather_executors_for_parallel_executions(
         self,
     ) -> typing.Dict[typing.Type[Executor], typing.Dict[str, typing.Any]]:
@@ -115,6 +126,8 @@ class EventExecutionContext(ObjectIdentityMixin):
         for task in self.task_profiles:
             event, context, event_call_args = self._get_executor_context_and_event(task)
             executor = event.get_executor_class()
+
+            self._configure_event(event, task)
 
             event_execution_init.emit(
                 sender=self.__class__,
@@ -499,11 +512,38 @@ class EventExecutionContext(ObjectIdentityMixin):
         return current
 
 
+@dataclass
+class _DescriptorConfig:
+    descriptor: int
+    pipe: "PipeType"
+    task: "PipelineTask"
+
+
+@dataclass
+class ExtraPipelineTaskConfig:
+    number_of_retries: int = field(init=True, default=None)
+    _descriptors: typing.Dict[int, _DescriptorConfig] = field(
+        init=False, repr=False, default_factory=dict
+    )
+
+    def add_descriptor(self, descriptor: int, pipe: "PipeType", task: "PipelineTask"):
+        if 1 < descriptor < 10:
+            self._descriptors[descriptor] = _DescriptorConfig(
+                pipe=pipe, task=task, descriptor=descriptor
+            )
+            return True
+        return False
+
+    def get_descriptor_config(self, descriptor: int):
+        return self._descriptors.get(descriptor)
+
+
 @unique
 class PipeType(Enum):
     POINTER = "pointer"
     PIPE_POINTER = "pipe_pointer"
     PARALLELISM = "parallelism"
+    RETRY = "retry"
 
     def token(self):
         if self == self.POINTER:
@@ -512,6 +552,8 @@ class PipeType(Enum):
             return "|->"
         elif self == self.PARALLELISM:
             return "||"
+        elif self == self.RETRY:
+            return "*"
 
 
 class PipelineTask(ObjectIdentityMixin):
@@ -539,6 +581,8 @@ class PipelineTask(ObjectIdentityMixin):
         on_failure_pipe: typing.Optional[PipeType] = None,
     ):
         super().__init__()
+
+        self.extra_config: ExtraPipelineTaskConfig = ExtraPipelineTaskConfig()
 
         # attributes for when a task is created from a descriptor
         self._descriptor: typing.Optional[int] = None
@@ -742,6 +786,11 @@ class PipelineTask(ObjectIdentityMixin):
                     node = right_node
 
                 if node:
+                    # handle retry syntax
+                    if ast.op == PipeType.RETRY.token():
+                        node.extra_config.number_of_retries = descriptor_value
+                        return node
+
                     node = node.get_root()
                     node._descriptor = descriptor_value
                     node._descriptor_pipe = ast.op
@@ -785,6 +834,8 @@ class PipelineTask(ObjectIdentityMixin):
             return parent
         elif isinstance(ast, parser.Descriptor):
             return int(ast.value)
+        elif isinstance(ast, int):
+            return ast
 
     def get_children(self):
         children = []
