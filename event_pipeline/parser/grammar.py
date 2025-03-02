@@ -18,7 +18,20 @@ def p_expression(p):
                 | expression PARALLEL expression
                 | descriptor POINTER expression
                 | descriptor PPOINTER expression
+                | NUMBER RETRY task
+                | task RETRY NUMBER
     """
+    if p[2] == "*":
+        number = p[1]
+        if not str(number).isnumeric():
+            number = p[3]
+        if number < 2:
+            line = p.lineno if hasattr(p, "lineno") else "unknown line"
+            column = p.lexpos if hasattr(p, "lexpos") else "unknown column"
+            raise SyntaxError(
+                f"Task cannot be retried less than 2 times. "
+                f"Line: {line}, Column: {column}, Offending Token: {number}"
+            )
     p[0] = BinOp(p[2], p[1], p[3])
 
 
@@ -38,10 +51,25 @@ def p_task(p):
 
 def p_descriptor(p):
     """
-    descriptor : DESCRIPTOR
+    descriptor : NUMBER
     """
     # p[0] = ("DESCRIPTOR", p[1])
-    p[0] = Descriptor(p[1])
+    if 0 <= p[1] < 10:
+        p[0] = Descriptor(p[1])
+    else:
+        line = p.lineno if hasattr(p, "lineno") else "unknown line"
+        column = p.lexpos if hasattr(p, "lexpos") else "unknown column"
+        raise SyntaxError(
+            f"Descriptors cannot be either greater 9 or less than 0. "
+            f"Line: {line}, Column: {column}, Offending token: {p[1]}"
+        )
+
+
+# def p_expr_error(p):
+#     """
+#     descriptor : error
+#     """
+#     print(f"Syntax error {p}")
 
 
 def p_task_taskname(p):
@@ -60,9 +88,25 @@ def p_task_grouped(p):
     p[0] = ConditionalBinOP(p[1], p[3], p[5])
 
 
-# Error rule for syntax errors
 def p_error(p):
-    raise SyntaxError(f"Syntax error in input {p}!")
+    if p is None:
+        raise SyntaxError("Syntax error at the end of the input!")
+    else:
+        line = p.lineno if hasattr(p, "lineno") else "unknown line"
+        column = p.lexpos if hasattr(p, "lexpos") else "unknown column"
+        text = p.value if hasattr(p, "value") else "unknown token"
+
+        error_message = f"Syntax error in input at line {line}, Column {column}, Offending token: {text}"
+
+        if hasattr(p, "lexer") and p.lexer:
+            _lexer = p.lexer
+            _lexer.input(_lexer.lexdata)  # Reset lexer input to parse again
+            for _ in range(line - 1):
+                next(_lexer)
+            error_context = next(_lexer)
+            error_message += f"\nError occurred near: {error_context.value.strip()}"
+
+        raise SyntaxError(error_message)
 
 
 parser = yacc()
