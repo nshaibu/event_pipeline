@@ -1,6 +1,5 @@
 import os
 import re
-import json
 import inspect
 import logging
 import typing
@@ -43,7 +42,7 @@ from .exceptions import (
     EventDone,
     EventDoesNotExist,
 )
-from .mixins import ObjectIdentityMixin
+from .mixins import ObjectIdentityMixin, ScheduleMixin
 from .fields import InputDataField
 from .import_utils import import_string
 from .utils import AcquireReleaseLock, validate_batch_processor
@@ -212,7 +211,7 @@ class PipelineMeta(type):
                 cls.directory_walk(os.path.join(root, vdir), file_name)
 
 
-class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
+class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
     """
     Represents a pipeline that defines a sequence of tasks or processes
     to be executed. The class is designed to manage the execution flow
@@ -583,11 +582,10 @@ class _BatchProcessingMonitor(threading.Thread):
             if signal_data is None:
                 self.batch.signals_queue.task_done()
                 break
-            # print(f"Received signal {signal_data}")
             self.construct_signal(signal_data)
 
 
-class BatchPipeline(ObjectIdentityMixin):
+class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     """
     A class representing a batch pipeline, responsible for managing and processing
     data through a series of pipeline stages. The pipeline is constructed from a

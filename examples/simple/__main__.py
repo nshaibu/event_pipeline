@@ -5,4 +5,6 @@ from .simple import Simple, SimpleBatch
 # s.draw_ascii_graph()
 
 batch = SimpleBatch(name=list(range(100)))
-batch.execute()
+batch.schedule_job(batch.ScheduleTrigger.INTERVAL, minutes=1)
+
+import pdb;pdb.set_trace()

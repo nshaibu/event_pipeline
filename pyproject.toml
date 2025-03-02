@@ -17,7 +17,8 @@ dependencies = [
     "six==1.17.0",
     "treelib==1.7.0",
     "graphviz==0.20.3",
-    "more-itertools<=10.6.0"
+    "more-itertools<=10.6.0",
+    "apscheduler<=3.11.0"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
