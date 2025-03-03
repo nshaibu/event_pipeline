@@ -23,7 +23,7 @@
        3. [Defining Pipeline Structure Using Pointy language](#defining-pipeline-structure)
        4. [Pointy Language](#pointy-language)
        5. [Executing Pipeline](#executing-pipeline)
-       6. [Batch Processing (WIP)](#pipeline-batch-processing)
+       6. [Batch Processing](#pipeline-batch-processing)
        7. [Scheduling (WIP)](#)
           1. [Periodic Scheduling (CRON) (WIP)](#)
     2. [Event](#defining-events)

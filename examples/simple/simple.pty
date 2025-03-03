@@ -1,4 +1,4 @@
-Fetch||Process||Execute->SaveToDB->Return
+10 * Fetch||Process||Execute->SaveToDB->Return
 #A -> B (
 #    0->C (
 #        0 |-> T,
