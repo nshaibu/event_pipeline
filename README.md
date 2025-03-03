@@ -183,6 +183,21 @@ Based on these outcomes, the next event(s) are chosen.
 A -> B (0 -> C, 1 -> D)  # If B fails (0), execute C; if B succeeds (1), execute D
 ```
 
+- **Retry (`*`):**
+In Pointy Language, the `*` operator is used to retry an event in the case of failures or exception.
+The `*` operator specifies that the event should be retried a certain number of times if an exception occurs. 
+This number is known as the retry factor. The factor must be greater than 1 for the retry operation to be activated. 
+The retry operation triggers for all exceptions that occur during the execution of the event. However, it can be 
+configured to exclude certain exceptions. If specific exceptions are listed in the event configuration, 
+retries will not be attempted for those exceptions.
+If a retry policy has already been set for the event, the `*` operator will override the maximum retry count defined earlier. 
+This means that the retry factor specified by * will take precedence, even if there was a previous retry limit in place.
+```pty
+A * 3 # Retries the A event a maximum of 3 times if any exception occurs
+
+51 * A # Retries the A event a maximum of 51 times if any exception occurs
+```
+
 - **Descriptors (`0 - 9`):** 
 Descriptors are numeric values used for conditional branching in Pointy Language. 
 They are integral to defining which event node should be executed based on the success or failure state of the 

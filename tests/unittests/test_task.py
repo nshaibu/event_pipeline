@@ -92,6 +92,30 @@ class TestTask(unittest.TestCase):
         self.assertEqual(len(p.get_children()), 3)
         self.assertEqual(len(p1.get_children()), 1)
 
+    def test_pipeline_retry_syntax(self):
+        p = PipelineTask.build_pipeline_from_execution_code("2 * A -> B * 4 ->C")
+        self.assertEqual(p.extra_config.number_of_retries, 2)
+        self.assertEqual(p.on_success_event.extra_config.number_of_retries, 4)
+        self.assertIsNone(
+            p.on_success_event.on_success_event.extra_config.number_of_retries
+        )
+
+    def test_syntax_error_wrong_descriptor(self):
+        with self.assertRaises(SyntaxError):
+            PipelineTask.build_pipeline_from_execution_code("A(10->C,40->B)")
+
+    def test_syntax_error_wrong_retry_factor(self):
+        with self.assertRaises(SyntaxError):
+            PipelineTask.build_pipeline_from_execution_code("1 * A -> B * 0")
+
+        with self.assertRaises(SyntaxError):
+            PipelineTask.build_pipeline_from_execution_code("-1 * A")
+
+    def test_multi_condition_conditional_branching(self):
+        # No implemented yet
+        return True
+
+
     @classmethod
     def tearDownClass(cls):
         del cls.A

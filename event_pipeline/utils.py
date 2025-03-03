@@ -47,7 +47,7 @@ def _extend_recursion_depth(limit: int = 1048576):
         resource.setrlimit(resource.RLIMIT_STACK, (limit, resource.RLIM_INFINITY))
         sys.setrecursionlimit(limit)
     except Exception as e:
-        logger.error(f"Extending system recursive depth failed {str(e)}")
+        logger.error(f"Extending system recursive depth failed. {str(e)}")
         return e
     return limit
 

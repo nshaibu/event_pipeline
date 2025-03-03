@@ -1,17 +1,26 @@
+import logging
 from ply.lex import lex
+from event_pipeline.utils import _extend_recursion_depth
+
+
+logger = logging.getLogger(__name__)
 
 
 class PointyLexer(object):
+    directives = ("recursive-depth",)
+
     tokens = (
         "SEPERATOR",
         "POINTER",
         "PPOINTER",
         "PARALLEL",
+        "RETRY",
         "TASKNAME",
         "COMMENT",
         "LPAREN",
         "RPAREN",
-        "DESCRIPTOR",
+        "NUMBER",
+        "DIRECTIVE",
     )
 
     t_ignore = " \t"
@@ -20,10 +29,28 @@ class PointyLexer(object):
     t_TASKNAME = r"[a-zA-Z_][a-zA-Z0-9_]*"
     t_POINTER = r"\-\>"
     t_PPOINTER = r"\|\-\>"
+    t_RETRY = r"\*"
     t_PARALLEL = r"\|\|"
     t_SEPERATOR = r","
-    t_DESCRIPTOR = r"[01]"
     t_ignore_COMMENT = r"\#.*"
+
+    def t_NUMBER(self, t):
+        r"\d+"
+        t.value = int(t.value)
+        return t
+
+    def t_DIRECTIVE(self, t):
+        r"\@[a-zA-Z0-9-]+:{1}[a-zA-Z0-9]+"
+        value = str(t.value).lstrip("@")
+        directive, value = value.split(":")
+        if directive in self.directives:
+            if value.isnumeric():
+                if directive == "recursive-depth":
+                    limit = int(value)
+                    ret = _extend_recursion_depth(limit)
+                    if isinstance(ret, Exception):
+                        logger.warning(str(ret))
+        t.lexer.skip(1)
 
     def t_newline(self, t):
         r"\n+"
