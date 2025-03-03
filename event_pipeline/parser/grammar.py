@@ -1,14 +1,14 @@
 __all__ = ["pointy_parser"]
 
 from . import lexer
-from ply.yacc import yacc
+from ply.yacc import yacc, YaccError
 
 from .ast import BinOp, Descriptor, TaskName, ConditionalBinOP
 
 pointy_lexer = lexer.PointyLexer()
 tokens = pointy_lexer.tokens
 
-precedence = (("left", "POINTER", "PPOINTER", "PARALLEL"),)
+precedence = (("left", "RETRY", "POINTER", "PPOINTER", "PARALLEL"),)
 
 
 def p_expression(p):
@@ -18,20 +18,9 @@ def p_expression(p):
                 | expression PARALLEL expression
                 | descriptor POINTER expression
                 | descriptor PPOINTER expression
-                | NUMBER RETRY task
-                | task RETRY NUMBER
+                | factor RETRY task
+                | task RETRY factor
     """
-    if p[2] == "*":
-        number = p[1]
-        if not str(number).isnumeric():
-            number = p[3]
-        if number < 2:
-            line = p.lineno if hasattr(p, "lineno") else "unknown line"
-            column = p.lexpos if hasattr(p, "lexpos") else "unknown column"
-            raise SyntaxError(
-                f"Task cannot be retried less than 2 times. "
-                f"Line: {line}, Column: {column}, Offending Token: {number}"
-            )
     p[0] = BinOp(p[2], p[1], p[3])
 
 
@@ -57,19 +46,27 @@ def p_descriptor(p):
     if 0 <= p[1] < 10:
         p[0] = Descriptor(p[1])
     else:
-        line = p.lineno if hasattr(p, "lineno") else "unknown line"
-        column = p.lexpos if hasattr(p, "lexpos") else "unknown column"
-        raise SyntaxError(
+        line = p.lineno(1) if hasattr(p, "lineno") else "unknown line"
+        column = p.lexpos(1) if hasattr(p, "lexpos") else "unknown column"
+        raise YaccError(
             f"Descriptors cannot be either greater 9 or less than 0. "
             f"Line: {line}, Column: {column}, Offending token: {p[1]}"
         )
 
 
-# def p_expr_error(p):
-#     """
-#     descriptor : error
-#     """
-#     print(f"Syntax error {p}")
+def p_factor(p):
+    """
+    factor : NUMBER
+    """
+    if p[1] < 2:
+        line = p.lineno(1) if hasattr(p, "lineno") else "unknown line"
+        column = p.lexpos(1) if hasattr(p, "lexpos") else "unknown column"
+        raise YaccError(
+            f"Task cannot be retried less than 2 times. "
+            f"Line: {line}, Column: {column}, Offending Token: {p[1]}"
+        )
+
+    p[0] = p[1]
 
 
 def p_task_taskname(p):
@@ -113,4 +110,7 @@ parser = yacc()
 
 
 def pointy_parser(code: str):
-    return parser.parse(code, lexer=pointy_lexer.lexer)
+    try:
+        return parser.parse(code, lexer=pointy_lexer.lexer)
+    except YaccError as e:
+        raise SyntaxError(f"Parsing error: {str(e)}")

@@ -13,12 +13,12 @@ Rule 2     expression -> expression PPOINTER expression
 Rule 3     expression -> expression PARALLEL expression
 Rule 4     expression -> descriptor POINTER expression
 Rule 5     expression -> descriptor PPOINTER expression
-Rule 6     expression -> NUMBER RETRY task
-Rule 7     expression -> task RETRY NUMBER
+Rule 6     expression -> factor RETRY task
+Rule 7     expression -> task RETRY factor
 Rule 8     expression -> term
 Rule 9     term -> task
 Rule 10    descriptor -> NUMBER
-Rule 11    descriptor -> error
+Rule 11    factor -> NUMBER
 Rule 12    task -> TASKNAME
 Rule 13    task -> task LPAREN expression SEPERATOR expression RPAREN
 
@@ -27,7 +27,7 @@ Terminals, with rules where they appear
 COMMENT              : 
 DIRECTIVE            : 
 LPAREN               : 13
-NUMBER               : 6 7 10
+NUMBER               : 10 11
 PARALLEL             : 3
 POINTER              : 1 4
 PPOINTER             : 2 5
@@ -35,12 +35,13 @@ RETRY                : 6 7
 RPAREN               : 13
 SEPERATOR            : 13
 TASKNAME             : 12
-error                : 11
+error                : 
 
 Nonterminals, with rules where they appear
 
 descriptor           : 4 5
 expression           : 1 1 2 2 3 3 4 5 13 13 0
+factor               : 6 7
 task                 : 6 7 9 13
 term                 : 8
 
@@ -54,21 +55,21 @@ state 0
     (3) expression -> . expression PARALLEL expression
     (4) expression -> . descriptor POINTER expression
     (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . NUMBER RETRY task
-    (7) expression -> . task RETRY NUMBER
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
     (8) expression -> . term
     (10) descriptor -> . NUMBER
-    (11) descriptor -> . error
+    (11) factor -> . NUMBER
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 3
-    error           shift and go to state 6
+    NUMBER          shift and go to state 6
     TASKNAME        shift and go to state 7
 
     expression                     shift and go to state 1
     descriptor                     shift and go to state 2
+    factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
@@ -95,17 +96,14 @@ state 2
 
 state 3
 
-    (6) expression -> NUMBER . RETRY task
-    (10) descriptor -> NUMBER .
+    (6) expression -> factor . RETRY task
 
     RETRY           shift and go to state 13
-    POINTER         reduce using rule 10 (descriptor -> NUMBER .)
-    PPOINTER        reduce using rule 10 (descriptor -> NUMBER .)
 
 
 state 4
 
-    (7) expression -> task . RETRY NUMBER
+    (7) expression -> task . RETRY factor
     (13) task -> task . LPAREN expression SEPERATOR expression RPAREN
     (9) term -> task .
 
@@ -133,10 +131,12 @@ state 5
 
 state 6
 
-    (11) descriptor -> error .
+    (10) descriptor -> NUMBER .
+    (11) factor -> NUMBER .
 
-    POINTER         reduce using rule 11 (descriptor -> error .)
-    PPOINTER        reduce using rule 11 (descriptor -> error .)
+    POINTER         reduce using rule 10 (descriptor -> NUMBER .)
+    PPOINTER        reduce using rule 10 (descriptor -> NUMBER .)
+    RETRY           reduce using rule 11 (factor -> NUMBER .)
 
 
 state 7
@@ -161,21 +161,21 @@ state 8
     (3) expression -> . expression PARALLEL expression
     (4) expression -> . descriptor POINTER expression
     (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . NUMBER RETRY task
-    (7) expression -> . task RETRY NUMBER
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
     (8) expression -> . term
     (10) descriptor -> . NUMBER
-    (11) descriptor -> . error
+    (11) factor -> . NUMBER
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 3
-    error           shift and go to state 6
+    NUMBER          shift and go to state 6
     TASKNAME        shift and go to state 7
 
     expression                     shift and go to state 16
     descriptor                     shift and go to state 2
+    factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
@@ -187,21 +187,21 @@ state 9
     (3) expression -> . expression PARALLEL expression
     (4) expression -> . descriptor POINTER expression
     (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . NUMBER RETRY task
-    (7) expression -> . task RETRY NUMBER
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
     (8) expression -> . term
     (10) descriptor -> . NUMBER
-    (11) descriptor -> . error
+    (11) factor -> . NUMBER
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 3
-    error           shift and go to state 6
+    NUMBER          shift and go to state 6
     TASKNAME        shift and go to state 7
 
     expression                     shift and go to state 17
     descriptor                     shift and go to state 2
+    factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
@@ -213,21 +213,21 @@ state 10
     (3) expression -> . expression PARALLEL expression
     (4) expression -> . descriptor POINTER expression
     (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . NUMBER RETRY task
-    (7) expression -> . task RETRY NUMBER
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
     (8) expression -> . term
     (10) descriptor -> . NUMBER
-    (11) descriptor -> . error
+    (11) factor -> . NUMBER
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 3
-    error           shift and go to state 6
+    NUMBER          shift and go to state 6
     TASKNAME        shift and go to state 7
 
     expression                     shift and go to state 18
     descriptor                     shift and go to state 2
+    factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
@@ -239,21 +239,21 @@ state 11
     (3) expression -> . expression PARALLEL expression
     (4) expression -> . descriptor POINTER expression
     (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . NUMBER RETRY task
-    (7) expression -> . task RETRY NUMBER
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
     (8) expression -> . term
     (10) descriptor -> . NUMBER
-    (11) descriptor -> . error
+    (11) factor -> . NUMBER
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 3
-    error           shift and go to state 6
+    NUMBER          shift and go to state 6
     TASKNAME        shift and go to state 7
 
     descriptor                     shift and go to state 2
     expression                     shift and go to state 19
+    factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
@@ -265,27 +265,27 @@ state 12
     (3) expression -> . expression PARALLEL expression
     (4) expression -> . descriptor POINTER expression
     (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . NUMBER RETRY task
-    (7) expression -> . task RETRY NUMBER
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
     (8) expression -> . term
     (10) descriptor -> . NUMBER
-    (11) descriptor -> . error
+    (11) factor -> . NUMBER
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 3
-    error           shift and go to state 6
+    NUMBER          shift and go to state 6
     TASKNAME        shift and go to state 7
 
     descriptor                     shift and go to state 2
     expression                     shift and go to state 20
+    factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
 state 13
 
-    (6) expression -> NUMBER RETRY . task
+    (6) expression -> factor RETRY . task
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
 
@@ -295,10 +295,12 @@ state 13
 
 state 14
 
-    (7) expression -> task RETRY . NUMBER
+    (7) expression -> task RETRY . factor
+    (11) factor -> . NUMBER
 
-    NUMBER          shift and go to state 22
+    NUMBER          shift and go to state 23
 
+    factor                         shift and go to state 22
 
 state 15
 
@@ -308,22 +310,22 @@ state 15
     (3) expression -> . expression PARALLEL expression
     (4) expression -> . descriptor POINTER expression
     (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . NUMBER RETRY task
-    (7) expression -> . task RETRY NUMBER
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
     (8) expression -> . term
     (10) descriptor -> . NUMBER
-    (11) descriptor -> . error
+    (11) factor -> . NUMBER
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 3
-    error           shift and go to state 6
+    NUMBER          shift and go to state 6
     TASKNAME        shift and go to state 7
 
     task                           shift and go to state 4
-    expression                     shift and go to state 23
+    expression                     shift and go to state 24
     descriptor                     shift and go to state 2
+    factor                         shift and go to state 3
     term                           shift and go to state 5
 
 state 16
@@ -423,44 +425,56 @@ state 20
 
 state 21
 
-    (6) expression -> NUMBER RETRY task .
+    (6) expression -> factor RETRY task .
     (13) task -> task . LPAREN expression SEPERATOR expression RPAREN
 
-    POINTER         reduce using rule 6 (expression -> NUMBER RETRY task .)
-    PPOINTER        reduce using rule 6 (expression -> NUMBER RETRY task .)
-    PARALLEL        reduce using rule 6 (expression -> NUMBER RETRY task .)
-    $end            reduce using rule 6 (expression -> NUMBER RETRY task .)
-    SEPERATOR       reduce using rule 6 (expression -> NUMBER RETRY task .)
-    RPAREN          reduce using rule 6 (expression -> NUMBER RETRY task .)
+    POINTER         reduce using rule 6 (expression -> factor RETRY task .)
+    PPOINTER        reduce using rule 6 (expression -> factor RETRY task .)
+    PARALLEL        reduce using rule 6 (expression -> factor RETRY task .)
+    $end            reduce using rule 6 (expression -> factor RETRY task .)
+    SEPERATOR       reduce using rule 6 (expression -> factor RETRY task .)
+    RPAREN          reduce using rule 6 (expression -> factor RETRY task .)
     LPAREN          shift and go to state 15
 
 
 state 22
 
-    (7) expression -> task RETRY NUMBER .
+    (7) expression -> task RETRY factor .
 
-    POINTER         reduce using rule 7 (expression -> task RETRY NUMBER .)
-    PPOINTER        reduce using rule 7 (expression -> task RETRY NUMBER .)
-    PARALLEL        reduce using rule 7 (expression -> task RETRY NUMBER .)
-    $end            reduce using rule 7 (expression -> task RETRY NUMBER .)
-    SEPERATOR       reduce using rule 7 (expression -> task RETRY NUMBER .)
-    RPAREN          reduce using rule 7 (expression -> task RETRY NUMBER .)
+    POINTER         reduce using rule 7 (expression -> task RETRY factor .)
+    PPOINTER        reduce using rule 7 (expression -> task RETRY factor .)
+    PARALLEL        reduce using rule 7 (expression -> task RETRY factor .)
+    $end            reduce using rule 7 (expression -> task RETRY factor .)
+    SEPERATOR       reduce using rule 7 (expression -> task RETRY factor .)
+    RPAREN          reduce using rule 7 (expression -> task RETRY factor .)
 
 
 state 23
+
+    (11) factor -> NUMBER .
+
+    POINTER         reduce using rule 11 (factor -> NUMBER .)
+    PPOINTER        reduce using rule 11 (factor -> NUMBER .)
+    PARALLEL        reduce using rule 11 (factor -> NUMBER .)
+    $end            reduce using rule 11 (factor -> NUMBER .)
+    SEPERATOR       reduce using rule 11 (factor -> NUMBER .)
+    RPAREN          reduce using rule 11 (factor -> NUMBER .)
+
+
+state 24
 
     (13) task -> task LPAREN expression . SEPERATOR expression RPAREN
     (1) expression -> expression . POINTER expression
     (2) expression -> expression . PPOINTER expression
     (3) expression -> expression . PARALLEL expression
 
-    SEPERATOR       shift and go to state 24
+    SEPERATOR       shift and go to state 25
     POINTER         shift and go to state 8
     PPOINTER        shift and go to state 9
     PARALLEL        shift and go to state 10
 
 
-state 24
+state 25
 
     (13) task -> task LPAREN expression SEPERATOR . expression RPAREN
     (1) expression -> . expression POINTER expression
@@ -468,38 +482,38 @@ state 24
     (3) expression -> . expression PARALLEL expression
     (4) expression -> . descriptor POINTER expression
     (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . NUMBER RETRY task
-    (7) expression -> . task RETRY NUMBER
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
     (8) expression -> . term
     (10) descriptor -> . NUMBER
-    (11) descriptor -> . error
+    (11) factor -> . NUMBER
     (12) task -> . TASKNAME
     (13) task -> . task LPAREN expression SEPERATOR expression RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 3
-    error           shift and go to state 6
+    NUMBER          shift and go to state 6
     TASKNAME        shift and go to state 7
 
     task                           shift and go to state 4
-    expression                     shift and go to state 25
+    expression                     shift and go to state 26
     descriptor                     shift and go to state 2
+    factor                         shift and go to state 3
     term                           shift and go to state 5
 
-state 25
+state 26
 
     (13) task -> task LPAREN expression SEPERATOR expression . RPAREN
     (1) expression -> expression . POINTER expression
     (2) expression -> expression . PPOINTER expression
     (3) expression -> expression . PARALLEL expression
 
-    RPAREN          shift and go to state 26
+    RPAREN          shift and go to state 27
     POINTER         shift and go to state 8
     PPOINTER        shift and go to state 9
     PARALLEL        shift and go to state 10
 
 
-state 26
+state 27
 
     (13) task -> task LPAREN expression SEPERATOR expression RPAREN .
 

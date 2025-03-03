@@ -19,7 +19,6 @@ class PointyLexer(object):
         "COMMENT",
         "LPAREN",
         "RPAREN",
-        # "DESCRIPTOR",
         "NUMBER",
         "DIRECTIVE",
     )
@@ -33,10 +32,8 @@ class PointyLexer(object):
     t_RETRY = r"\*"
     t_PARALLEL = r"\|\|"
     t_SEPERATOR = r","
-    # t_DESCRIPTOR = r"[01]"
     t_ignore_COMMENT = r"\#.*"
 
-    # r"(?![01]\b)\d{1,4}"
     def t_NUMBER(self, t):
         r"\d+"
         t.value = int(t.value)
