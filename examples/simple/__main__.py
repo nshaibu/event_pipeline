@@ -7,4 +7,6 @@ from .simple import Simple, SimpleBatch
 batch = SimpleBatch(name=list(range(100)))
 batch.schedule_job(batch.ScheduleTrigger.INTERVAL, minutes=1)
 
-import pdb;pdb.set_trace()
+import pdb
+
+pdb.set_trace()

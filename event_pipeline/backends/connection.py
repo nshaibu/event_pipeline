@@ -1,4 +1,5 @@
 import logging
+import typing
 
 from abc import ABC, abstractmethod
 
@@ -13,13 +14,19 @@ class BackendConnectorBase(ABC):
     """
 
     def __init__(
-        self, host: str, port: int, username: str, password: str, db: str = None
+        self,
+        host,
+        port,
+        username: typing.Any = None,
+        password: typing.Any = None,
+        db: typing.Any = None,
     ):
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.database = db
+        self._cursor = None
 
     @abstractmethod
     def connect(self):
@@ -27,11 +34,20 @@ class BackendConnectorBase(ABC):
         pass
 
     @abstractmethod
-    def execute_query(self, query: str):
-        """Execute a query on the connected backend."""
+    def disconnect(self):
+        """Disconnect backend."""
         pass
 
     @abstractmethod
-    def close(self):
-        """Close the connection to the backend."""
+    def is_connected(self) -> bool:
         pass
+
+    @property
+    def cursor(self):
+        return self._cursor
+
+    def __enter__(self):
+        self.connect()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.disconnect()

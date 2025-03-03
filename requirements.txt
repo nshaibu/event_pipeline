@@ -5,3 +5,5 @@ more-itertools<=10.6.0
 apscheduler<=3.11.0
 # graph
 graphviz==0.20.3
+# [optional]
+redis==5.2.1

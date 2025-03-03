@@ -19,6 +19,7 @@ class _PipeLineJob:
         scheduler: BackgroundScheduler,
     ):
         from event_pipeline.pipeline import BatchPipeline
+
         super().__init__()
         self._pipeline = pipeline
         self._is_batch = isinstance(pipeline, BatchPipeline)

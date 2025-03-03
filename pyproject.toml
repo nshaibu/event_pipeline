@@ -9,7 +9,7 @@ authors = [
     {name = "nshaibu", email = "nafiushaibu1@gmail.com"},
 ]
 description="Simple tool for writing events and pipelines in python"
-keywords=["pipeline","events","concurrency","data","pointy", "pointy lang", "event-pipeline"]
+keywords=["pipeline","events","concurrency","data","pointy", "pointy lang", "event-pipeline", "redis"]
 readme = "README.md"
 license = { file = "LICENSE" }
 dependencies = [
@@ -39,10 +39,24 @@ classifiers = [
 "Issue Tracker"="https://github.com/nshaibu/event_pipeline/issues"
 CI="https://github.com/nshaibu/event_pipeline/actions"
 [project.optional-dependencies]
-dev = ["coverage>=7.4.1", "iniconfig==2.0.0", "packaging==24.2",
-    "pluggy==1.5.0", "pytest==8.3.4", "pyflakes==3.2.0", "mccabe==0.7.0",
-    "flake8==7.1.1", "pycodestyle==2.12.1", "flake8-black==0.3.6", "black>=22.1.0",
-    "click==8.1.8", "mypy-extensions==1.0.0", "pathspec==0.12.1", "platformdirs==4.3.6"]
+dev = [
+    "coverage>=7.4.1",
+    "iniconfig==2.0.0",
+    "packaging==24.2",
+    "pluggy==1.5.0",
+    "pytest==8.3.4",
+    "pyflakes==3.2.0",
+    "mccabe==0.7.0",
+    "flake8==7.1.1",
+    "pycodestyle==2.12.1",
+    "flake8-black==0.3.6",
+    "black>=22.1.0",
+    "click==8.1.8",
+    "mypy-extensions==1.0.0",
+    "pathspec==0.12.1",
+    "platformdirs==4.3.6",
+    "redis==5.2.1"
+]
 [tool.setuptools]
 packages = [
     "event_pipeline",
@@ -51,7 +65,8 @@ packages = [
     "event_pipeline.mixins",
     "event_pipeline.signal",
     "event_pipeline.backends",
-    "event_pipeline.backends.result"
+    "event_pipeline.backends.stores",
+    "event_pipeline.backends.connectors"
 ]
 
 [tool.coverage.run]

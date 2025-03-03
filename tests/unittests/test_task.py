@@ -113,8 +113,7 @@ class TestTask(unittest.TestCase):
 
     def test_multi_condition_conditional_branching(self):
         # No implemented yet
-        return True
-
+        self.assertTrue(True)
 
     @classmethod
     def tearDownClass(cls):
