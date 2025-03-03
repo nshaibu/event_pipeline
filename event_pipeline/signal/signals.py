@@ -3,15 +3,27 @@ import weakref
 import logging
 import threading
 from inspect import Signature, Parameter
-from event_pipeline.utils import FakeLock
-
+from event_pipeline.mixins import ObjectIdentityMixin
 
 logger = logging.getLogger(__name__)
 
 
-class SoftSignal(object):
+class GenericSender:
+    pass
 
-    def __init__(self, provide_args=None):
+
+class SoftSignal(ObjectIdentityMixin):
+    _registered_signal: typing.ClassVar[
+        typing.Dict[str, typing.Dict[str, typing.Any]]
+    ] = {}
+
+    def __init__(self, name: str, provide_args: typing.List[str] = None):
+        super().__init__()
+
+        self.name = name
+        signal_import_str = f"{self.__module__}.{self.name}"
+        self._registered_signal[signal_import_str] = {}
+
         if provide_args is None:
             provide_args = []
         elif not isinstance(provide_args, (list, tuple)):
@@ -31,14 +43,25 @@ class SoftSignal(object):
         # Initialize a dict to hold connected listeners as weak references
         self._listeners: typing.Dict[typing.Any, typing.Set[weakref.ReferenceType]] = {}
 
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: {self.name!r}>"
+
+    @property
+    def __instance_import_str__(self):
+        return f"{self.__module__}.{self.name}"
+
     def __getstate__(self):
         state = self.__dict__.copy()
-        state.pop("lock")
-        state["lock"] = FakeLock()
+        state.pop("lock", None)
+        state.pop("_listeners", None)
         return state
 
     def __setstate__(self, state):
         state["lock"] = threading.Lock()
+        state["_listeners"] = {}
         self.__dict__.update(state)
 
     def _construct_listener_arguments(self):
@@ -50,7 +73,35 @@ class SoftSignal(object):
             )
             for name in self._provide_args
         ]
+
+        default_field_names = ["pipeline_id", "process_id"]
+        params.extend(
+            [
+                Parameter(
+                    name=name,
+                    annotation=typing.Union[str, int],
+                    kind=Parameter.KEYWORD_ONLY,
+                    default=None,
+                )
+                for name in default_field_names
+            ]
+        )
         return Signature(params)
+
+    def _execute_listeners(self, listener_ref, sender, **kwargs):
+        responses = []
+        listener = listener_ref()  # Get the listener from the weak reference
+        if listener:  # Check if the listener is still alive
+            bounded_args = self._emit_signature.bind(
+                signal=self, sender=sender, **kwargs
+            )
+            try:
+                response = listener(**bounded_args.kwargs)
+            except Exception as e:
+                logger.exception(str(e), exc_info=e)
+                response = e
+            responses.append((listener, response))
+        return responses
 
     def emit(
         self, sender: typing.Any, **kwargs
@@ -67,17 +118,15 @@ class SoftSignal(object):
         responses = []
         if sender in self._listeners:
             for weak_listener in self._listeners[sender]:
-                listener = weak_listener()  # Get the listener from the weak reference
-                if listener:  # Check if the listener is still alive
-                    bounded_args = self._emit_signature.bind(
-                        signal=self, sender=sender, **kwargs
-                    )
-                    try:
-                        response = listener(**bounded_args.kwargs)
-                    except Exception as e:
-                        logger.exception(str(e), exc_info=e)
-                        response = e
-                    responses.append((listener, response))
+                responses.extend(
+                    self._execute_listeners(weak_listener, sender, **kwargs)
+                )
+
+        if GenericSender in self._listeners:
+            for weak_listener in self._listeners[GenericSender]:
+                responses.extend(
+                    self._execute_listeners(weak_listener, sender, **kwargs)
+                )
 
         return responses
 
@@ -100,6 +149,9 @@ class SoftSignal(object):
             sender: The object sending the signal.
             listener: The function to be called when the signal is emitted.
         """
+        if sender is None:
+            sender = GenericSender
+
         if sender not in self._listeners:
             self._listeners[sender] = set()
 
@@ -152,27 +204,47 @@ class SoftSignal(object):
                     except KeyError:
                         pass
 
-
-pipeline_pre_init = SoftSignal(provide_args=["cls", "args", "kwargs"])
-pipeline_post_init = SoftSignal(provide_args=["pipeline"])
-
-
-pipeline_shutdown = SoftSignal(provide_args=["pipeline", "execution_context"])
-pipeline_stop = SoftSignal(provide_args=["pipeline", "execution_context"])
+    @classmethod
+    def registered_signals(cls):
+        return list(cls._registered_signal.keys())
 
 
-pipeline_execution_start = SoftSignal(provide_args=["pipeline"])
-pipeline_execution_end = SoftSignal(provide_args=["execution_context"])
+pipeline_pre_init = SoftSignal(
+    "pipeline_pre_init", provide_args=["cls", "args", "kwargs"]
+)
+pipeline_post_init = SoftSignal("pipeline_post_init", provide_args=["pipeline"])
 
 
-event_init = SoftSignal(provide_args=["event", "init_kwargs"])
+pipeline_shutdown = SoftSignal(
+    "pipeline_shutdown", provide_args=["pipeline", "execution_context"]
+)
+pipeline_stop = SoftSignal(
+    "pipeline_stop", provide_args=["pipeline", "execution_context"]
+)
+
+
+pipeline_execution_start = SoftSignal(
+    "pipeline_execution_start", provide_args=["pipeline"]
+)
+pipeline_execution_end = SoftSignal(
+    "pipeline_execution_end", provide_args=["execution_context"]
+)
+
+
+event_init = SoftSignal("event_init", provide_args=["event", "init_kwargs"])
 
 event_execution_init = SoftSignal(
-    provide_args=["event", "execution_context", "executor", "call_kwargs"]
+    "event_execution_init",
+    provide_args=["event", "execution_context", "executor", "call_kwargs"],
 )
-event_execution_start = SoftSignal(provide_args=["event", "execution_context"])
-event_execution_end = SoftSignal(provide_args=["event", "execution_context"])
+event_execution_start = SoftSignal(
+    "event_execution_start", provide_args=["event", "execution_context"]
+)
+event_execution_end = SoftSignal(
+    "event_execution_end", provide_args=["event", "execution_context"]
+)
 event_execution_retry = SoftSignal(
+    "event_execution_retry",
     provide_args=[
         "event",
         "execution_context",
@@ -180,23 +252,17 @@ event_execution_retry = SoftSignal(
         "backoff",
         "retry_count",
         "max_attempts",
-    ]
+    ],
 )
 event_execution_retry_done = SoftSignal(
-    provide_args=["event", "execution_context", "task_id", "max_attempts"]
+    "event_execution_retry_done",
+    provide_args=["event", "execution_context", "task_id", "max_attempts"],
 )
 event_execution_cancelled = SoftSignal(
-    provide_args=["task_profiles", "execution_context", "state"]
+    "event_execution_cancelled",
+    provide_args=["task_profiles", "execution_context", "state"],
 )
 event_execution_aborted = SoftSignal(
-    provide_args=["task_profiles", "execution_context", "state"]
+    "event_execution_aborted",
+    provide_args=["task_profiles", "execution_context", "state"],
 )
-
-
-DEFAULT_SIGNALS = [
-    event_execution_init,
-    event_execution_start,
-    event_execution_end,
-    event_execution_retry_done,
-    event_execution_retry,
-]

@@ -26,7 +26,6 @@ from .signal.signals import (
     pipeline_execution_end,
     pipeline_shutdown,
     pipeline_stop,
-    DEFAULT_SIGNALS,
 )
 from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
 from .constants import (
@@ -43,8 +42,9 @@ from .exceptions import (
     EventDone,
     EventDoesNotExist,
 )
-from .mixins import ObjectIdentityMixin
+from .mixins import ObjectIdentityMixin, ScheduleMixin
 from .fields import InputDataField
+from .import_utils import import_string
 from .utils import AcquireReleaseLock, validate_batch_processor
 
 
@@ -211,7 +211,7 @@ class PipelineMeta(type):
                 cls.directory_walk(os.path.join(root, vdir), file_name)
 
 
-class Pipeline(ObjectIdentityMixin, metaclass=PipelineMeta):
+class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
     """
     Represents a pipeline that defines a sequence of tasks or processes
     to be executed. The class is designed to manage the execution flow
@@ -567,23 +567,25 @@ class _BatchProcessingMonitor(threading.Thread):
     def construct_signal(signal_data: typing.Dict):
         data = signal_data.get("kwargs")
         sender = data.pop("sender", None)
-        signal = data.pop("signal", None)
+        signal: SoftSignal = data.pop("signal", None)
 
         if sender and signal:
-            process_id = signal_data.get("process_id")
-            pipeline_id = signal_data.get("pipeline_id")
-
-            signal.emit(sender=sender, **data)
+            try:
+                parent_process_signal = import_string(signal.__instance_import_str__)
+                parent_process_signal.emit(sender=sender, **data)
+            except Exception:
+                logger.exception("Exception raised while processing signal %s", signal)
 
     def run(self) -> None:
         while True:
             signal_data = self.batch.signals_queue.get()
             if signal_data is None:
+                self.batch.signals_queue.task_done()
                 break
             self.construct_signal(signal_data)
 
 
-class BatchPipeline(ObjectIdentityMixin):
+class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     """
     A class representing a batch pipeline, responsible for managing and processing
     data through a series of pipeline stages. The pipeline is constructed from a
@@ -591,12 +593,12 @@ class BatchPipeline(ObjectIdentityMixin):
 
     Attributes:
         pipeline_template (typing.Type[Pipeline]): The class used to generate the pipeline.
-        listen_to_signals (typing.List[SoftSignal]): A list of signals to be used within the pipeline.
+        listen_to_signals (typing.List[str]): A list of signal import strings to be used within the pipeline.
     """
 
     pipeline_template: typing.Type[Pipeline] = None
 
-    listen_to_signals: typing.List[SoftSignal] = DEFAULT_SIGNALS
+    listen_to_signals: typing.List[str] = SoftSignal.registered_signals()
 
     __signature__ = None
 
@@ -713,7 +715,6 @@ class BatchPipeline(ObjectIdentityMixin):
         new_batch_maps = {}
         kwargs = {}
 
-        # We use a while loop to mimic the recursive calls
         while batch_processor_map:
             all_iterators_consumed = True
             # Iterate over the current batch processor map
@@ -730,7 +731,6 @@ class BatchPipeline(ObjectIdentityMixin):
                 kwargs[field.name] = value
                 new_batch_maps[field] = batch_operation
 
-            # Yield the current batch of results
             yield kwargs
 
             # If not all iterators are consumed, continue processing the remaining iterators
@@ -805,8 +805,10 @@ class BatchPipeline(ObjectIdentityMixin):
                 with AcquireReleaseLock(batch.lock):
                     batch.results.append(event)
 
+            manager = mp.Manager()
             mp_context = mp.get_context("spawn")
-            self._signals_queue = mp_context.Queue()
+
+            self._signals_queue = manager.Queue()
 
             self._monitor_thread = _BatchProcessingMonitor(self)
 
@@ -819,7 +821,7 @@ class BatchPipeline(ObjectIdentityMixin):
                         self._pipeline_executor,
                         pipeline=pipeline,
                         focus_on_signals=self.listen_to_signals,
-                        # signals_queue=self._signals_queue,
+                        signals_queue=self._signals_queue,
                     )
 
                     future.add_done_callback(partial(_process_futures, batch=self))
@@ -830,23 +832,29 @@ class BatchPipeline(ObjectIdentityMixin):
     @staticmethod
     def _pipeline_executor(
         pipeline: Pipeline,
-        focus_on_signals: typing.List[SoftSignal],
-        # signals_queue: mp.Queue,
+        focus_on_signals: typing.List[str],
+        signals_queue: mp.Queue,
     ):
+        signals = []
+        for signal_str in focus_on_signals:
+            try:
+                module = import_string(signal_str)
+                signals.append(module)
+            except Exception as exc:
+                logger.warning(f"signal: {signal_str}, exception: {exc}")
+
         exception = None
 
         def signal_handler(*args, **kwargs):
-            print(args, kwargs)
+            kwargs = dict(**kwargs, pipeline_id=pipeline.id, process_id=os.getpid())
             signal_data = {
                 "args": args,
                 "kwargs": kwargs,
-                "pipeline_id": pipeline.id,
-                "process_id": os.getpid(),
             }
-            # signals_queue.put(signal_data)
+            signals_queue.put(signal_data)
 
-        for signal in focus_on_signals:
-            signal.connect(listener=signal_handler, sender=pipeline.__class__)
+        for s in signals:
+            s.connect(listener=signal_handler, sender=None)
 
         try:
             pipeline.start(force_rerun=True)

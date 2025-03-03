@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "event_pipeline"
-version = "1.1.dev4"
+version = "1.1.dev6"
 requires-python = ">=3.8"
 authors = [
     {name = "nshaibu", email = "nafiushaibu1@gmail.com"},
@@ -17,7 +17,8 @@ dependencies = [
     "six==1.17.0",
     "treelib==1.7.0",
     "graphviz==0.20.3",
-    "more-itertools<=10.6.0"
+    "more-itertools<=10.6.0",
+    "apscheduler<=3.11.0"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -43,7 +44,15 @@ dev = ["coverage>=7.4.1", "iniconfig==2.0.0", "packaging==24.2",
     "flake8==7.1.1", "pycodestyle==2.12.1", "flake8-black==0.3.6", "black>=22.1.0",
     "click==8.1.8", "mypy-extensions==1.0.0", "pathspec==0.12.1", "platformdirs==4.3.6"]
 [tool.setuptools]
-packages = ["event_pipeline", "event_pipeline.parser", "event_pipeline.executors"]
+packages = [
+    "event_pipeline",
+    "event_pipeline.parser",
+    "event_pipeline.executors",
+    "event_pipeline.mixins",
+    "event_pipeline.signal",
+    "event_pipeline.backends",
+    "event_pipeline.backends.result"
+]
 
 [tool.coverage.run]
 branch = true

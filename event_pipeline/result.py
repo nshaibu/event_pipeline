@@ -5,6 +5,7 @@ from collections.abc import MutableSet
 from .constants import EMPTY
 from .exceptions import MultiValueError
 from .mixins import ObjectIdentityMixin
+from event_pipeline.backends.schema import SchemaBase
 
 __all__ = ["EventResult", "ResultSet"]
 
@@ -17,7 +18,8 @@ EventResultInitVar = typing.TypeVar(
 
 
 class Result(ObjectIdentityMixin):
-    backend = None
+    backend: typing.ClassVar = None
+    schema: typing.ClassVar[SchemaBase] = None
 
     def __init__(
         self,
@@ -38,6 +40,9 @@ class Result(ObjectIdentityMixin):
 
     def __hash__(self):
         return hash(self.id)
+
+    def is_error(self) -> bool:
+        return self.error
 
     def get_content_type(self) -> typing.Any:
         return self.content_type

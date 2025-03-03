@@ -383,6 +383,8 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         *args,
         previous_result: typing.Union[typing.List[EventResult], EMPTY] = EMPTY,
         stop_on_exception: bool = False,
+        stop_on_success: bool = False,
+        stop_on_error: bool = False,
         **kwargs,
     ):
         """
@@ -399,6 +401,10 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                                               Defaults to `EMPTY` if not provided.
             stop_on_exception (bool, optional): Flag to indicate whether the event should stop execution
                                                  if an exception occurs. Defaults to `False`.
+            stop_on_success (bool, optional): Flag to indicate whether the event should stop execution
+                                          if it is successful. Defaults to `False`.
+            stop_on_error (bool, optional): Flag to indicate whether the event should stop execution
+                                        if an error occurs. Defaults to `False`.
 
         """
         super().__init__(*args, **kwargs)
@@ -407,6 +413,8 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         self._task_id = task_id
         self.previous_result = previous_result
         self.stop_on_exception = stop_on_exception
+        self.stop_on_success = stop_on_success
+        self.stop_on_error = stop_on_error
 
         self.get_retry_policy()  # config retry if error
 
@@ -440,6 +448,10 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         raise NotImplementedError()
 
     def on_success(self, execution_result) -> EventResult:
+        self._raise_stop_processing_exception(
+            condition=self.stop_on_success, message=execution_result
+        )
+
         return EventResult(
             error=False,
             content=execution_result,
@@ -449,6 +461,36 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             init_params=self._init_args,
         )
 
+    def _raise_stop_processing_exception(
+        self,
+        condition: bool,
+        message: typing.Union[str, typing.Dict[str, typing.Any]],
+        exception: typing.Optional[Exception] = None,
+    ):
+        """
+        Raises a StopProcessingError if the provided condition is True.
+
+        Args:
+            condition (bool): The condition that triggers the exception. If True, the exception will be raised.
+            message (str | dict): A message to include in the exception.
+            exception (Optional[Exception], optional): An optional exception to attach to the StopProcessingError.
+                                                    Defaults to None.
+
+        Raises:
+            StopProcessingError: If the condition is met, a StopProcessingError is raised with additional context.
+        """
+        if condition:
+            raise StopProcessingError(
+                message=message,
+                exception=exception,
+                params={
+                    "init_args": self._init_args,
+                    "call_args": self._call_args,
+                    "event_name": self.__class__.__name__,
+                    "task_id": self._task_id,
+                },
+            )
+
     def on_failure(self, execution_result) -> EventResult:
         if isinstance(execution_result, Exception):
             execution_result = (
@@ -457,17 +499,15 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                 else execution_result
             )
 
-            if self.stop_on_exception:
-                raise StopProcessingError(
-                    message=f"Error occurred while processing event '{self.__class__.__name__}'",
-                    exception=execution_result,
-                    params={
-                        "init_args": self._init_args,
-                        "call_args": self._call_args,
-                        "event_name": self.__class__.__name__,
-                        "task_id": self._task_id,
-                    },
-                )
+            self._raise_stop_processing_exception(
+                condition=self.stop_on_exception,
+                message=f"Error occurred while processing event '{self.__class__.__name__}'",
+                exception=execution_result,
+            )
+
+        self._raise_stop_processing_exception(
+            condition=self.stop_on_error, message=execution_result
+        )
 
         return EventResult(
             error=True,
