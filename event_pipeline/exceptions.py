@@ -71,3 +71,9 @@ class MaxRetryError(Exception):
             self.reason,
         )
         super().__init__(message)
+
+
+class ValidationError(PipelineError, ValueError):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

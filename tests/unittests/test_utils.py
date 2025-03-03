@@ -1,9 +1,11 @@
+import inspect
 from unittest import mock
 from event_pipeline.utils import (
     generate_unique_id,
     get_function_call_args,
     build_event_arguments_from_pipeline,
     _extend_recursion_depth,
+    get_expected_args,
 )
 
 
@@ -95,3 +97,48 @@ def test__extend_recursion_depth():
         with mock.patch("resource.setrlimit"):
             with mock.patch("sys.setrecursionlimit"):
                 assert _extend_recursion_depth(20) == 20
+
+
+def test_get_get_expected_args():
+    def func_with_no_arguments():
+        pass
+
+    def func_with_arguments_but_no_keyword_args(sh, val):
+        pass
+
+    def func_with_arguments_and_keyword_args(is_config, event="event", _complex=True):
+        pass
+
+    def func_with_with_annotated(is_config: bool, event: str, value: int):
+        pass
+
+    assert get_expected_args(func_with_no_arguments) == {}
+    assert get_expected_args(func_with_arguments_but_no_keyword_args) == {
+        "sh": "_empty",
+        "val": "_empty",
+    }
+    assert get_expected_args(
+        func_with_arguments_but_no_keyword_args, include_type=True
+    ) == {"sh": inspect.Parameter.empty, "val": inspect.Parameter.empty}
+    assert get_expected_args(func_with_with_annotated) == {
+        "is_config": "_empty",
+        "event": "_empty",
+        "value": "_empty",
+    }
+    assert get_expected_args(func_with_with_annotated, include_type=True) == {
+        "is_config": bool,
+        "event": str,
+        "value": int,
+    }
+    assert get_expected_args(func_with_arguments_and_keyword_args) == {
+        "is_config": "_empty",
+        "event": "event",
+        "_complex": True,
+    }
+    assert get_expected_args(
+        func_with_arguments_and_keyword_args, include_type=True
+    ) == {
+        "is_config": inspect.Parameter.empty,
+        "event": inspect.Parameter.empty,
+        "_complex": inspect.Parameter.empty,
+    }

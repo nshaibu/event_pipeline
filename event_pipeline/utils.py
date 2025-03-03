@@ -251,3 +251,32 @@ class FakeLock:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return self.release()
+
+
+def get_expected_args(
+    func: typing.Callable, include_type: bool = False
+) -> typing.Dict[str, typing.Any]:
+    """
+    Get the expected arguments of a function as a dictionary where the keys are argument names
+    and the values are their default values (if any).
+
+    Args:
+        func (Callable): The function to inspect.
+        include_type (bool): Whether the return type is expected.
+    Returns:
+        Dict[str, Any]: A dictionary with argument names as keys and default values (or `None` if no default) as values.
+    """
+    sig = signature(func)
+    args_dict = {}
+
+    for param_name, param in sig.parameters.items():
+        if param.name == "self":
+            continue
+        if param.default is Parameter.empty:
+            args_dict[param_name] = (
+                param.annotation if include_type else Parameter.empty.__name__
+            )
+        else:
+            args_dict[param_name] = param.annotation if include_type else param.default
+
+    return args_dict
