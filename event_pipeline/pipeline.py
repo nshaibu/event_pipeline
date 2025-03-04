@@ -532,6 +532,14 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
                     return task
         raise EventDoesNotExist(f"Task '{pk}' does not exists", code=pk)
 
+    def get_first_error_execution_node(self):
+        current = self.execution_context
+        while current:
+            if current.execution_failed():
+                break
+            current = current.next_context
+        return current
+
 
 class _BatchResult(typing.NamedTuple):
     pipeline: Pipeline

@@ -10,7 +10,3 @@ class SchemaBase(ABC):
     @abstractmethod
     def serialize(self, schema):
         pass
-
-    @abstractmethod
-    def create_in_storage(self):
-        pass

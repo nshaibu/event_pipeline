@@ -1,9 +1,14 @@
 import abc
+import typing
+
 from .connection import BackendConnectorBase
 
 
 class KeyValueStoreBackendBase(abc.ABC):
-    connector: BackendConnectorBase = None
+    connector: typing.Type[BackendConnectorBase]
+
+    def __init__(self, **connector_config):
+        self.connection = self.connector(**connector_config)
 
     @abc.abstractmethod
     def set(self, key, value):
