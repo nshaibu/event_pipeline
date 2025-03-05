@@ -77,3 +77,7 @@ class ValidationError(PipelineError, ValueError):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+
+class ObjectDoesNotExist(ValueError):
+    """ObjectDoesNotExist raised when an object does not exist."""
