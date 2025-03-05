@@ -18,6 +18,10 @@ class KeyValueStoreBackendBase(abc.ABC):
             self.connector.disconnect()
 
     @abc.abstractmethod
+    def exists(self, schema_name: str, record_key: str) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def insert_record(self, schema_name: str, record_key: str, record: "SchemaMixin"):
         raise NotImplementedError
 
@@ -27,6 +31,10 @@ class KeyValueStoreBackendBase(abc.ABC):
 
     @abc.abstractmethod
     def delete_record(self, schema_name: str, record_key: str):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def filter_record(self, schema_name: str, record_klass: typing.Type["SchemaMixin"], **filter_kwargs):
         raise NotImplementedError
 
     @staticmethod
@@ -44,4 +52,8 @@ class KeyValueStoreBackendBase(abc.ABC):
 
     @abc.abstractmethod
     def reload_record(self, schema_name: str, record: "SchemaMixin"):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def count(self, schema_name: str) -> int:
         raise NotImplementedError

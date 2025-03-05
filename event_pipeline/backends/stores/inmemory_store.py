@@ -13,6 +13,9 @@ class InMemoryKeyValueStoreBackend(KeyValueStoreBackendBase):
 
         self._cursor = {}
 
+    def exists(self, schema_name: str, record_key: str) -> bool:
+        return schema_name in self._cursor and record_key in self._cursor[schema_name]
+
     def insert_record(self, schema_name: str, record_key: str, record: "SchemaMixin"):
         if schema_name not in self._cursor:
             self._cursor[schema_name] = {}
