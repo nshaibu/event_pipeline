@@ -5,6 +5,17 @@ from event_pipeline.backends.store import KeyValueStoreBackendBase
 from event_pipeline.exceptions import ValidationError
 
 
+class QueryManager:
+
+    def __init__(self, schema: 'SchemaMixin'):
+        self.schema = schema
+        self._cache = {}  # timed cache
+        self._length = 0
+
+    def query(self, **kwargs) -> 'QueryResults':
+        pass
+
+
 def validate_type(
     field_name: str, value: typing.Any, expected_type: typing.Any
 ) -> bool:

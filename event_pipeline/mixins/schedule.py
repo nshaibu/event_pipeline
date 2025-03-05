@@ -25,7 +25,6 @@ class _PipeLineJob:
     ):
         from event_pipeline.pipeline import BatchPipeline
 
-        super().__init__()
         self._pipeline = pipeline
         self._is_batch = isinstance(pipeline, BatchPipeline)
         self._sched = scheduler
