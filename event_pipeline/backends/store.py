@@ -25,3 +25,15 @@ class KeyValueStoreBackendBase(abc.ABC):
     @abc.abstractmethod
     def delete_record(self, schema_name: str, record_key: str):
         raise NotImplementedError
+
+    @staticmethod
+    def load_record(record_state, record_klass: typing.Type[object]):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_record(self, schema_name: str, record_key: str):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def reload_record(self, schema_name: str, record: object):
+        raise NotImplementedError

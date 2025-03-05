@@ -1,5 +1,6 @@
 import typing
 from dataclasses import Field, MISSING, asdict, fields
+from event_pipeline.mixins.identity import ObjectIdentityMixin
 from event_pipeline.backends.store import KeyValueStoreBackendBase
 from event_pipeline.exceptions import ValidationError
 
@@ -71,7 +72,7 @@ def validate_type(
     return True
 
 
-class SchemaMixin:
+class SchemaMixin(ObjectIdentityMixin):
     backend: typing.Type[KeyValueStoreBackendBase]
     _connector: KeyValueStoreBackendBase = None
 
@@ -80,6 +81,8 @@ class SchemaMixin:
         The validation is performed by calling a function named:
             `validate_<field_name>(self, value, field) -> field.type`
         """
+        super().__init__()
+
         for field in fields(self):
             self._field_type_validator(field)
 
@@ -117,5 +120,10 @@ class SchemaMixin:
         if self._connector is not None:
             self._connector.close()
 
-    def save(self, _fields: typing.List[str]) -> typing.Mapping[str, typing.Any]:
-        pass
+    def save(self):
+        self._connector.insert_record(
+            schema_name=self.get_schema_name(), record_key=self.id, record=self
+        )
+
+    def reload(self):
+        self._connector.reload_record(self.get_schema_name(), self)

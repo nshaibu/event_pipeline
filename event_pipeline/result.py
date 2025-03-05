@@ -22,7 +22,6 @@ EventResultInitVar = typing.TypeVar(
 @dataclass
 class EventResultSchema(SchemaMixin):
     backend = RedisConnector
-    id: str
     process_id: int
     error: bool
     task_id: str
