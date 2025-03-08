@@ -12,7 +12,12 @@ __all__ = (
     "is_optional_type",
     "is_type",
     "is_pipeline_annotated",
+    "NoneType"
 )
+
+
+# backward compatibility
+NoneType = getattr(types, "NoneType", type(None))
 
 
 class Query:
@@ -206,7 +211,7 @@ def get_type(typ):
 
 def is_optional_type(typ):
     if hasattr(typ, "__origin__") and typ.__origin__ is typing.Union:
-        return types.NoneType in typ.__args__
+        return NoneType in typ.__args__
     elif typ is typing.Optional:
         return True
     return False
