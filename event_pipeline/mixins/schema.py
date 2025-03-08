@@ -12,85 +12,6 @@ from event_pipeline.typing import (
 )
 from event_pipeline.backends.stores.inmemory_store import InMemoryKeyValueStoreBackend
 
-# class QueryManager:
-#
-#     def __init__(self, schema: "SchemaMixin"):
-#         self.schema = schema
-#         self._cache = {}  # timed cache
-#         self._length = 0
-#         self._modified = True
-#         self._lock = Lock()
-#
-#     def query(self, **filter_kwargs) -> ResultSet:
-#         self._cache = self.schema._connector.filter_record()
-
-
-def validate_type(
-    field_name: str, value: typing.Any, expected_type: typing.Any
-) -> bool:
-    """
-    Validates the type of field based on its annotation.
-
-    Args:
-        field_name (str): Name of the field.
-        value (Any): Value of the field to validate.
-        expected_type (Any): Expected type of the field.
-
-    Returns:
-        bool: True if the value matches the expected type, False otherwise.
-
-    Raises:
-        TypeError: If the type does not match the expected type.
-    """
-    is_optional = hasattr(expected_type, "__origin__") and expected_type.__origin__ in {
-        typing.Union,
-        typing.Optional,
-    }
-
-    # If the field is not optional and is None, raise an error
-    if not is_optional and value is None:
-        raise ValidationError(
-            f"Field '{field_name}' is required but not provided (value is None)."
-        )
-
-    if isinstance(expected_type, type):
-        # Direct type comparison (e.g., int, str, etc.)
-        if not isinstance(value, expected_type):
-            raise TypeError(
-                f"Field '{field_name}' should be of type {expected_type.__name__}, "
-                f"but got {type(value).__name__}."
-            )
-
-    elif hasattr(
-        expected_type, "__origin__"
-    ):  # For generic types like Optional, List, etc.
-        origin = expected_type.__origin__
-
-        if origin is typing.Union:
-            # Check if the value matches any of the types in the Union
-            if not any(isinstance(value, t) for t in expected_type.__args__):
-                raise TypeError(
-                    f"Field '{field_name}' value {value} does not match any type in {expected_type}."
-                )
-
-        elif origin is typing.Optional:
-            # Optional is just Union with NoneType
-            if value is not None and not isinstance(value, expected_type.__args__[0]):
-                raise TypeError(
-                    f"Field '{field_name}' should be of type {expected_type.__args__[0].__name__} or None."
-                )
-
-        elif origin is list:
-            # If the field is a list, check if the items inside are of the correct type
-            item_type = expected_type.__args__[0]
-            if not all(isinstance(item, item_type) for item in value):
-                raise TypeError(
-                    f"Field '{field_name}' should be a list of {item_type.__name__}, "
-                    f"but found items of type {type(value[0]).__name__}."
-                )
-
-    return True
-
 
 class SchemaMixin(ObjectIdentityMixin):
     backend: typing.Type[KeyValueStoreBackendBase] = InMemoryKeyValueStoreBackend
@@ -132,13 +53,26 @@ class SchemaMixin(ObjectIdentityMixin):
         expected_type = (
             hasattr(field_type, "__args__") and field_type.__args__[0] or None
         )
-        expected_type = get_type(expected_type)
+        expected_type = (
+            expected_type and self.type_can_be_validated(expected_type) or None
+        )
+
         if expected_type and expected_type is not typing.Any:
             if not isinstance(value, expected_type):
                 raise TypeError(
                     f"Field '{fd.name}' should be of type {expected_type.__name__}, "
                     f"but got {type(value).__name__}."
                 )
+
+    @staticmethod
+    def type_can_be_validated(typ) -> typing.Optional[typing.Tuple]:
+        origin = typing.get_origin(typ)
+        if origin is typing.Union:
+            type_args = typing.get_args(typ)
+            if type_args:
+                return tuple([get_type(_type) for _type in type_args])
+        else:
+            return (get_type(typ),)
 
     def get_schema_name(self) -> str:
         return self.__class__.__name__

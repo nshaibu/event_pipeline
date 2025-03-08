@@ -26,8 +26,12 @@ class _EventResult(SchemaMixin):
     task_id: PipelineAnnotated[str]
     event_name: PipelineAnnotated[str]
     content: PipelineAnnotated[typing.Dict[str, typing.Any]]
-    init_params: PipelineAnnotated[typing.Union[typing.Dict[str, typing.Any], typing.Tuple[typing.Any]]] = None
-    call_params: PipelineAnnotated[typing.Union[typing.Dict[str, typing.Any], typing.Tuple[typing.Any]]] = None
+    init_params: PipelineAnnotated[
+        typing.Union[typing.Dict[str, typing.Any], typing.Tuple[typing.Any]]
+    ] = None
+    call_params: PipelineAnnotated[
+        typing.Union[typing.Dict[str, typing.Any], typing.Tuple[typing.Any]]
+    ] = None
     process_id: PipelineAnnotated[int, Query(default_factory=lambda: os.getpid())] = (
         None
     )
