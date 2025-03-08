@@ -1,98 +1,28 @@
 import typing
-from threading import Lock
-from collections.abc import MutableSet
-from dataclasses import Field, MISSING, asdict, fields
+from datetime import datetime
+from dataclasses import Field, fields, is_dataclass
 from event_pipeline.mixins.identity import ObjectIdentityMixin
 from event_pipeline.backends.store import KeyValueStoreBackendBase
 from event_pipeline.exceptions import ValidationError
+from event_pipeline.typing import (
+    PipelineAnnotated,
+    Query,
+    is_pipeline_annotated,
+    get_type,
+)
+from event_pipeline.backends.stores.inmemory_store import InMemoryKeyValueStoreBackend
 
-
-class ResultSet(MutableSet):
-
-    def __init__(self, manager):
-        self._manager = manager
-
-    def __contains__(self, item):
-        return item.id in self.content
-
-    def __iter__(self):
-        for _, result in self.content.items():
-            yield result
-
-    def __len__(self):
-        return len(self.content)
-
-    def __getitem__(self, index: int):
-        return list(self.content.values())[index]
-
-    def add(self, record: "SchemaMixin"):
-        record.save()
-
-    def clear(self):
-        self.content.clear()
-
-    # def discard(self, result: typing.Union[EventResult, "ResultSet"]):
-    #     if isinstance(result, ResultSet):
-    #         for res in result:
-    #             self.content.pop(res.id, None)
-    #     else:
-    #         self.content.pop(result.id, None)
-    #
-    # def copy(self):
-    #     new = ResultSet([])
-    #     new.content.update(self.content.copy())
-    #     return new
-    #
-    # def get(self, **filters: typing.Any) -> Result:
-    #     qs = self.filter(**filters)
-    #     if len(qs) > 1:
-    #         raise MultiValueError("More than one result found. {}!=1".format(len(qs)))
-    #     return qs[0]
-    #
-    # def filter(self, **filter_params) -> "ResultSet":
-    #     if "id" in filter_params:
-    #         pk = filter_params["id"]
-    #         try:
-    #             return ResultSet([self.content[pk]])
-    #         except KeyError:
-    #             return ResultSet([])
-    #
-    #     def match_conditions(result):
-    #         # TODO: implement filter for nested dict and list
-    #         return all(
-    #             [
-    #                 getattr(result, key, None) == value
-    #                 for key, value in filter_params.items()
-    #                 if hasattr(result, key)
-    #             ]
-    #         )
-    #
-    #     return ResultSet(list(filter(match_conditions, self.content.values())))
-    #
-    # def first(self):
-    #     try:
-    #         return self[0]
-    #     except IndexError:
-    #         return None
-    #
-    # def __str__(self):
-    #     return str(list(self.content.values()))
-    #
-    # def __repr__(self):
-    #     return "<{}:{}:{}>".format(self.__class__.__name__, self.id, len(self))
-
-
-class QueryManager:
-
-    def __init__(self, schema: "SchemaMixin"):
-        self.schema = schema
-        self._cache = {}  # timed cache
-        self._length = 0
-        self._modified = False
-        self._lock = Lock()
-
-    def query(self, **filter_kwargs) -> ResultSet:
-        pass
+# class QueryManager:
+#
+#     def __init__(self, schema: "SchemaMixin"):
+#         self.schema = schema
+#         self._cache = {}  # timed cache
+#         self._length = 0
+#         self._modified = True
+#         self._lock = Lock()
+#
+#     def query(self, **filter_kwargs) -> ResultSet:
+#         self._cache = self.schema._connector.filter_record()
 
 
 def validate_type(
@@ -163,7 +93,7 @@ def validate_type(
 
 
 class SchemaMixin(ObjectIdentityMixin):
-    backend: typing.Type[KeyValueStoreBackendBase]
+    backend: typing.Type[KeyValueStoreBackendBase] = InMemoryKeyValueStoreBackend
 
     _connector: KeyValueStoreBackendBase = None
 
@@ -174,23 +104,39 @@ class SchemaMixin(ObjectIdentityMixin):
         """
         super().__init__()
 
-        self.manager = QueryManager(self)
+        for fd in fields(self):
+            self._field_type_validator(fd)
 
-        for field in fields(self):
-            self._field_type_validator(field)
-
-            method = getattr(self, f"validate_{field.name}", None)
+            method = getattr(self, f"validate_{fd.name}", None)
             if method and callable(method):
-                setattr(
-                    self, field.name, method(getattr(self, field.name), field=field)
-                )
+                setattr(self, fd.name, method(getattr(self, fd.name), field=fd))
 
-    def _field_type_validator(self, field: Field):
-        value = getattr(self, field.name)
-        if field.default is None and value is None:
-            raise ValidationError(f"Field {field.name} is required")
-        expected_type = field.type
-        validate_type(field.name, getattr(self, field.name), expected_type)
+    def _field_type_validator(self, fd: Field):
+        value = getattr(self, fd.name, None)
+        field_type = fd.type
+
+        if not is_pipeline_annotated(field_type):
+            raise ValidationError(
+                "Field '{}' should be annotated with 'PipelineAnnotated'.".format(
+                    fd.name
+                ),
+                params={"field": fd.name, "annotation": field_type},
+            )
+
+        if not field_type.has_default() and value is None:
+            raise ValidationError(
+                "Field '{}' should not be empty.".format(fd.name),
+                params={"field": fd.name, "annotation": field_type},
+            )
+
+        expected_type = hasattr(field_type, '__args__') and field_type.__args__[0] or None
+        expected_type = get_type(expected_type)
+        if expected_type and expected_type is not typing.Any:
+            if not isinstance(value, expected_type):
+                raise TypeError(
+                    f"Field '{fd.name}' should be of type {expected_type.__name__}, "
+                    f"but got {type(value).__name__}."
+                )
 
     def get_schema_name(self) -> str:
         return self.__class__.__name__
@@ -217,7 +163,16 @@ class SchemaMixin(ObjectIdentityMixin):
         self._connector.insert_record(
             schema_name=self.get_schema_name(), record_key=self.id, record=self
         )
-        self.manager._modified = True
 
     def reload(self):
         self._connector.reload_record(self.get_schema_name(), self)
+
+    def delete(self):
+        self._connector.delete_record(
+            schema_name=self.get_schema_name(), record_key=self.id
+        )
+
+    def update(self):
+        self._connector.update_record(
+            schema_name=self.get_schema_name(), record_key=self.id, record=self
+        )

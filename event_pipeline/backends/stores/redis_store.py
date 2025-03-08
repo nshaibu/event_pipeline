@@ -98,7 +98,12 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
         record = self.load_record(state, klass)
         return record
 
-    def filter_record(self, schema_name: str, record_klass: typing.Type["SchemaMixin"], **filter_kwargs):
+    def filter_record(
+        self,
+        schema_name: str,
+        record_klass: typing.Type["SchemaMixin"],
+        **filter_kwargs,
+    ):
         self._check_connection()
 
         self.connector.cursor.hscan(schema_name)

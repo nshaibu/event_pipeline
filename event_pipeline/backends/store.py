@@ -34,7 +34,12 @@ class KeyValueStoreBackendBase(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def filter_record(self, schema_name: str, record_klass: typing.Type["SchemaMixin"], **filter_kwargs):
+    def filter_record(
+        self,
+        schema_name: str,
+        record_klass: typing.Type["SchemaMixin"],
+        **filter_kwargs,
+    ):
         raise NotImplementedError
 
     @staticmethod

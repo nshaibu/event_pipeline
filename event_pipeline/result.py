@@ -1,13 +1,14 @@
 import os
 import json
 import typing
+from datetime import datetime
 from dataclasses import dataclass
 from collections.abc import MutableSet
+from .typing import PipelineAnnotated, Query
 from .constants import EMPTY
 from .exceptions import MultiValueError
 from .mixins import ObjectIdentityMixin
 from event_pipeline.mixins.schema import SchemaMixin
-from event_pipeline.backends.stores.redis_store import RedisConnector
 
 __all__ = ["EventResult", "ResultSet"]
 
@@ -20,15 +21,19 @@ EventResultInitVar = typing.TypeVar(
 
 
 @dataclass
-class EventResultSchema(SchemaMixin):
-    backend = RedisConnector
-    process_id: int
-    error: bool
-    task_id: str
-    event_name: str
-    content: typing.Any
-    init_params: EventResultInitVar
-    call_params: EventResultInitVar
+class _EventResult(SchemaMixin):
+    error: PipelineAnnotated[bool]
+    task_id: PipelineAnnotated[str]
+    event_name: PipelineAnnotated[str]
+    content: PipelineAnnotated[typing.Any]
+    init_params: typing.Optional[EventResultInitVar] = None
+    call_params: typing.Optional[EventResultInitVar] = None
+    process_id: PipelineAnnotated[int, Query(default_factory=lambda: os.getpid())] = (
+        None
+    )
+    creation_time: PipelineAnnotated[
+        float, Query(default_factory=lambda: datetime.now().timestamp())
+    ] = None
 
 
 class Result(ObjectIdentityMixin):
@@ -102,7 +107,7 @@ class Result(ObjectIdentityMixin):
 
 
 class EventResult(Result):
-    schema = EventResultSchema
+    # schema = EventResultSchema
 
     def __init__(
         self,
