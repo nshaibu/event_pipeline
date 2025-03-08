@@ -25,9 +25,9 @@ class _EventResult(SchemaMixin):
     error: PipelineAnnotated[bool]
     task_id: PipelineAnnotated[str]
     event_name: PipelineAnnotated[str]
-    content: PipelineAnnotated[typing.Any]
-    init_params: typing.Optional[EventResultInitVar] = None
-    call_params: typing.Optional[EventResultInitVar] = None
+    content: PipelineAnnotated[typing.Dict[str, typing.Any]]
+    init_params: PipelineAnnotated[typing.Union[typing.Dict[str, typing.Any], typing.Tuple[typing.Any]]] = None
+    call_params: PipelineAnnotated[typing.Union[typing.Dict[str, typing.Any], typing.Tuple[typing.Any]]] = None
     process_id: PipelineAnnotated[int, Query(default_factory=lambda: os.getpid())] = (
         None
     )
@@ -38,7 +38,7 @@ class _EventResult(SchemaMixin):
 
 class Result(ObjectIdentityMixin):
     backend: typing.ClassVar = None
-    schema: typing.ClassVar[SchemaMixin] = None
+    # schema: typing.ClassVar[SchemaMixin] = None
 
     def __init__(
         self,
