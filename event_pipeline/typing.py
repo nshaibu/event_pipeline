@@ -12,7 +12,7 @@ __all__ = (
     "is_optional_type",
     "is_type",
     "is_pipeline_annotated",
-    "NoneType"
+    "NoneType",
 )
 
 
@@ -96,7 +96,10 @@ class Query:
     def _validate_gt(self, value: typing.Any):
         try:
             if not (value > self.gt):
-                raise ValidationError("greater_than", {"gt": _safe_repr(gt)})
+                raise ValidationError(
+                    f"Field value '{value}' is not greater than '{self.gt}'",
+                    params={"gt": self.gt},
+                )
             return value
         except TypeError:
             raise TypeError(
@@ -106,7 +109,10 @@ class Query:
     def _validate_ge(self, value: typing.Any):
         try:
             if not (value >= self.ge):
-                raise ValidationError("greater_than_equal", {"ge": _safe_repr(ge)})
+                raise ValidationError(
+                    f"Field value '{value}' is not greater than or equal to '{self.ge}'",
+                    params={"ge": self.ge},
+                )
             return value
         except TypeError:
             raise TypeError(
@@ -116,7 +122,10 @@ class Query:
     def _validate_lt(self, value: typing.Any):
         try:
             if not (value < self.lt):
-                raise ValidationError("less_than", {"lt": _safe_repr(lt)})
+                raise ValidationError(
+                    f"Field value '{value}' is not less than '{self.lt}'",
+                    params={"lt": self.lt},
+                )
             return value
         except TypeError:
             raise TypeError(
@@ -126,7 +135,10 @@ class Query:
     def _validate_le(self, value: typing.Any):
         try:
             if not (value <= self.le):
-                raise ValidationError("less_than_equal", {"le": _safe_repr(le)})
+                raise ValidationError(
+                    f"Field value '{value}' is not less than or equal to '{self.le}'",
+                    params={"le": self.le},
+                )
             return value
         except TypeError:
             raise TypeError(
