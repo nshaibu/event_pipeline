@@ -129,7 +129,9 @@ class SchemaMixin(ObjectIdentityMixin):
                 params={"field": fd.name, "annotation": field_type},
             )
 
-        expected_type = hasattr(field_type, '__args__') and field_type.__args__[0] or None
+        expected_type = (
+            hasattr(field_type, "__args__") and field_type.__args__[0] or None
+        )
         expected_type = get_type(expected_type)
         if expected_type and expected_type is not typing.Any:
             if not isinstance(value, expected_type):

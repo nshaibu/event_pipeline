@@ -75,7 +75,8 @@ class Query:
 
         if self.required and value is None:
             raise ValidationError(
-                f"Field '{field_name}' is required but not provided (value is None).", params={"field_name": field_name}
+                f"Field '{field_name}' is required but not provided (value is None).",
+                params={"field_name": field_name},
             )
 
         for name in ("gt", "ge", "lt", "le", "min_length", "max_length", "pattern"):
