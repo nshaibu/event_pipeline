@@ -2,6 +2,7 @@ import os
 import typing
 import logging
 import importlib.util
+from event_pipeline import settings as default_settings
 
 __all__ = ["ConfigLoader"]
 
@@ -20,6 +21,8 @@ _default_config = None
 class ConfigLoader:
     def __init__(self, config_file=None):
         self._config = {}
+
+        self._load_module(default_settings)
 
         for file in self._get_config_files(config_file):
             self.load_from_file(file)
@@ -42,6 +45,13 @@ class ConfigLoader:
             if CONFIG_FILE in files:
                 return os.path.join(root, CONFIG_FILE)
 
+    def _load_module(self, config_module):
+        for field_name in dir(config_module):
+            if not field_name.startswith("__") and not callable(
+                getattr(config_module, field_name)
+            ):
+                self._config[field_name.upper()] = getattr(config_module, field_name)
+
     def load_from_file(self, config_file: typing.Union[str, os.PathLike]):
         """Load configurations from a Python config file."""
         if not os.path.exists(config_file):
@@ -55,9 +65,7 @@ class ConfigLoader:
         config_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(config_module)
 
-        for field_name in dir(config_module):
-            if not field_name.startswith("__") and not callable(getattr(config_module, field_name)):
-                self._config[field_name.upper()] = getattr(config_module, field_name)
+        self._load_module(config_module)
 
     def get(self, key, default=None):
         """Get the configuration value, with an optional default."""
