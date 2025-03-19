@@ -1,43 +1,42 @@
 import os
 import json
 import typing
+from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from datetime import datetime
-from dataclasses import dataclass
 from collections.abc import MutableSet
-from .typing import PipelineAnnotated, Query
-from .constants import EMPTY
+from dataclasses import asdict
 from .exceptions import MultiValueError
 from .mixins import ObjectIdentityMixin
-from event_pipeline.mixins.schema import SchemaMixin
+from event_pipeline.mixins import BackendIntegrationMixin
 
 __all__ = ["EventResult", "ResultSet"]
 
-EventResultInitVar = typing.TypeVar(
-    "EventResultInitVar",
-    typing.Dict[str, typing.Any],
-    typing.Tuple[typing.Any],
-    typing.Type[EMPTY],
-)
 
+class EventResult(BackendIntegrationMixin, BaseModel):
+    error: bool
+    task_id: str
+    event_name: str
+    content: typing.Any
+    init_params: typing.Optional[typing.Dict[str, typing.Any]]
+    call_params: typing.Optional[typing.Dict[str, typing.Any]]
+    process_id: MiniAnnotated[int, Attrib(default_factory=lambda: os.getpid())]
+    creation_time: MiniAnnotated[
+        float, Attrib(default_factory=lambda: datetime.now().timestamp())
+    ]
 
-@dataclass
-class _EventResult(SchemaMixin):
-    error: PipelineAnnotated[bool]
-    task_id: PipelineAnnotated[str]
-    event_name: PipelineAnnotated[str]
-    content: PipelineAnnotated[typing.Dict[str, typing.Any]]
-    init_params: PipelineAnnotated[
-        typing.Union[typing.Dict[str, typing.Any], typing.Tuple[typing.Any]]
-    ] = None
-    call_params: PipelineAnnotated[
-        typing.Union[typing.Dict[str, typing.Any], typing.Tuple[typing.Any]]
-    ] = None
-    process_id: PipelineAnnotated[int, Query(default_factory=lambda: os.getpid())] = (
-        None
-    )
-    creation_time: PipelineAnnotated[
-        float, Query(default_factory=lambda: datetime.now().timestamp())
-    ] = None
+    class Config:
+        unsafe_hash = False
+        frozen = False
+        eq = True
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def is_error(self) -> bool:
+        return self.error
+
+    def as_dict(self):
+        return asdict(self)
 
 
 class Result(ObjectIdentityMixin):
@@ -108,27 +107,6 @@ class Result(ObjectIdentityMixin):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-
-
-class EventResult(Result):
-    # schema = EventResultSchema
-
-    def __init__(
-        self,
-        error: bool,
-        task_id: str,
-        event_name: str,
-        content: typing.Any,
-        init_params: EventResultInitVar = EMPTY,
-        call_params: EventResultInitVar = EMPTY,
-        content_serializer: typing.Callable[[typing.Any], typing.Any] = None,
-    ):
-        super().__init__(error, content, content_serializer=content_serializer)
-
-        self.task_id: typing.Union[int, str] = task_id
-        self.event_name: typing.Union[str, None] = event_name
-        self.init_params: EventResultInitVar = init_params
-        self.call_params: EventResultInitVar = call_params
 
 
 class ResultSet(Result, MutableSet):

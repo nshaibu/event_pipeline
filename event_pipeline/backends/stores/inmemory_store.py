@@ -1,12 +1,15 @@
 import typing
+from pydantic_mini import BaseModel
 from event_pipeline.exceptions import ObjectDoesNotExist
 from event_pipeline.backends.store import KeyValueStoreBackendBase
 
-if typing.TYPE_CHECKING:
-    from event_pipeline.mixins.schema import SchemaMixin
+
+class DummyConnector:
+    pass
 
 
 class InMemoryKeyValueStoreBackend(KeyValueStoreBackendBase):
+    connector_klass = DummyConnector
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -19,7 +22,7 @@ class InMemoryKeyValueStoreBackend(KeyValueStoreBackendBase):
     def count(self, schema_name: str) -> int:
         return len(self._cursor[schema_name])
 
-    def insert_record(self, schema_name: str, record_key: str, record: "SchemaMixin"):
+    def insert_record(self, schema_name: str, record_key: str, record: BaseModel):
         if schema_name not in self._cursor:
             self._cursor[schema_name] = {}
         self._cursor[schema_name][record_key] = record
@@ -35,7 +38,7 @@ class InMemoryKeyValueStoreBackend(KeyValueStoreBackendBase):
     def get_record(
         self,
         schema_name: str,
-        klass: typing.Type["SchemaMixin"],
+        klass: typing.Type[BaseModel],
         record_key: typing.Union[str, int],
     ):
         try:
@@ -45,25 +48,25 @@ class InMemoryKeyValueStoreBackend(KeyValueStoreBackendBase):
                 "Record does not exist in schema '{}'".format(schema_name)
             )
 
-    def update_record(self, schema_name: str, record_key: str, record: "SchemaMixin"):
+    def update_record(self, schema_name: str, record_key: str, record: BaseModel):
         if schema_name not in self._cursor:
             self._cursor[schema_name] = {}
         self._cursor[schema_name][record_key] = record
 
     @staticmethod
-    def load_record(record_state, record_klass: typing.Type["SchemaMixin"]):
+    def load_record(record_state, record_klass: typing.Type[BaseModel]):
         record = record_klass.__new__(record_klass)
         record.__setstate__(record_state)
         return record
 
-    def reload_record(self, schema_name: str, record: "SchemaMixin"):
+    def reload_record(self, schema_name: str, record: BaseModel):
         _record = self.get_record(schema_name, record.__class__, record.id)
         record.__setstate__(_record.__getstate__())
 
     def filter_record(
         self,
         schema_name: str,
-        record_klass: typing.Type["SchemaMixin"],
+        record_klass: typing.Type[BaseModel],
         **filter_kwargs,
     ):
         schema_data = self._cursor[schema_name]
