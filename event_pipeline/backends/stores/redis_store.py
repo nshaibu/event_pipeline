@@ -1,12 +1,9 @@
 import typing
 import pickle
-import re
+from pydantic_mini import BaseModel
 from event_pipeline.backends.connectors.redis import RedisConnector
 from event_pipeline.backends.store import KeyValueStoreBackendBase
-from event_pipeline.exceptions import ObjectDoesNotExist
-
-if typing.TYPE_CHECKING:
-    from event_pipeline.mixins.schema import SchemaMixin
+from event_pipeline.exceptions import ObjectDoesNotExist, ObjectExistError
 
 
 class RedisStoreBackend(KeyValueStoreBackendBase):
@@ -26,9 +23,9 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
     def count(self, schema_name: str) -> int:
         self.connector.cursor.hlen(schema_name)
 
-    def insert_record(self, schema_name: str, record_key: str, record: "SchemaMixin"):
+    def insert_record(self, schema_name: str, record_key: str, record: BaseModel):
         if self.exists(schema_name, record_key):
-            raise ObjectDoesNotExist(
+            raise ObjectExistError(
                 "Record already exists in schema '{}'".format(schema_name)
             )
 
@@ -42,7 +39,7 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
 
             pipe.execute()
 
-    def update_record(self, schema_name: str, record_key: str, record: "SchemaMixin"):
+    def update_record(self, schema_name: str, record_key: str, record: BaseModel):
         if not self.exists(schema_name, record_key):
             raise ObjectDoesNotExist(
                 "Record does not exist in schema '{}'".format(schema_name)
@@ -68,13 +65,13 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
             pipe.execute()
 
     @staticmethod
-    def load_record(record_state, record_klass: typing.Type["SchemaMixin"]):
+    def load_record(record_state, record_klass: typing.Type[BaseModel]):
         record_state = pickle.loads(record_state)
         record = record_klass.__new__(record_klass)
         record.__setstate__(record_state)
         return record
 
-    def reload_record(self, schema_name: str, record: "SchemaMixin"):
+    def reload_record(self, schema_name: str, record: BaseModel):
         if not self.exists(schema_name, record.id):
             raise ObjectDoesNotExist(
                 "Record does not exist in schema '{}'".format(schema_name)
@@ -86,9 +83,9 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
     def get_record(
         self,
         schema_name: str,
-        klass: typing.Type["SchemaMixin"],
+        klass: typing.Type[BaseModel],
         record_key: typing.Union[str, int],
-    ) -> "SchemaMixin":
+    ) -> BaseModel:
         if not self.exists(schema_name, record_key):
             raise ObjectDoesNotExist(
                 "Record does not exist in schema '{}'".format(schema_name)
@@ -101,7 +98,7 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
     def filter_record(
         self,
         schema_name: str,
-        record_klass: typing.Type["SchemaMixin"],
+        record_klass: typing.Type[BaseModel],
         **filter_kwargs,
     ):
         self._check_connection()

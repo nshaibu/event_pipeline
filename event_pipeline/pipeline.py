@@ -46,9 +46,12 @@ from .mixins import ObjectIdentityMixin, ScheduleMixin
 from .fields import InputDataField
 from .import_utils import import_string
 from .utils import AcquireReleaseLock, validate_batch_processor
+from .conf import ConfigLoader
 
 
 logger = logging.getLogger(__name__)
+
+conf = ConfigLoader.get_lazily_loaded_config()
 
 
 class TreeExtraData:
@@ -823,7 +826,9 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             # let's start monitoring the execution
             self._monitor_thread.start()
 
-            with ProcessPoolExecutor(max_workers=4, mp_context=mp_context) as executor:
+            with ProcessPoolExecutor(
+                max_workers=conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
+            ) as executor:
                 for pipeline in self._configured_pipelines:
                     future = executor.submit(
                         self._pipeline_executor,
