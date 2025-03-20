@@ -3,7 +3,7 @@ import pickle
 from pydantic_mini import BaseModel
 from event_pipeline.backends.connectors.redis import RedisConnector
 from event_pipeline.backends.store import KeyValueStoreBackendBase
-from event_pipeline.exceptions import ObjectDoesNotExist
+from event_pipeline.exceptions import ObjectDoesNotExist, ObjectExistError
 
 
 class RedisStoreBackend(KeyValueStoreBackendBase):
@@ -25,7 +25,7 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
 
     def insert_record(self, schema_name: str, record_key: str, record: BaseModel):
         if self.exists(schema_name, record_key):
-            raise ObjectDoesNotExist(
+            raise ObjectExistError(
                 "Record already exists in schema '{}'".format(schema_name)
             )
 

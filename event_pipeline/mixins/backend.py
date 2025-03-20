@@ -1,5 +1,6 @@
 import typing
 import logging
+from event_pipeline.exceptions import ObjectExistError
 from event_pipeline.import_utils import import_string
 from event_pipeline.conf import ConfigLoader
 from event_pipeline.mixins.identity import ObjectIdentityMixin
@@ -25,8 +26,11 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
             self._backend = import_string(backend_config["ENGINE"])
         except Exception as e:
             logger.error(f"Error importing backend {backend_config}: {e}")
+            raise
         if self._connector is None:
             self._connector = self._backend(**connector_config)
+
+        self.save()
 
     def get_schema_name(self) -> str:
         return self.__class__.__name__
@@ -41,9 +45,14 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
             self._connector.close()
 
     def save(self):
-        self._connector.insert_record(
-            schema_name=self.get_schema_name(), record_key=self.id, record=self
-        )
+        try:
+            self._connector.insert_record(
+                schema_name=self.get_schema_name(), record_key=self.id, record=self
+            )
+        except ObjectExistError:
+            self._connector.update_record(
+                schema_name=self.get_schema_name(), record_key=self.id, record=self
+            )
 
     def reload(self):
         self._connector.reload_record(self.get_schema_name(), self)
