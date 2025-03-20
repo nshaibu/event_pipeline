@@ -10,6 +10,7 @@ from .result import EventResult, ResultSet
 from .constants import EMPTY, MAX_RETRIES, MAX_BACKOFF, MAX_BACKOFF_FACTOR
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
+from .conf import ConfigLoader
 from .exceptions import StopProcessingError, MaxRetryError
 from .signal.signals import (
     event_execution_retry,
@@ -28,6 +29,8 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
+
+conf = ConfigLoader.get_lazily_loaded_config()
 
 if typing.TYPE_CHECKING:
     from .task import EventExecutionContext
@@ -54,9 +57,16 @@ class ExecutorInitializerConfig(object):
 
 @dataclass
 class RetryPolicy(object):
-    max_attempts: int = field(init=True, default=MAX_RETRIES)
-    backoff_factor: float = field(init=True, default=MAX_BACKOFF_FACTOR)
-    max_backoff: float = field(init=True, default=MAX_BACKOFF)
+    max_attempts: int = field(
+        init=True, default=conf.get("MAX_EVENT_RETRIES", default=MAX_RETRIES)
+    )
+    backoff_factor: float = field(
+        init=True,
+        default=conf.get("MAX_EVENT_BACKOFF_FACTOR", default=MAX_BACKOFF_FACTOR),
+    )
+    max_backoff: float = field(
+        init=True, default=conf.get("MAX_EVENT_BACKOFF", default=MAX_BACKOFF)
+    )
     retry_on_exceptions: typing.List[typing.Type[Exception]] = field(
         default_factory=list
     )

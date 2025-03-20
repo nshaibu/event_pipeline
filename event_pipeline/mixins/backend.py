@@ -1,27 +1,39 @@
 import typing
+import logging
+from event_pipeline.import_utils import import_string
+from event_pipeline.conf import ConfigLoader
 from event_pipeline.mixins.identity import ObjectIdentityMixin
 from event_pipeline.backends.store import KeyValueStoreBackendBase
-from event_pipeline.backends.stores.inmemory_store import InMemoryKeyValueStoreBackend
+
+
+logger = logging.getLogger(__name__)
+
+CONFIG = ConfigLoader.get_lazily_loaded_config()
 
 
 class BackendIntegrationMixin(ObjectIdentityMixin):
-    backend: typing.ClassVar[typing.Type[KeyValueStoreBackendBase]] = (
-        InMemoryKeyValueStoreBackend
-    )
 
     def __model_init__(self) -> None:
         ObjectIdentityMixin.__init__(self)
 
+        self._backend: typing.Optional[typing.Type[KeyValueStoreBackendBase]] = None
         self._connector = None
-        # if self._connector is None:
-        # self._connector = self.backend()
+
+        backend_config = CONFIG.RESULT_BACKEND_CONFIG
+        connector_config = backend_config.get("CONNECTOR_CONFIG", {})
+        try:
+            self._backend = import_string(backend_config["ENGINE"])
+        except Exception as e:
+            logger.error(f"Error importing backend {backend_config}: {e}")
+        if self._connector is None:
+            self._connector = self._backend(**connector_config)
 
     def get_schema_name(self) -> str:
         return self.__class__.__name__
 
     def _connect(self, **kwargs):
         if self._connector is None:
-            self._connector = self.backend(**kwargs)
+            self._connector = self._backend(**kwargs)
         return self._connector
 
     def _disconnect(self):
