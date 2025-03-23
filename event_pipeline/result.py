@@ -7,6 +7,7 @@ from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from datetime import datetime
 from collections.abc import MutableSet
 from dataclasses import asdict
+from .import_utils import import_string
 from .exceptions import MultiValueError
 from .mixins import ObjectIdentityMixin
 from event_pipeline.mixins import BackendIntegrationMixin
@@ -109,7 +110,26 @@ class Result(ObjectIdentityMixin):
         self.__dict__.update(state)
 
 
+class EntityContentType(BaseModel):
+    backend_import_str: str
+    entity_content_type: str
+
+    class Config:
+        frozen = True
+        eq = True
+
+    def get_backend(self):
+        return import_string(self.backend_import_str)
+
+    def get_content_type(self):
+        return import_string(self.entity_content_type)
+
+    def as_dict(self):
+        return asdict(self)
+
+
 class ResultSet(Result, MutableSet):
+    _context_types: typing.Set[EntityContentType] = set()
 
     def __init__(self, results: typing.List[Result]):
         super().__init__(content={}, error=False)

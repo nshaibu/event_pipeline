@@ -59,7 +59,9 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         """
         # import pdb;pdb.set_trace()
         state = self.__dict__.copy()
-        init_params: typing.Optional[typing.Dict[str, typing.Any]] = state.pop("init_params", None)
+        init_params: typing.Optional[typing.Dict[str, typing.Any]] = state.pop(
+            "init_params", None
+        )
         state.pop("_connector", None)
         backend = state.pop("_backend", None)
 

@@ -1,8 +1,6 @@
 import typing
 import pickle
 from pydantic_mini import BaseModel
-from dataclasses import asdict
-from event_pipeline.result import EventResultPickler
 from event_pipeline.backends.connectors.redis import RedisConnector
 from event_pipeline.backends.store import KeyValueStoreBackendBase
 from event_pipeline.exceptions import ObjectDoesNotExist, ObjectExistError
@@ -15,8 +13,15 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
         if not self.connector.is_connected():
             raise ConnectionError("Redis is not connected.")
 
-    def _generate_filter_match(self, **filter_kwargs):
-        pass
+    @staticmethod
+    def _generate_filter_match(**filter_kwargs):
+        def match_record(record):
+            for key, value in filter_kwargs.items():
+                if not hasattr(record, key) or getattr(record, key) != value:
+                    return False
+            return True
+
+        return match_record
 
     def exists(self, schema_name: str, record_key: str) -> bool:
         self._check_connection()
@@ -107,4 +112,19 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
     ):
         self._check_connection()
 
-        self.connector.cursor.hscan(schema_name)
+        match_func = self._generate_filter_match(**filter_kwargs)
+
+        matching_records = []
+        cursor = 0
+        while True:
+            cursor, data = self.connector.cursor.hscan(schema_name, cursor=cursor)
+
+            for key, value in data.items():
+                record = self.load_record(value, record_klass)
+                if match_func(record):
+                    matching_records.append(record)
+
+            if cursor == 0:
+                break
+
+        return matching_records
