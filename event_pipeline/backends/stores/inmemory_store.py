@@ -4,6 +4,9 @@ from event_pipeline.exceptions import ObjectDoesNotExist
 from event_pipeline.backends.store import KeyValueStoreBackendBase
 
 
+_memory = {}
+
+
 class DummyConnector:
     pass
 
@@ -14,7 +17,7 @@ class InMemoryKeyValueStoreBackend(KeyValueStoreBackendBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._cursor = {}
+        self._cursor = _memory
 
     def exists(self, schema_name: str, record_key: str) -> bool:
         return schema_name in self._cursor and record_key in self._cursor[schema_name]

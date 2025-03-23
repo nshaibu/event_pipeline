@@ -1,6 +1,8 @@
 import os
 import json
 import typing
+import pickle
+from enum import Enum
 from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from datetime import datetime
 from collections.abc import MutableSet
@@ -14,9 +16,9 @@ __all__ = ["EventResult", "ResultSet"]
 
 class EventResult(BackendIntegrationMixin, BaseModel):
     error: bool
-    task_id: str
     event_name: str
     content: typing.Any
+    task_id: typing.Optional[str]
     init_params: typing.Optional[typing.Dict[str, typing.Any]]
     call_params: typing.Optional[typing.Dict[str, typing.Any]]
     process_id: MiniAnnotated[int, Attrib(default_factory=lambda: os.getpid())]
@@ -40,8 +42,6 @@ class EventResult(BackendIntegrationMixin, BaseModel):
 
 
 class Result(ObjectIdentityMixin):
-    backend: typing.ClassVar = None
-    # schema: typing.ClassVar[SchemaMixin] = None
 
     def __init__(
         self,

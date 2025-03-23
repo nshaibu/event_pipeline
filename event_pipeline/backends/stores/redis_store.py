@@ -1,6 +1,8 @@
 import typing
 import pickle
 from pydantic_mini import BaseModel
+from dataclasses import asdict
+from event_pipeline.result import EventResultPickler
 from event_pipeline.backends.connectors.redis import RedisConnector
 from event_pipeline.backends.store import KeyValueStoreBackendBase
 from event_pipeline.exceptions import ObjectDoesNotExist, ObjectExistError
@@ -21,7 +23,8 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
         return self.connector.cursor.hexists(schema_name, record_key)
 
     def count(self, schema_name: str) -> int:
-        self.connector.cursor.hlen(schema_name)
+        self._check_connection()
+        return self.connector.cursor.hlen(schema_name)
 
     def insert_record(self, schema_name: str, record_key: str, record: BaseModel):
         if self.exists(schema_name, record_key):
@@ -78,7 +81,8 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
             )
 
         state = self.connector.cursor.hget(schema_name, record.id)
-        record.__setstate__(state)
+        record_state = pickle.loads(state)
+        record.__setstate__(record_state)
 
     def get_record(
         self,
