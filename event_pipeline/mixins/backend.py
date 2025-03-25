@@ -7,6 +7,11 @@ from event_pipeline.conf import ConfigLoader
 from event_pipeline.exceptions import StopProcessingError
 from event_pipeline.mixins.identity import ObjectIdentityMixin
 from event_pipeline.backends.store import KeyValueStoreBackendBase
+from event_pipeline.mixins.utils.connector import (
+    ConnectorManagerFactory,
+    ConnectionMode,
+    BaseConnectorManager,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -17,6 +22,7 @@ CONFIG = ConfigLoader.get_lazily_loaded_config()
 class BackendIntegrationMixin(ObjectIdentityMixin):
     _connector_lock: typing.ClassVar[threading.RLock] = threading.RLock()
     _connector: typing.ClassVar[typing.Optional[KeyValueStoreBackendBase]] = None
+    _connector_manager: typing.ClassVar[typing.Optional[BaseConnectorManager]] = None
 
     def __model_init__(self) -> None:
         ObjectIdentityMixin.__init__(self)
@@ -35,8 +41,30 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
 
         with self._connector_lock:
             try:
-                if self._connector is None:
-                    self.connector = self._backend(**connector_config)
+                # Initialize the connector manager if not already created
+                if self._connector_manager is None:
+                    # Get connection mode from config or auto-detect
+                    connection_mode_str = backend_config.get("CONNECTION_MODE", "auto")
+                    connection_mode = None
+                    if connection_mode_str != "auto":
+                        connection_mode = ConnectionMode(connection_mode_str)
+
+                    # Create appropriate connector manager
+                    self.__class__._connector_manager = (
+                        ConnectorManagerFactory.create_manager(
+                            connector_class=self._backend,
+                            connector_config=connector_config,
+                            connection_mode=connection_mode,
+                            max_connections=backend_config.get("MAX_CONNECTIONS", 10),
+                            connection_timeout=backend_config.get(
+                                "CONNECTION_TIMEOUT", 30
+                            ),
+                            idle_timeout=backend_config.get("IDLE_TIMEOUT", 300),
+                        )
+                    )
+
+                # For backward compatibility, keep a reference to a single connector
+                self.release_connection(self._connector_manager.get_connection())
             except Exception as e:
                 logger.error(f"Failed to initialize backend connector: {e}")
                 raise StopProcessingError(
@@ -52,6 +80,22 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
     @connector.setter
     def connector(self, value):
         self._connector = value
+
+    def get_connection(self):
+        """
+        Get a connection from the manager.
+        Returns:
+            A connection
+        """
+        return self._connector_manager.get_connection()
+
+    def release_connection(self, connection):
+        """
+        Release a connection back to the manager.
+        Args:
+            connection: The connection to release
+        """
+        self._connector_manager.release_connection(connection)
 
     def __getstate__(self):
         """

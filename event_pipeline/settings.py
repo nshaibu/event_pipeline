@@ -10,4 +10,8 @@ RESULT_BACKEND_CONFIG = {
         "host": "localhost",
         "port": 6379,
     },
+    "CONNECTION_MODE": "single",  # or "pooled" or "auto"
+    "MAX_CONNECTIONS": 10,  # Only used in pooled mode
+    "CONNECTION_TIMEOUT": 30,  # Seconds to wait for connection acquisition
+    "IDLE_TIMEOUT": 300,  # Seconds before closing idle connections
 }

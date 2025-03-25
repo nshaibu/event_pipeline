@@ -1,10 +1,11 @@
 import abc
+import threading
 import typing
 
 from .connection import BackendConnectorBase
 
 if typing.TYPE_CHECKING:
-    from event_pipeline.mixins.schema import SchemaMixin
+    from event_pipeline.mixins.backend import BackendIntegrationMixin
 
 
 class KeyValueStoreBackendBase(abc.ABC):
@@ -12,6 +13,7 @@ class KeyValueStoreBackendBase(abc.ABC):
 
     def __init__(self, **connector_config):
         self.connector = self.connector_klass(**connector_config)
+        self._connector_lock = threading.Lock()
 
     def close(self):
         if self.connector:
@@ -22,11 +24,15 @@ class KeyValueStoreBackendBase(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def insert_record(self, schema_name: str, record_key: str, record: "SchemaMixin"):
+    def insert_record(
+        self, schema_name: str, record_key: str, record: "BackendIntegrationMixin"
+    ):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def update_record(self, schema_name: str, record_key: str, record: "SchemaMixin"):
+    def update_record(
+        self, schema_name: str, record_key: str, record: "BackendIntegrationMixin"
+    ):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -37,26 +43,26 @@ class KeyValueStoreBackendBase(abc.ABC):
     def filter_record(
         self,
         schema_name: str,
-        record_klass: typing.Type["SchemaMixin"],
+        record_klass: typing.Type["BackendIntegrationMixin"],
         **filter_kwargs,
     ):
         raise NotImplementedError
 
     @staticmethod
-    def load_record(record_state, record_klass: typing.Type["SchemaMixin"]):
+    def load_record(record_state, record_klass: typing.Type["BackendIntegrationMixin"]):
         raise NotImplementedError
 
     @abc.abstractmethod
     def get_record(
         self,
         schema_name: str,
-        klass: typing.Type["SchemaMixin"],
+        klass: typing.Type["BackendIntegrationMixin"],
         record_key: typing.Union[str, int],
     ):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def reload_record(self, schema_name: str, record: "SchemaMixin"):
+    def reload_record(self, schema_name: str, record: "BackendIntegrationMixin"):
         raise NotImplementedError
 
     @abc.abstractmethod

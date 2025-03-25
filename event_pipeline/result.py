@@ -118,6 +118,17 @@ class EntityContentType(BaseModel):
         frozen = True
         eq = True
 
+    @classmethod
+    def add_entity_content_type(cls, entity: ObjectIdentityMixin):
+        if entity and isinstance(entity, ObjectIdentityMixin):
+            connector = getattr(entity, "_connector", None)
+            if connector:
+                backend_import_str = connector.__module__ + "." + connector.__qualname__
+            return cls(
+                backend_import_str=backend_import_str,
+                entity_content_type=entity.__object_import_str__,
+            )
+
     def get_backend(self):
         return import_string(self.backend_import_str)
 
@@ -149,6 +160,12 @@ class ResultSet(Result, MutableSet):
 
     def __getitem__(self, index: int):
         return list(self.content.values())[index]
+
+    def _insert_entity(self, record: ObjectIdentityMixin):
+        self.content[record.id] = record
+        content_type = EntityContentType.add_entity_content_type(record)
+        if content_type and content_type not in self._context_types:
+            self._context_types.add(content_type)
 
     def add(self, result: typing.Union[Result, "ResultSet"]):
         if isinstance(result, ResultSet):
