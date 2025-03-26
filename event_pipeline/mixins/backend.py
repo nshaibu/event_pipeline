@@ -84,7 +84,7 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         # For single connection managers, just get the connection and execute
         connector = self.get_connection()
         try:
-            return method(connector, *args, **kwargs)
+            return method(*args, connector=connector, **kwargs)
         finally:
             self.release_connection(connector)
 
