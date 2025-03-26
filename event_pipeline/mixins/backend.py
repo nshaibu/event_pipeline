@@ -1,5 +1,6 @@
 import typing
 import logging
+from functools import partial
 from event_pipeline.exceptions import ObjectExistError
 from event_pipeline.import_utils import import_string
 from event_pipeline.conf import ConfigLoader
@@ -79,12 +80,12 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         """
         # For pooled managers that support it, use the retry mechanism
         if hasattr(self._connector_manager, "execute_with_retry"):
-            return self._connector_manager.execute_with_retry(method, *args, **kwargs)
+            return self._connector_manager.execute_with_retry(partial(method, self), *args, **kwargs)
 
         # For single connection managers, just get the connection and execute
         connector = self.get_connection()
         try:
-            return method(*args, connector=connector, **kwargs)
+            return method(self, *args, connector=connector, **kwargs)
         finally:
             self.release_connection(connector)
 

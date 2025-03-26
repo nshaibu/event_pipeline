@@ -350,11 +350,11 @@ class PooledConnectorManager(BaseConnectorManager):
         # Always release the semaphore
         self._connection_semaphore.release()
 
-    def execute_with_retry(self, func, *args, **kwargs):
+    def execute_with_retry(self, method, *args, **kwargs):
         """
         Execute a function with a connection, with automatic retries.
         Args:
-            func: The function to execute, which will be passed a connection as first arg
+            method: The function to execute, which will be passed a connection as first arg
             *args: Additional arguments to pass to the function
             **kwargs: Additional keyword arguments to pass to the function
 
@@ -369,7 +369,7 @@ class PooledConnectorManager(BaseConnectorManager):
             connector = None
             try:
                 connector = self.get_connection()
-                result = func(*args, connector=connector, **kwargs)
+                result = method(*args, connector=connector, **kwargs)
                 return result
             except Exception as e:
                 last_exception = e
