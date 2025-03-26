@@ -2,6 +2,7 @@ import threading
 import logging
 import time
 from enum import Enum
+from functools import wraps
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -180,7 +181,6 @@ class SingleConnectorManager(BaseConnectorManager):
     def __init__(self, connector_class, connector_config: dict):
         """
         Initialize the single connector manager.
-
         Args:
             connector_class: The class to instantiate for the connection
             connector_config: Configuration for the connector
@@ -193,10 +193,8 @@ class SingleConnectorManager(BaseConnectorManager):
     def get_connection(self):
         """
         Get the shared connection, creating it if needed.
-
         Returns:
             The shared connection
-
         Raises:
             ConnectionError: If the connection cannot be created or is unhealthy
         """
@@ -232,7 +230,6 @@ class SingleConnectorManager(BaseConnectorManager):
     def release_connection(self, connection):
         """
         With single connection manager, releasing is a no-op.
-
         Args:
             connection: The connection that was used
         """
@@ -310,10 +307,8 @@ class PooledConnectorManager(BaseConnectorManager):
     def get_connection(self):
         """
         Get a connection from the pool or create a new one if needed.
-
         Returns:
             A connection to the backend store
-
         Raises:
             ConnectionError: If unable to acquire a connection within the timeout
         """
@@ -337,7 +332,6 @@ class PooledConnectorManager(BaseConnectorManager):
     def release_connection(self, connection):
         """
         Release a connection back to the pool.
-
         Args:
             connection: The connection to release
         """
@@ -359,7 +353,6 @@ class PooledConnectorManager(BaseConnectorManager):
     def execute_with_retry(self, func, *args, **kwargs):
         """
         Execute a function with a connection, with automatic retries.
-
         Args:
             func: The function to execute, which will be passed a connection as first arg
             *args: Additional arguments to pass to the function
@@ -373,10 +366,10 @@ class PooledConnectorManager(BaseConnectorManager):
         """
         last_exception = None
         for attempt in range(1, self.retry_attempts + 1):
-            connection = None
+            connector = None
             try:
-                connection = self.get_connection()
-                result = func(connection, *args, **kwargs)
+                connector = self.get_connection()
+                result = func(connector, *args, **kwargs)
                 return result
             except Exception as e:
                 last_exception = e
@@ -384,8 +377,8 @@ class PooledConnectorManager(BaseConnectorManager):
                 if attempt < self.retry_attempts:
                     time.sleep(self.retry_delay)
             finally:
-                if connection is not None:
-                    self.release_connection(connection)
+                if connector is not None:
+                    self.release_connection(connector)
 
         if last_exception:
             raise last_exception
@@ -482,6 +475,14 @@ class PooledConnectorManager(BaseConnectorManager):
 
             except Exception as e:
                 logger.error(f"Error in connection cleanup: {e}")
+
+
+def connector_action_register(method):
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        return self.with_connection(method, *args, **kwargs)
+
+    return wrapper
 
 
 # class BackendIntegrationMixin(ObjectIdentityMixin):

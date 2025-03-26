@@ -1,6 +1,5 @@
 import typing
 import logging
-import threading
 from event_pipeline.exceptions import ObjectExistError
 from event_pipeline.import_utils import import_string
 from event_pipeline.conf import ConfigLoader
@@ -11,6 +10,7 @@ from event_pipeline.mixins.utils.connector import (
     ConnectorManagerFactory,
     ConnectionMode,
     BaseConnectorManager,
+    connector_action_register,
 )
 
 
@@ -20,8 +20,6 @@ CONFIG = ConfigLoader.get_lazily_loaded_config()
 
 
 class BackendIntegrationMixin(ObjectIdentityMixin):
-    _connector_lock: typing.ClassVar[threading.RLock] = threading.RLock()
-    _connector: typing.ClassVar[typing.Optional[KeyValueStoreBackendBase]] = None
     _connector_manager: typing.ClassVar[typing.Optional[BaseConnectorManager]] = None
 
     def __model_init__(self) -> None:
@@ -39,47 +37,56 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
                 f"Error importing backend {backend_config}: {e}"
             ) from e
 
-        with self._connector_lock:
-            try:
-                # Initialize the connector manager if not already created
-                if self._connector_manager is None:
-                    # Get connection mode from config or auto-detect
-                    connection_mode_str = backend_config.get("CONNECTION_MODE", "auto")
-                    connection_mode = None
-                    if connection_mode_str != "auto":
-                        connection_mode = ConnectionMode(connection_mode_str)
+        try:
+            # Initialize the connector manager if not already created
+            if self._connector_manager is None:
+                # Get connection mode from config or auto-detect
+                connection_mode_str = backend_config.get("CONNECTION_MODE", "auto")
+                connection_mode = None
+                if connection_mode_str != "auto":
+                    connection_mode = ConnectionMode(connection_mode_str)
 
-                    # Create appropriate connector manager
-                    self.__class__._connector_manager = (
-                        ConnectorManagerFactory.create_manager(
-                            connector_class=self._backend,
-                            connector_config=connector_config,
-                            connection_mode=connection_mode,
-                            max_connections=backend_config.get("MAX_CONNECTIONS", 10),
-                            connection_timeout=backend_config.get(
-                                "CONNECTION_TIMEOUT", 30
-                            ),
-                            idle_timeout=backend_config.get("IDLE_TIMEOUT", 300),
-                        )
+                # Create appropriate connector manager
+                self.__class__._connector_manager = (
+                    ConnectorManagerFactory.create_manager(
+                        connector_class=self._backend,
+                        connector_config=connector_config,
+                        connection_mode=connection_mode,
+                        max_connections=backend_config.get("MAX_CONNECTIONS", 10),
+                        connection_timeout=backend_config.get("CONNECTION_TIMEOUT", 30),
+                        idle_timeout=backend_config.get("IDLE_TIMEOUT", 300),
                     )
+                )
 
-                # For backward compatibility, keep a reference to a single connector
-                self.release_connection(self._connector_manager.get_connection())
-            except Exception as e:
-                logger.error(f"Failed to initialize backend connector: {e}")
-                raise StopProcessingError(
-                    f"Failed to initialize backend connector: {e}"
-                ) from e
+            self.release_connection(self._connector_manager.get_connection())
+        except Exception as e:
+            logger.error(f"Failed to initialize backend connector: {e}")
+            raise StopProcessingError(
+                f"Failed to initialize backend connector: {e}"
+            ) from e
 
         self.save()
 
-    @property
-    def connector(self):
-        return self._connector
+    def with_connection(self, method, *args, **kwargs):
+        """
+        Execute a function with a connection from the manager.
+        Args:
+            method: The function to execute, which will be passed a connection as first arg
+            *args: Additional arguments to pass to the function
+            **kwargs: Additional keyword arguments to pass to the function
+        Returns:
+            The result of the function execution
+        """
+        # For pooled managers that support it, use the retry mechanism
+        if hasattr(self._connector_manager, "execute_with_retry"):
+            return self._connector_manager.execute_with_retry(method, *args, **kwargs)
 
-    @connector.setter
-    def connector(self, value):
-        self._connector = value
+        # For single connection managers, just get the connection and execute
+        connector = self.get_connection()
+        try:
+            return method(connector, *args, **kwargs)
+        finally:
+            self.release_connection(connector)
 
     def get_connection(self):
         """
@@ -101,7 +108,6 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         """
         Prepare object for pickling by removing the lock.
         """
-        # import pdb;pdb.set_trace()
         state = self.__dict__.copy()
         init_params: typing.Optional[typing.Dict[str, typing.Any]] = state.pop(
             "init_params", None
@@ -128,65 +134,35 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         call_params = state.pop("call_params", None)
 
         self.__dict__.update(state)
-        # Recreate the lock
-        self._connector_lock = threading.RLock()
 
     def get_schema_name(self) -> str:
         return self.__class__.__name__
 
-    def _connect(self, **kwargs):
-        with self._connector_lock:
-            if self.connector is None:
-                self.connector = self._backend(**kwargs)
-
-        return self.connector
-
-    def _disconnect(self):
-        with self._connector_lock:
-            if self.connector is not None:
-                self.connector.close()
-                self.connector = None
-
-    def save(self):
-        if not self.connector:
-            logger.warning("Attempting to save without an active connector")
-            return
-
-        with self._connector_lock:
-            try:
-                self.connector.insert_record(
-                    schema_name=self.get_schema_name(), record_key=self.id, record=self
-                )
-            except ObjectExistError:
-                self.connector.update_record(
-                    schema_name=self.get_schema_name(), record_key=self.id, record=self
-                )
-
-    def reload(self):
-        if not self.connector:
-            logger.warning("Attempting to reload without an active connector")
-            return
-        self.connector.reload_record(self.get_schema_name(), self)
-
-    def delete(self):
-        if not self.connector:
-            logger.warning("Attempting to delete without an active connector")
-            return
-
-        with self._connector_lock:
-            self._connector.delete_record(
-                schema_name=self.get_schema_name(), record_key=self.id
+    @connector_action_register
+    def save(self, connector: KeyValueStoreBackendBase):
+        try:
+            connector.insert_record(
+                schema_name=self.get_schema_name(), record_key=self.id, record=self
             )
-
-    def update(self):
-        if not self.connector:
-            logger.warning("Attempting to update without an active connector")
-            return
-        with self._connector_lock:
-            self.connector.update_record(
+        except ObjectExistError:
+            connector.update_record(
                 schema_name=self.get_schema_name(), record_key=self.id, record=self
             )
 
-    def __del__(self):
-        if getattr(self, "_connector", None) is not None:
-            self.connector.close()
+    @connector_action_register
+    def reload(self, connector: KeyValueStoreBackendBase):
+        connector.reload_record(self.get_schema_name(), self)
+
+    @connector_action_register
+    def delete(self, connector: KeyValueStoreBackendBase):
+        connector.delete_record(schema_name=self.get_schema_name(), record_key=self.id)
+
+    @connector_action_register
+    def update(self, connector: KeyValueStoreBackendBase):
+        connector.update_record(
+            schema_name=self.get_schema_name(), record_key=self.id, record=self
+        )
+
+    # def __del__(self):
+    #     if getattr(self, "_connector", None) is not None:
+    #         self.connector.close()
