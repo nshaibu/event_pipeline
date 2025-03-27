@@ -13,15 +13,23 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
         if not self.connector.is_connected():
             raise ConnectionError("Redis is not connected.")
 
-    def _generate_filter_match(self, **filter_kwargs):
-        pass
+    @staticmethod
+    def _generate_filter_match(**filter_kwargs):
+        def match_record(record):
+            for key, value in filter_kwargs.items():
+                if not hasattr(record, key) or getattr(record, key) != value:
+                    return False
+            return True
+
+        return match_record
 
     def exists(self, schema_name: str, record_key: str) -> bool:
         self._check_connection()
         return self.connector.cursor.hexists(schema_name, record_key)
 
     def count(self, schema_name: str) -> int:
-        self.connector.cursor.hlen(schema_name)
+        self._check_connection()
+        return self.connector.cursor.hlen(schema_name)
 
     def insert_record(self, schema_name: str, record_key: str, record: BaseModel):
         if self.exists(schema_name, record_key):
@@ -78,7 +86,8 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
             )
 
         state = self.connector.cursor.hget(schema_name, record.id)
-        record.__setstate__(state)
+        record_state = pickle.loads(state)
+        record.__setstate__(record_state)
 
     def get_record(
         self,
@@ -103,4 +112,19 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
     ):
         self._check_connection()
 
-        self.connector.cursor.hscan(schema_name)
+        match_func = self._generate_filter_match(**filter_kwargs)
+
+        matching_records = []
+        cursor = 0
+        while True:
+            cursor, data = self.connector.cursor.hscan(schema_name, cursor=cursor)
+
+            for key, value in data.items():
+                record = self.load_record(value, record_klass)
+                if match_func(record):
+                    matching_records.append(record)
+
+            if cursor == 0:
+                break
+
+        return matching_records

@@ -1,10 +1,13 @@
 import os
 import json
 import typing
+import pickle
+from enum import Enum
 from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from datetime import datetime
 from collections.abc import MutableSet
 from dataclasses import asdict
+from .import_utils import import_string
 from .exceptions import MultiValueError
 from .mixins import ObjectIdentityMixin
 from event_pipeline.mixins import BackendIntegrationMixin
@@ -14,9 +17,9 @@ __all__ = ["EventResult", "ResultSet"]
 
 class EventResult(BackendIntegrationMixin, BaseModel):
     error: bool
-    task_id: str
     event_name: str
     content: typing.Any
+    task_id: typing.Optional[str]
     init_params: typing.Optional[typing.Dict[str, typing.Any]]
     call_params: typing.Optional[typing.Dict[str, typing.Any]]
     process_id: MiniAnnotated[int, Attrib(default_factory=lambda: os.getpid())]
@@ -40,8 +43,6 @@ class EventResult(BackendIntegrationMixin, BaseModel):
 
 
 class Result(ObjectIdentityMixin):
-    backend: typing.ClassVar = None
-    # schema: typing.ClassVar[SchemaMixin] = None
 
     def __init__(
         self,
@@ -109,7 +110,37 @@ class Result(ObjectIdentityMixin):
         self.__dict__.update(state)
 
 
+class EntityContentType(BaseModel):
+    backend_import_str: str
+    entity_content_type: str
+
+    class Config:
+        frozen = True
+        eq = True
+
+    @classmethod
+    def add_entity_content_type(cls, entity: ObjectIdentityMixin):
+        if entity and isinstance(entity, ObjectIdentityMixin):
+            connector = getattr(entity, "_connector", None)
+            if connector:
+                backend_import_str = connector.__module__ + "." + connector.__qualname__
+            return cls(
+                backend_import_str=backend_import_str,
+                entity_content_type=entity.__object_import_str__,
+            )
+
+    def get_backend(self):
+        return import_string(self.backend_import_str)
+
+    def get_content_type(self):
+        return import_string(self.entity_content_type)
+
+    def as_dict(self):
+        return asdict(self)
+
+
 class ResultSet(Result, MutableSet):
+    _context_types: typing.Set[EntityContentType] = set()
 
     def __init__(self, results: typing.List[Result]):
         super().__init__(content={}, error=False)
@@ -129,6 +160,12 @@ class ResultSet(Result, MutableSet):
 
     def __getitem__(self, index: int):
         return list(self.content.values())[index]
+
+    def _insert_entity(self, record: ObjectIdentityMixin):
+        self.content[record.id] = record
+        content_type = EntityContentType.add_entity_content_type(record)
+        if content_type and content_type not in self._context_types:
+            self._context_types.add(content_type)
 
     def add(self, result: typing.Union[Result, "ResultSet"]):
         if isinstance(result, ResultSet):
