@@ -100,7 +100,6 @@ class BaseConnectorManager:
     def __init__(self, connector_class, connector_config: dict):
         """
         Initialize the connector manager.
-
         Args:
             connector_class: The class to instantiate for connections
             connector_config: Configuration for the connector
@@ -123,10 +122,8 @@ class BaseConnectorManager:
     def _create_connection(self):
         """
         Create a new connection instance.
-
         Returns:
             A new connection
-
         Raises:
             ConnectionError: If the connection cannot be created
         """
@@ -139,10 +136,8 @@ class BaseConnectorManager:
     def _check_connection_health(self, connection) -> bool:
         """
         Check if a connection is healthy.
-
         Args:
             connection: The connection to check
-
         Returns:
             True if the connection is healthy, False otherwise
         """
@@ -159,7 +154,6 @@ class BaseConnectorManager:
     def _close_connection(self, connection):
         """
         Close a connection.
-
         Args:
             connection: The connection to close
         """

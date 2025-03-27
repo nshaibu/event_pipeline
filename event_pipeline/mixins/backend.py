@@ -80,7 +80,9 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         """
         # For pooled managers that support it, use the retry mechanism
         if hasattr(self._connector_manager, "execute_with_retry"):
-            return self._connector_manager.execute_with_retry(partial(method, self), *args, **kwargs)
+            return self._connector_manager.execute_with_retry(
+                partial(method, self), *args, **kwargs
+            )
 
         # For single connection managers, just get the connection and execute
         connector = self.get_connection()
