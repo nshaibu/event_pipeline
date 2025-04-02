@@ -94,14 +94,6 @@ def p_task_conditional_statement(p):
     p[0] = ConditionalBinOP(p[1], p[3])
 
 
-# def p_task_grouped(p):
-#     """
-#     task :  task LPAREN expression SEPERATOR expression RPAREN
-#     """
-#     p[0] = ("GROUP", p[1], p[3], p[5])
-#     # p[0] = ConditionalBinOP(p[1], p[3], p[5])
-
-
 def p_error(p):
     if p is None:
         raise SyntaxError("Syntax error at the end of the input!")
