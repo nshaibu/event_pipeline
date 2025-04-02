@@ -537,6 +537,9 @@ class ExtraPipelineTaskConfig:
     def get_descriptor_config(self, descriptor: int):
         return self._descriptors.get(descriptor)
 
+    def get_descriptors(self) -> typing.List["_DescriptorConfig"]:
+        return list(self._descriptors.values())
+
 
 @unique
 class PipeType(Enum):
@@ -554,6 +557,17 @@ class PipeType(Enum):
             return "||"
         elif self == self.RETRY:
             return "*"
+
+    @classmethod
+    def get_pipe_type_enum(cls, pipe_str: str) -> "PipeType":
+        if pipe_str == cls.PIPE_POINTER.token():
+            return cls.PIPE_POINTER
+        elif pipe_str == cls.PARALLELISM.token():
+            return cls.PARALLELISM
+        elif pipe_str == cls.RETRY.token():
+            return cls.RETRY
+        elif pipe_str == cls.POINTER.token():
+            return cls.POINTER
 
 
 class PipelineTask(ObjectIdentityMixin):
@@ -818,18 +832,27 @@ class PipelineTask(ObjectIdentityMixin):
                     node.parent_node = parent
                     if node._descriptor == 0:
                         parent.on_failure_event = node
-                        parent.on_failure_pipe = (
-                            PipeType.POINTER
-                            if node._descriptor_pipe == PipeType.POINTER.token()
-                            else PipeType.PIPE_POINTER
+                        parent.on_failure_pipe = PipeType.get_pipe_type_enum(
+                            node._descriptor_pipe
                         )
                     else:
                         parent.on_success_event = node
-                        parent.on_success_pipe = (
-                            PipeType.POINTER
-                            if node._descriptor_pipe == PipeType.POINTER.token()
-                            else PipeType.PIPE_POINTER
+                        parent.on_success_pipe = PipeType.get_pipe_type_enum(
+                            node._descriptor_pipe
                         )
+
+            for custom_node in ast.extra_descriptors():
+                custom_branch = cls._parse_ast(custom_node)
+                if custom_branch:
+                    head_of_custom_branch = custom_branch.get_root()
+                    head_of_custom_branch.parent_node = parent
+                    status = parent.extra_config.add_descriptor(
+                        custom_node.left.value,
+                        PipeType.get_pipe_type_enum(custom_node.op),
+                        head_of_custom_branch,
+                    )
+                    if status is False:
+                        logger.warning(f"Adding descriptor {custom_node} failed.")
 
             return parent
         elif isinstance(ast, parser.Descriptor):
@@ -845,6 +868,8 @@ class PipelineTask(ObjectIdentityMixin):
             children.append(self.sink_node)
         if self.on_success_event:
             children.append(self.on_success_event)
+        for node_config in self.extra_config.get_descriptors():
+            children.append(node_config.task)
         return children
 
     def get_root(self):
@@ -943,7 +968,7 @@ class PipelineTask(ObjectIdentityMixin):
             ]:
                 logger.warning(
                     f"Task execution terminated due to state '{execution_context.state.value}'."
-                    f" Skipping task execution..."
+                    f"\n Skipping task execution..."
                 )
                 return
 
