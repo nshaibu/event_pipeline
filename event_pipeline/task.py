@@ -18,6 +18,7 @@ from .exceptions import (
     ImproperlyConfigured,
     StopProcessingError,
     EventDoesNotExist,
+    SwitchTask,
 )
 from .utils import (
     build_event_arguments_from_pipeline,
@@ -397,8 +398,8 @@ class EventExecutionContext(ObjectIdentityMixin):
         This method is responsible for routing the event or action to the correct
         handler based on the context, ensuring that the proper logic is executed
         for the given task or event.
-
         """
+        switch_exception = None
 
         try:
             self.state = ExecutionState.EXECUTING
@@ -412,12 +413,15 @@ class EventExecutionContext(ObjectIdentityMixin):
                 f"{self.pipeline.__class__.__name__} : {str(self.task_profiles[0].event)} : {str(e)}"
             )
 
-            task_error = BadPipelineError(
-                message={"status": 0, "message": str(e)},
-                exception=e,
-            )
-            self._errors.append(task_error)
-            self.abort()
+            if isinstance(e, SwitchTask):
+                switch_exception = e
+            else:
+                task_error = BadPipelineError(
+                    message={"status": 0, "message": str(e)},
+                    exception=e,
+                )
+                self._errors.append(task_error)
+                self.abort()
 
         try:
             self.conditional_variable.notify_all()
@@ -430,6 +434,8 @@ class EventExecutionContext(ObjectIdentityMixin):
             f"Finished executing task(s) '{self.task_profiles}' with status {self.state}"
         )
 
+        return switch_exception
+
     def process_executor_results(self, futures: typing.List[Future]) -> None:
         """
         Processes the results from the executor after events has been executed, handling any awaited results.
@@ -441,6 +447,7 @@ class EventExecutionContext(ObjectIdentityMixin):
             None: This method modifies internal states of the execution context and performs actions based on
              the event and results, without returning a value.
         """
+        last_switch_to_task_request = None
         waited_results = wait(futures)
 
         with AcquireReleaseLock(self.conditional_variable):
@@ -449,24 +456,39 @@ class EventExecutionContext(ObjectIdentityMixin):
                 try:
                     result: EventResult = fut.result()
                 except Exception as e:
-                    params = getattr(e, "params", {})
-                    event_name = params.get("event_name", "unknown")
+                    if isinstance(e, SwitchTask):
+                        result = e.result
+                        current_task_profile = self._get_last_task_profile_in_chain()
+                        if not current_task_profile.extra_config.get_descriptor_config(
+                            e.next_task_descriptor
+                        ):
+                            logger.error(
+                                f"Task profile has no configured descriptor {e.next_task_descriptor}"
+                            )
+                            self.cancel()
+                            e.descriptor_configured = False
+                        else:
+                            e.descriptor_configured = True
+                        last_switch_to_task_request = e
+                    else:
+                        params = getattr(e, "params", {})
+                        event_name = params.get("event_name", "unknown")
 
-                    logger.error(
-                        f"{self.pipeline.__class__.__name__} : {event_name} : {str(e)}"
-                    )
+                        logger.error(
+                            f"{self.pipeline.__class__.__name__} : {event_name} : {str(e)}"
+                        )
 
-                    if e.__class__ == StopProcessingError:
-                        self.cancel()
+                        if e.__class__ == StopProcessingError:
+                            self.cancel()
 
-                    result = EventResult(
-                        error=True,
-                        content=e.to_dict() if hasattr(e, "to_dict") else str(e),
-                        task_id=params.get("task_id"),
-                        event_name=event_name,
-                        init_params=params.get("init_args"),
-                        call_params=params.get("call_args"),
-                    )
+                        result = EventResult(
+                            error=True,
+                            content=e.to_dict() if hasattr(e, "to_dict") else str(e),
+                            task_id=params.get("task_id"),
+                            event_name=event_name,
+                            init_params=params.get("init_args"),
+                            call_params=params.get("call_args"),
+                        )
 
                 if result.error:
                     self._errors.append(
@@ -479,8 +501,14 @@ class EventExecutionContext(ObjectIdentityMixin):
                 else:
                     self.execution_result.add(result)
 
+        if last_switch_to_task_request:
+            raise last_switch_to_task_request
+
     def cancel(self):
-        """Cancels the execution context. This method must acquire the conditional variable before executing it."""
+        """
+        Cancels the execution context. This method must acquire
+        the conditional variable before executing it.
+        """
         self.state = ExecutionState.CANCELLED
         event_execution_cancelled.emit(
             sender=self.__class__,
@@ -490,7 +518,10 @@ class EventExecutionContext(ObjectIdentityMixin):
         )
 
     def abort(self):
-        """Aborts the execution context. This method must acquire the conditional variable before executing it."""
+        """
+        Aborts the execution context. This method must acquire the
+        conditional variable before executing it.
+        """
         self.state = ExecutionState.ABORTED
         event_execution_aborted.emit(
             sender=self.__class__,
@@ -905,6 +936,17 @@ class PipelineTask(ObjectIdentityMixin):
                 pipe_type = self.parent_node.on_failure_pipe
             elif self.parent_node.sink_node and self.parent_node.sink_node == self:
                 pipe_type = self.parent_node.sink_pipe
+            else:
+                # Handle custom descriptors
+                descriptor_profile = (
+                    self.parent_node.extra_config.get_descriptor_config(
+                        self._descriptor
+                    )
+                )
+                if descriptor_profile:
+                    pipe_type = descriptor_profile.pipe
+                else:
+                    pipe_type = self._descriptor_pipe
 
         return pipe_type
 
@@ -960,7 +1002,7 @@ class PipelineTask(ObjectIdentityMixin):
                     execution_context.previous_context = previous_context
                     previous_context.next_context = execution_context
 
-            execution_context.dispatch()  # execute task
+            switch_request = execution_context.dispatch()  # execute task
 
             if execution_context and execution_context.state in [
                 ExecutionState.CANCELLED,
@@ -972,14 +1014,32 @@ class PipelineTask(ObjectIdentityMixin):
                 )
                 return
 
-            if task.is_conditional:
-                if execution_context.execution_failed():
-                    cls.execute_task(
-                        task=task.on_failure_event,
-                        previous_context=execution_context,
-                        pipeline=pipeline,
-                        sink_queue=sink_queue,
-                    )
+            if switch_request and switch_request.descriptor_configured:
+                descriptor_profile = task.extra_config.get_descriptor_config(
+                    switch_request.next_task_descriptor
+                )
+                cls.execute_task(
+                    task=descriptor_profile.task,
+                    pipeline=pipeline,
+                    previous_context=previous_context,
+                    sink_queue=sink_queue,
+                )
+            else:
+                if task.is_conditional:
+                    if execution_context.execution_failed():
+                        cls.execute_task(
+                            task=task.on_failure_event,
+                            previous_context=execution_context,
+                            pipeline=pipeline,
+                            sink_queue=sink_queue,
+                        )
+                    else:
+                        cls.execute_task(
+                            task=task.on_success_event,
+                            previous_context=execution_context,
+                            pipeline=pipeline,
+                            sink_queue=sink_queue,
+                        )
                 else:
                     cls.execute_task(
                         task=task.on_success_event,
@@ -987,13 +1047,6 @@ class PipelineTask(ObjectIdentityMixin):
                         pipeline=pipeline,
                         sink_queue=sink_queue,
                     )
-            else:
-                cls.execute_task(
-                    task=task.on_success_event,
-                    previous_context=execution_context,
-                    pipeline=pipeline,
-                    sink_queue=sink_queue,
-                )
 
         else:
             # clear the sink nodes

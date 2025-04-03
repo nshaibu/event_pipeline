@@ -11,7 +11,7 @@ from .constants import EMPTY, MAX_RETRIES, MAX_BACKOFF, MAX_BACKOFF_FACTOR
 from .executors.default_executor import DefaultExecutor
 from .utils import get_function_call_args
 from .conf import ConfigLoader
-from .exceptions import StopProcessingError, MaxRetryError
+from .exceptions import StopProcessingError, MaxRetryError, SwitchTask
 from .signal.signals import (
     event_execution_retry,
     event_execution_retry_done,
@@ -438,6 +438,46 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
     def get_call_args(self):
         return self._call_args
+
+    def goto(
+        self,
+        descriptor: int,
+        result_status: bool,
+        result: typing.Any,
+        reason="manual",
+        execute_on_event_method: bool = True,
+    ) -> None:
+        """
+        Transitions to the new sub-child of parent task with the given descriptor
+        while optionally processing the result.
+        Args:
+            descriptor (int): The identifier of the next task to switch to.
+            result_status (bool): Indicates if the current task succeeded or failed.
+            result (typing.Any): The result data to pass to the next task.
+            reason (str, optional): Reason for the task switch. Defaults to "manual".
+            execute_on_event_method (bool, optional): If True, processes the result via
+                success/failure handlers; otherwise, wraps it in `EventResult`.
+        """
+        if execute_on_event_method:
+            if result_status:
+                res = self.on_success(result)
+            else:
+                res = self.on_failure(result)
+        else:
+            res = EventResult(
+                error=not result_status,
+                content=result,
+                task_id=self._task_id,
+                event_name=self.__class__.__name__,
+                call_params=self._call_args,
+                init_params=self._init_args,
+            )
+        raise SwitchTask(
+            current_task_id=self._task_id,
+            next_task_descriptor=descriptor,
+            result=res,
+            reason=reason,
+        )
 
     @abc.abstractmethod
     def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:

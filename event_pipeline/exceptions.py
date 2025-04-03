@@ -1,3 +1,10 @@
+import typing
+
+
+if typing.TYPE_CHECKING:
+    from event_pipeline.result import EventResult
+
+
 class ImproperlyConfigured(Exception):
     pass
 
@@ -85,3 +92,24 @@ class ObjectExistError(ValueError):
 
 class ObjectDoesNotExist(ValueError):
     """ObjectDoesNotExist raised when an object does not exist."""
+
+
+class SwitchTask(Exception):
+
+    def __init__(
+        self,
+        current_task_id: str,
+        next_task_descriptor: int,
+        result: EventResult,
+        reason="Manual",
+    ):
+        self.current_task_id = current_task_id
+        self.next_task_descriptor = next_task_descriptor
+        self.result = result
+        self.reason = reason
+        self.descriptor_configured: bool = False
+        message = "Task switched to %s (Caused by %r)" % (
+            self.next_task_descriptor,
+            reason,
+        )
+        super().__init__(message)
