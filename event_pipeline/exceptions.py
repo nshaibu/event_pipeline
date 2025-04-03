@@ -100,7 +100,7 @@ class SwitchTask(Exception):
         self,
         current_task_id: str,
         next_task_descriptor: int,
-        result: EventResult,
+        result: "EventResult",
         reason="Manual",
     ):
         self.current_task_id = current_task_id
