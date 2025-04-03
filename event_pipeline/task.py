@@ -665,6 +665,8 @@ class PipelineTask(ObjectIdentityMixin):
 
     @property
     def is_conditional(self):
+        if self.extra_config.get_descriptors():
+            return True
         return self.on_success_event and self.on_failure_event
 
     @property
@@ -913,6 +915,13 @@ class PipelineTask(ObjectIdentityMixin):
         nodes = list(self.bf_traversal(root))
         return len(nodes)
 
+    def get_descriptor(self, descriptor: int) -> typing.Optional["PipelineTask"]:
+        if descriptor in [0, 1]:
+            return self.on_failure_event if descriptor == 0 else self.on_success_event
+        target = self.extra_config.get_descriptor_config(descriptor)
+        if target:
+            return target.task
+
     @classmethod
     def bf_traversal(cls, node: "PipelineTask"):
         if node:
@@ -1015,11 +1024,15 @@ class PipelineTask(ObjectIdentityMixin):
                 return
 
             if switch_request and switch_request.descriptor_configured:
-                descriptor_profile = task.extra_config.get_descriptor_config(
-                    switch_request.next_task_descriptor
-                )
+                task_profile = task.get_descriptor(switch_request.next_task_descriptor)
+                if task_profile is None:
+                    logger.warning(
+                        f"Task cannot switch to task with the descriptor {switch_request.next_task_descriptor}."
+                    )
+                    raise SyntaxError()
+
                 cls.execute_task(
-                    task=descriptor_profile.task,
+                    task=task_profile,
                     pipeline=pipeline,
                     previous_context=previous_context,
                     sink_queue=sink_queue,
@@ -1051,7 +1064,7 @@ class PipelineTask(ObjectIdentityMixin):
         else:
             # clear the sink nodes
             while sink_queue:
-                task = sink_queue.popleft()
+                task = sink_queue.pop()
                 cls.execute_task(
                     task=task,
                     previous_context=previous_context,
