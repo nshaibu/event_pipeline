@@ -113,3 +113,7 @@ class SwitchTask(Exception):
             reason,
         )
         super().__init__(message)
+
+
+class TaskSwitchingError(PipelineError):
+    """TaskSwitchingError raised when a task switch fails."""

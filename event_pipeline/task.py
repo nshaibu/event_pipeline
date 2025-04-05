@@ -19,6 +19,7 @@ from .exceptions import (
     StopProcessingError,
     EventDoesNotExist,
     SwitchTask,
+    TaskSwitchingError,
 )
 from .utils import (
     build_event_arguments_from_pipeline,
@@ -1029,7 +1030,11 @@ class PipelineTask(ObjectIdentityMixin):
                     logger.warning(
                         f"Task cannot switch to task with the descriptor {switch_request.next_task_descriptor}."
                     )
-                    raise SyntaxError()
+                    raise TaskSwitchingError(
+                        f"Task cannot switch to task using the descriptor {switch_request.next_task_descriptor}.",
+                        params=switch_request,
+                        code="task-switching-failed",
+                    )
 
                 cls.execute_task(
                     task=task_profile,
