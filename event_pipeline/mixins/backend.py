@@ -1,4 +1,5 @@
 import typing
+import pickle
 import logging
 from functools import partial
 from event_pipeline.exceptions import ObjectExistError
@@ -111,43 +112,37 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         """
         Prepare object for pickling by removing the lock.
         """
-        state = self.__dict__.copy()
-        init_params: typing.Optional[typing.Dict[str, typing.Any]] = state.pop(
-            "init_params", None
-        )
-        state.pop("_connector", None)
-        backend = state.pop("_backend", None)
-
-        state["_backend"] = (
-            f"{backend.__module__}.{backend.__qualname__}"
-            if backend is not None
-            else None
-        )
-
-        if init_params:
-            execution_context = init_params.get("execution_context")
-            if execution_context and not isinstance(execution_context, str):
-                init_params["execution_context"] = execution_context.id
-        else:
-            init_params = {"execution_context": {}}
-        state["init_params"] = init_params
+        try:
+            state = self.get_state()
+        except NotImplementedError:
+            raise pickle.PickleError(
+                "Cannot pickle object of type {}".format(self.__class__)
+            )
+        backend = state.pop("_backend", self._backend)
+        if backend is not None:
+            state["_backend"] = (
+                backend
+                if isinstance(backend, str)
+                else f"{backend.__module__}.{backend.__qualname__}"
+            )
         return state
 
     def __setstate__(self, state):
         """
         Restore object state after unpickling and recreate the lock.
         """
-        init_params = state.pop("init_params", None)
-        call_params = state.pop("call_params", None)
-
         if "_backend" in state:
             backend = state.pop("_backend")
             try:
                 self._backend = import_string(backend)
             except Exception as e:
                 logger.error(f"Error importing backend {backend}: {e}")
-
-        self.__dict__.update(state)
+        try:
+            self.set_state(state)
+        except NotImplementedError:
+            raise pickle.UnpicklingError(
+                "Cannot restore object of type {}".format(self.__class__)
+            )
 
     def get_schema_name(self) -> str:
         return self.__class__.__name__
