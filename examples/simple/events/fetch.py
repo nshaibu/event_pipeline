@@ -8,5 +8,4 @@ class Fetch(EventBase):
 
     def process(self, name) -> typing.Tuple[bool, typing.Any]:
         print(f"Executed fetch event: {name}")
-        raise ValueError
         return True, "Executed fetch event"

@@ -35,6 +35,27 @@ class EventResult(BackendIntegrationMixin, BaseModel):
     def __hash__(self):
         return hash(self.id)
 
+    def get_state(self) -> typing.Dict[str, typing.Any]:
+        state = self.__dict__.copy()
+        init_params: typing.Optional[typing.Dict[str, typing.Any]] = state.pop(
+            "init_params", None
+        )
+
+        if init_params:
+            execution_context = init_params.get("execution_context")
+            if execution_context and not isinstance(execution_context, str):
+                init_params["execution_context"] = execution_context.id
+        else:
+            init_params = {"execution_context": {}}
+        state["init_params"] = init_params
+        return state
+
+    def set_state(self, state: typing.Dict[str, typing.Any]):
+        init_params = state.pop("init_params", None)
+        call_params = state.pop("call_params", None)
+
+        self.__dict__.update(state)
+
     def is_error(self) -> bool:
         return self.error
 
