@@ -118,7 +118,11 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         state.pop("_connector", None)
         backend = state.pop("_backend", None)
 
-        state["_backend"] = backend.__name__ if backend is not None else None
+        state["_backend"] = (
+            f"{backend.__module__}.{backend.__qualname__}"
+            if backend is not None
+            else None
+        )
 
         if init_params:
             execution_context = init_params.get("execution_context")
@@ -135,6 +139,13 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
         """
         init_params = state.pop("init_params", None)
         call_params = state.pop("call_params", None)
+
+        if "_backend" in state:
+            backend = state.pop("_backend")
+            try:
+                self._backend = import_string(backend)
+            except Exception as e:
+                logger.error(f"Error importing backend {backend}: {e}")
 
         self.__dict__.update(state)
 
