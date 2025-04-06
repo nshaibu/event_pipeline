@@ -22,16 +22,22 @@ class ConditionalGroup(Expression):
         super().__init__("EXPRESSION-GROUP")
         self._descriptors: typing.Dict[int, BinOp] = {}
 
-        self.set_value(expr0)
-        self.set_value(expr1)
+        self.set_value(expr0, expr0)
+        self.set_value(expr1, expr1)
 
-    def set_value(self, value: typing.Union[BinOp, "Expression"]):
+    def set_value(
+        self,
+        value: typing.Union[BinOp, "Expression"],
+        initial_value: typing.Union[BinOp, "Expression"],
+    ):
         if value:
             if isinstance(value, BinOp):
-                self._descriptors[value.left.value] = value
+                self.set_value(value.left, initial_value)
             elif isinstance(value, ConditionalGroup):
                 for bin_op in value.get_bin_ops():
-                    self._descriptors[bin_op.left.value] = bin_op
+                    self.set_value(bin_op.left, bin_op)
+            elif isinstance(value, Descriptor):
+                self._descriptors[value.value] = initial_value
 
     @property
     def descriptor_dict(self):
@@ -41,7 +47,11 @@ class ConditionalGroup(Expression):
         return list(self._descriptors.values())
 
     def get_extra_descriptors(self) -> typing.List[BinOp]:
-        return [desc for desc in self.get_bin_ops() if desc.left.value not in [1, 0]]
+        descriptors = []
+        for key, value in self._descriptors.items():
+            if key not in [1, 0]:
+                descriptors.append(value)
+        return descriptors
 
     def __repr__(self):
         return f"ConditionalGroup({self.get_bin_ops()})"

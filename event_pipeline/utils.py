@@ -3,14 +3,12 @@ import logging
 import time
 import uuid
 import sys
-import multiprocessing as mp
 
 try:
     import resource
 except ImportError:
     # No windows support for this lib
     resource = None
-
 from inspect import signature, Parameter, isgeneratorfunction, isgenerator
 
 try:
@@ -280,3 +278,14 @@ def get_expected_args(
             args_dict[param_name] = param.annotation if include_type else param.default
 
     return args_dict
+
+
+def get_obj_state(obj: typing.Any) -> typing.Dict[str, typing.Any]:
+    try:
+        return obj.get_state()
+    except (AttributeError, NotImplementedError):
+        return obj.__getstate__()
+
+
+def get_obj_klass_import_str(obj: typing.Any) -> str:
+    return f"{obj.__module__}.{obj.__qualname__}"

@@ -1,16 +1,16 @@
 import os
 import json
 import typing
-import pickle
-from enum import Enum
-from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from datetime import datetime
 from collections.abc import MutableSet
 from dataclasses import asdict
+from pydantic_mini.typing import is_builtin_type
+from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from .import_utils import import_string
 from .exceptions import MultiValueError
 from .mixins import ObjectIdentityMixin
 from event_pipeline.mixins import BackendIntegrationMixin
+from event_pipeline.utils import get_obj_klass_import_str, get_obj_state
 
 __all__ = ["EventResult", "ResultSet"]
 
@@ -34,6 +34,51 @@ class EventResult(BackendIntegrationMixin, BaseModel):
 
     def __hash__(self):
         return hash(self.id)
+
+    def get_state(self) -> typing.Dict[str, typing.Any]:
+        state = self.__dict__.copy()
+        init_params: typing.Optional[typing.Dict[str, typing.Any]] = state.pop(
+            "init_params", None
+        )
+
+        if init_params:
+            execution_context = init_params.get("execution_context")
+            if execution_context and not isinstance(execution_context, str):
+                init_params["execution_context"] = execution_context.id
+        else:
+            init_params = {"execution_context": {}}
+
+        if self.content is not None:
+            content_type = type(self.content)
+            if not is_builtin_type(content_type):
+                state["content"] = {
+                    "content_type_import_str": get_obj_klass_import_str(self.content),
+                    "state": get_obj_state(self.content),
+                }
+        state["init_params"] = init_params
+        return state
+
+    def set_state(self, state: typing.Dict[str, typing.Any]):
+        # TODO handle the init and call params
+        init_params = state.pop("init_params", None)
+        call_params = state.pop("call_params", None)
+
+        content = state.get("content")
+        if isinstance(content, dict) and "content_type_import_str" in content:
+            import_str = content["content_type_import_str"]
+            content_state = content["state"]
+            klass = import_string(import_str)
+            instance = klass.__new__(klass)
+            instance.__setstate__(content_state)
+            state["content"] = instance
+
+        if call_params:
+            pass
+
+        if init_params:
+            pass
+
+        self.__dict__.update(state)
 
     def is_error(self) -> bool:
         return self.error
