@@ -281,7 +281,7 @@ def get_expected_args(
 def get_obj_state(obj: typing.Any) -> typing.Dict[str, typing.Any]:
     try:
         return obj.get_state()
-    except Exception:
+    except (AttributeError, NotImplementedError):
         return obj.__getstate__()
 
 
