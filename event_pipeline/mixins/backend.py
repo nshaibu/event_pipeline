@@ -8,6 +8,7 @@ from event_pipeline.conf import ConfigLoader
 from event_pipeline.exceptions import StopProcessingError
 from event_pipeline.mixins.identity import ObjectIdentityMixin
 from event_pipeline.backends.store import KeyValueStoreBackendBase
+from event_pipeline.utils import get_obj_klass_import_str
 from event_pipeline.mixins.utils.connector import (
     ConnectorManagerFactory,
     ConnectionMode,
@@ -123,7 +124,7 @@ class BackendIntegrationMixin(ObjectIdentityMixin):
             state["_backend"] = (
                 backend
                 if isinstance(backend, str)
-                else f"{backend.__module__}.{backend.__qualname__}"
+                else get_obj_klass_import_str(backend)
             )
         return state
 

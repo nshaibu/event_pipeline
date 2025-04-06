@@ -3,16 +3,12 @@ import logging
 import time
 import uuid
 import sys
-import multiprocessing as mp
-
 try:
     import resource
 except ImportError:
     # No windows support for this lib
     resource = None
-
 from inspect import signature, Parameter, isgeneratorfunction, isgenerator
-
 try:
     from StringIO import StringIO
 except ImportError:
@@ -290,4 +286,4 @@ def get_obj_state(obj: typing.Any) -> typing.Dict[str, typing.Any]:
 
 
 def get_obj_klass_import_str(obj: typing.Any) -> str:
-    return obj.__module__ + "." + obj.__qualname__
+    return f"{obj.__module__}.{obj.__qualname__}"
