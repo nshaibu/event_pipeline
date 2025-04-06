@@ -283,7 +283,10 @@ def get_expected_args(
 
 
 def get_obj_state(obj: typing.Any) -> typing.Dict[str, typing.Any]:
-    return hasattr(obj, "get_state") and obj.get_state() or obj.__getstate__()
+    try:
+        return obj.get_state()
+    except Exception:
+        return obj.__getstate__()
 
 
 def get_obj_klass_import_str(obj: typing.Any) -> str:

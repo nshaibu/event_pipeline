@@ -47,8 +47,9 @@ class EventResult(BackendIntegrationMixin, BaseModel):
                 init_params["execution_context"] = execution_context.id
         else:
             init_params = {"execution_context": {}}
-        content_type = type(self.content)
+
         if self.content is not None:
+            content_type = type(self.content)
             if not is_builtin_type(content_type):
                 state["content"] = {
                     "content_type_import_str": get_obj_klass_import_str(self.content),
@@ -67,8 +68,15 @@ class EventResult(BackendIntegrationMixin, BaseModel):
             content_state = content["state"]
             klass = import_string(import_str)
             instance = klass.__new__(klass)
-            instance.__dict__.update(content_state)
+            instance.__setstate__(content_state)
             state["content"] = instance
+
+        if call_params:
+            pass
+
+        if init_params:
+            pass
+
         self.__dict__.update(state)
 
     def is_error(self) -> bool:
