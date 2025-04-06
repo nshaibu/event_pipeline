@@ -59,6 +59,7 @@ class EventResult(BackendIntegrationMixin, BaseModel):
         return state
 
     def set_state(self, state: typing.Dict[str, typing.Any]):
+        # TODO handle the init and call params
         init_params = state.pop("init_params", None)
         call_params = state.pop("call_params", None)
 
