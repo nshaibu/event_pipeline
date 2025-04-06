@@ -25,7 +25,11 @@ class ConditionalGroup(Expression):
         self.set_value(expr0, expr0)
         self.set_value(expr1, expr1)
 
-    def set_value(self, value: typing.Union[BinOp, "Expression"], initial_value: typing.Union[BinOp, "Expression"]):
+    def set_value(
+        self,
+        value: typing.Union[BinOp, "Expression"],
+        initial_value: typing.Union[BinOp, "Expression"],
+    ):
         if value:
             if isinstance(value, BinOp):
                 self.set_value(value.left, initial_value)

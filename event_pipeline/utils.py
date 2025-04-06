@@ -3,12 +3,14 @@ import logging
 import time
 import uuid
 import sys
+
 try:
     import resource
 except ImportError:
     # No windows support for this lib
     resource = None
 from inspect import signature, Parameter, isgeneratorfunction, isgenerator
+
 try:
     from StringIO import StringIO
 except ImportError:
