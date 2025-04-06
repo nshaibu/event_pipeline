@@ -1,16 +1,16 @@
 import os
 import json
 import typing
-import pickle
-from enum import Enum
-from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from datetime import datetime
 from collections.abc import MutableSet
 from dataclasses import asdict
+from pydantic_mini.typing import is_builtin_type
+from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from .import_utils import import_string
 from .exceptions import MultiValueError
 from .mixins import ObjectIdentityMixin
 from event_pipeline.mixins import BackendIntegrationMixin
+from event_pipeline.utils import get_obj_klass_import_str, get_obj_state
 
 __all__ = ["EventResult", "ResultSet"]
 
@@ -47,6 +47,13 @@ class EventResult(BackendIntegrationMixin, BaseModel):
                 init_params["execution_context"] = execution_context.id
         else:
             init_params = {"execution_context": {}}
+        content_type = type(self.content)
+        if self.content is not None:
+            if not is_builtin_type(content_type):
+                state["content"] = {
+                    "content_type_import_str": get_obj_klass_import_str(self.content),
+                    "state": get_obj_state(self.content),
+                }
         state["init_params"] = init_params
         return state
 
@@ -54,6 +61,14 @@ class EventResult(BackendIntegrationMixin, BaseModel):
         init_params = state.pop("init_params", None)
         call_params = state.pop("call_params", None)
 
+        content = state.get("content")
+        if isinstance(content, dict) and "content_type_import_str" in content:
+            import_str = content["content_type_import_str"]
+            content_state = content["state"]
+            klass = import_string(import_str)
+            instance = klass.__new__(klass)
+            instance.__dict__.update(content_state)
+            state["content"] = instance
         self.__dict__.update(state)
 
     def is_error(self) -> bool:

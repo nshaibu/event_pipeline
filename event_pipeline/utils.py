@@ -280,3 +280,11 @@ def get_expected_args(
             args_dict[param_name] = param.annotation if include_type else param.default
 
     return args_dict
+
+
+def get_obj_state(obj: typing.Any) -> typing.Dict[str, typing.Any]:
+    return hasattr(obj, "get_state") and obj.get_state() or obj.__getstate__()
+
+
+def get_obj_klass_import_str(obj: typing.Any) -> str:
+    return obj.__module__ + "." + obj.__qualname__
