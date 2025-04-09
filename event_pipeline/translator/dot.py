@@ -70,7 +70,7 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
             for n in last_node.get_children():
                 edge = (
                     f'\t"{node_id}" -> "{n.id}" [taillabel="{n._descriptor}"]'
-                    if n.is_descriptor_task
+                    if n._descriptor
                     else f'\t"{node_id}" -> "{n.id}"'
                 )
 
@@ -93,10 +93,10 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
                     first_node = parallel_nodes[0]
                     edge += (
                         f'"{node_id}" [taillabel="{first_node._descriptor}"]'
-                        if first_node.is_descriptor_task
+                        if first_node._descriptor
                         else f'"{node_id}"'
                     )
-                elif node.is_descriptor_task:
+                elif node._descriptor:
                     edge += f'"{child.id}" [taillabel="{child._descriptor}"]'
                 else:
                     edge += f'"{child.id}"'
