@@ -721,6 +721,19 @@ class PipelineTask(ObjectIdentityMixin):
             or pointer_to_node == PipeType.PARALLELISM
         )
 
+    def get_parallel_nodes(self):
+        if not self.is_parallel_execution_node:
+            return
+
+        parallel_tasks = deque()
+        task = self
+        while task and task.on_success_pipe == PipeType.PARALLELISM:
+            parallel_tasks.append(task)
+            task = task.on_success_event
+
+        parallel_tasks.append(task)
+        return parallel_tasks
+
     def get_parallel_execution_parent_node(self):
         if self.is_parallel_execution_node:
             if (
@@ -910,6 +923,21 @@ class PipelineTask(ObjectIdentityMixin):
         if self.parent_node is None:
             return self
         return self.parent_node.get_root()
+
+    def get_dot_node_data(self) -> typing.Optional[str]:
+        if self.is_sink:
+            return f'\t"{self.id}" [label="{self.event}", shape=box, style="filled,rounded", fillcolor=yellow]\n'
+        elif self.is_conditional:
+            return f'\t"{self.id}" [label="{self.event}", shape=diamond, style="filled,rounded", fillcolor=yellow]\n'
+        elif self.is_parallel_execution_node:
+            nodes = self.get_parallel_nodes()
+            if not nodes:
+                return
+            node_id = nodes[0].id
+            node_label = "{" + "|".join([n.event for n in nodes]) + "}"
+            return f'\t"{node_id}" [label="{node_label}", shape=record, style="filled,rounded", fillcolor=lightblue]\n'
+
+        return f'\t"{self.id}" [label="{self.event}", shape=circle, style="filled,rounded", fillcolor=yellow]\n'
 
     def get_task_count(self) -> int:
         root = self.get_root()
