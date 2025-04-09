@@ -32,8 +32,8 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
     f = StringIO()
 
     f.write("digraph G {\n")
-    f.write("\tnode [fontname=Helvetica, fontsize=11]\n")
-    f.write("\tedge [fontname=Helvetica, fontsize=10]\n")
+    f.write('\tnode [fontname="Helvetica", fontsize=11]\n')
+    f.write('\tedge [fontname="Helvetica", fontsize=10]\n')
 
     iterator = task_state.bf_traversal(root)
 
@@ -70,7 +70,7 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
             for n in last_node.get_children():
                 edge = (
                     f'\t"{node_id}" -> "{n.id}" [taillabel="{n._descriptor}"]'
-                    if n._descriptor
+                    if n._descriptor is not None
                     else f'\t"{node_id}" -> "{n.id}"'
                 )
 
@@ -93,10 +93,10 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
                     first_node = parallel_nodes[0]
                     edge += (
                         f'"{node_id}" [taillabel="{first_node._descriptor}"]'
-                        if first_node._descriptor
+                        if first_node._descriptor is not None
                         else f'"{node_id}"'
                     )
-                elif node._descriptor:
+                elif child._descriptor is not None:
                     edge += f'"{child.id}" [taillabel="{child._descriptor}"]'
                 else:
                     edge += f'"{child.id}"'
