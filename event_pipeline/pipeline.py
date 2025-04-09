@@ -464,13 +464,19 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
             If the Graphviz library is not available, the method will
             return without performing any operations.
         """
+        from event_pipeline.translator.dot import generate_dot_from_task_state
+
         if graphviz is None:
             return
-        tree = self.get_pipeline_tree()
-        if tree:
-            data = tree.return_graphviz_data()
-            src = graphviz.Source(data, directory=directory)
-            src.render(format="png", outfile=f"{self.__class__.__name__}.png")
+        # tree = self.get_pipeline_tree()
+        # if tree:
+        #     data = tree.return_graphviz_data()
+        import pdb
+
+        pdb.set_trace()
+        data = generate_dot_from_task_state(self._state.start)
+        src = graphviz.Source(data, directory=directory)
+        src.render(format="png", outfile=f"{self.__class__.__name__}.png")
 
     @classmethod
     def load_class_by_id(cls, pk: str):
