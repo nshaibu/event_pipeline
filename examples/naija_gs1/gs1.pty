@@ -1,5 +1,11 @@
-Serialise -> Upload -> Commission -> Pack |-> Ship(
-0->Unpack |-> Pack |-> Ship(0->Receive, 1 -> Unpack),
-1 |-> Receive -> Dispense,
-2 -> Dispense
-)
+Serialise ->
+Upload ->
+Commission ->
+Pack |-> Ship(
+    0->Unpack |-> Pack |-> Ship(
+        0->Receive,
+        1 -> Unpack
+    ) -> Dispense,
+    1 |-> Receive -> Dispense,
+    2 -> Dispense
+) |-> Dispense

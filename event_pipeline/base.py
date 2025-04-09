@@ -395,6 +395,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         stop_on_exception: bool = False,
         stop_on_success: bool = False,
         stop_on_error: bool = False,
+        run_bypass_event_checks: bool = False,
         **kwargs,
     ):
         """
@@ -425,6 +426,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         self.stop_on_exception = stop_on_exception
         self.stop_on_success = stop_on_success
         self.stop_on_error = stop_on_error
+        self.run_bypass_event_checks = run_bypass_event_checks
 
         self.get_retry_policy()  # config retry if error
 
@@ -479,6 +481,30 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             reason=reason,
         )
 
+    def can_bypass_current_event(self) -> typing.Tuple[bool, typing.Any]:
+        """
+        Determines if the current event execution can be bypassed, allowing pipeline
+        processing to continue to the next event regardless of validation or execution failures.
+
+        This method evaluates custom bypass conditions defined for this specific event.
+        When it returns True, the pipeline will skip the current event's execution
+        and proceed to the next event in the sequence. When False, normal execution
+        and error handling will occur.
+
+        The bypass decision is typically based on business rules such as:
+        - Event is optional in certain contexts
+        - Alternative processing path exists
+        - Specific data conditions make this event unnecessary
+
+        Returns (Tuple):
+            bool: True if the event can be bypassed, False if normal execution should occur
+            data: Result data to pass to the next event.
+        Example:
+            In a shipping pipeline, certain validation steps might be bypassed
+            for internal transfers while being required for external shipments.
+        """
+        return False, None
+
     @abc.abstractmethod
     def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
         """
@@ -497,19 +523,24 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         """
         raise NotImplementedError()
 
+    def event_result(
+        self, error: bool, content: typing.Dict[str, typing.Any]
+    ) -> EventResult:
+        return EventResult(
+            error=error,
+            task_id=self._task_id,
+            event_name=self.__class__.__name__,
+            content=content,
+            call_params=self.get_call_args(),
+            init_params=self.get_init_args(),
+        )
+
     def on_success(self, execution_result) -> EventResult:
         self._raise_stop_processing_exception(
             condition=self.stop_on_success, message=execution_result
         )
 
-        return EventResult(
-            error=False,
-            content=execution_result,
-            task_id=self._task_id,
-            event_name=self.__class__.__name__,
-            call_params=self._call_args,
-            init_params=self._init_args,
-        )
+        return self.event_result(False, execution_result)
 
     def _raise_stop_processing_exception(
         self,
@@ -559,14 +590,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             condition=self.stop_on_error, message=execution_result
         )
 
-        return EventResult(
-            error=True,
-            content=execution_result,
-            task_id=self._task_id,
-            event_name=self.__class__.__name__,
-            init_params=self._init_args,
-            call_params=self._call_args,
-        )
+        return self.event_result(True, execution_result)
 
     @classmethod
     def get_event_klasses(cls):
@@ -576,6 +600,24 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
     def __call__(self, *args, **kwargs):
         self._call_args = get_function_call_args(self.__class__.__call__, locals())
+
+        if self.run_bypass_event_checks:
+            try:
+                should_skip, data = self.can_bypass_current_event()
+            except Exception as e:
+                logger.error(
+                    "Error in event setup status checks: %s", str(e), exc_info=e
+                )
+                raise
+
+            if should_skip:
+                execution_result = {
+                    "status": 1,
+                    "skip_event_execution": should_skip,
+                    "data": data,
+                }
+                return self.on_success(execution_result)
+
         try:
             self._execution_status, execution_result = self.retry(
                 self.process, *args, **kwargs
