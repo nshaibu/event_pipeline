@@ -879,17 +879,3 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     def __del__(self):
         if self._monitor_thread:
             self._monitor_thread.join()
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state.pop("lock", None)
-        state.pop("_field_batch_op_map", None)
-        state.pop("_configured_pipelines", None)
-        state.pop("_monitor_thread", None)
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self._configured_pipelines = set()
-        self._monitor_thread = None
-        self._field_batch_op_map = {}
-        self.lock = mp.Lock()
