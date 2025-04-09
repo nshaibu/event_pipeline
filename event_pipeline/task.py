@@ -924,18 +924,20 @@ class PipelineTask(ObjectIdentityMixin):
             return self
         return self.parent_node.get_root()
 
-    def get_dot_node_data(self) -> str:
+    def get_dot_node_data(self) -> typing.Optional[str]:
         if self.is_sink:
-            return f'\t"{self.event}" [shape=box, style=rounded, fillcolor=black]\n'
+            return f'\t"{self.id}" [label="{self.event}", shape=box, style="filled,rounded", fillcolor=yellow]\n'
         elif self.is_conditional:
-            return f'\t"{self.event}" [shape=diamond, style=rounded, fillcolor=blue]\n'
+            return f'\t"{self.id}" [label="{self.event}", shape=diamond, style="filled,rounded", fillcolor=yellow]\n'
         elif self.is_parallel_execution_node:
             nodes = self.get_parallel_nodes()
-            node_id = "-".join([n.event for n in nodes])
+            if not nodes:
+                return
+            node_id = nodes[0].id
             node_label = "{" + "|".join([n.event for n in nodes]) + "}"
-            return f'\t"{node_id}" [label="{node_label}", shape=record, style=filled, fillcolor=lightblue]\n'
+            return f'\t"{node_id}" [label="{node_label}", shape=record, style="filled,rounded", fillcolor=lightblue]\n'
 
-        return f'\t"{self.event}" [shape=circle, style=rounded, fillcolor=black]\n'
+        return f'\t"{self.id}" [label="{self.event}", shape=circle, style="filled,rounded", fillcolor=yellow]\n'
 
     def get_task_count(self) -> int:
         root = self.get_root()

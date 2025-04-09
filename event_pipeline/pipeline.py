@@ -467,16 +467,13 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
         from event_pipeline.translator.dot import generate_dot_from_task_state
 
         if graphviz is None:
+            logger.warning("Graphviz library is not available")
             return
-        # tree = self.get_pipeline_tree()
-        # if tree:
-        #     data = tree.return_graphviz_data()
-        import pdb
 
-        pdb.set_trace()
         data = generate_dot_from_task_state(self._state.start)
-        src = graphviz.Source(data, directory=directory)
-        src.render(format="png", outfile=f"{self.__class__.__name__}.png")
+        if data:
+            src = graphviz.Source(data, directory=directory)
+            src.render(format="png", outfile=f"{self.__class__.__name__}.png")
 
     @classmethod
     def load_class_by_id(cls, pk: str):

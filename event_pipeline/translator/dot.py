@@ -7,14 +7,16 @@ except ImportError:
     from io import StringIO
 
 
-def process_parallel_nodes(parallel_nodes, nodes_list):
+def process_parallel_nodes(
+    parallel_nodes: typing.Deque[PipelineTask], nodes_list: typing.List[str]
+) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
     """Process a group of parallel execution nodes and return node ID"""
     if not parallel_nodes:
         return None, None
 
-    node_id = "-".join([n.event for n in parallel_nodes])
+    node_id = parallel_nodes[0].id
     node_label = "{" + "|".join([n.event for n in parallel_nodes]) + "}"
-    node_text = f'\t"{node_id}" [label="{node_label}", shape=record, style=filled, fillcolor=lightblue]\n'
+    node_text = f'\t"{node_id}" [label="{node_label}", shape=record, style="filled,rounded", fillcolor=lightblue]\n'
 
     if node_text not in nodes_list:
         nodes_list.append(node_text)
@@ -26,15 +28,16 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
     root = task_state.get_root()
     nodes = []
     edges = []
-    # parallel_execution_nodes_queue = deque()
+
     f = StringIO()
+
     f.write("digraph G {\n")
-    f.write("\tnode [fontname=Helvetica, fontsize=11];\n")
-    f.write("\tedge [fontname=Helvetica, fontsize=10];\n")
+    f.write("\tnode [fontname=Helvetica, fontsize=11]\n")
+    f.write("\tedge [fontname=Helvetica, fontsize=10]\n")
+
     iterator = task_state.bf_traversal(root)
 
     while True:
-        # import pdb;pdb.set_trace()
         try:
             node: PipelineTask = next(iterator)
         except StopIteration:
@@ -53,7 +56,7 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
             continue
 
         text = node.get_dot_node_data()
-        if text not in nodes:
+        if text and text not in nodes:
             nodes.append(text)
 
         if node.is_parallel_execution_node:
@@ -66,21 +69,19 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
 
             for n in last_node.get_children():
                 edge = (
-                    f'\t"{node_id}" -> "{n.event}" [taillabel="{n._descriptor}"]'
+                    f'\t"{node_id}" -> "{n.id}" [taillabel="{n._descriptor}"]'
                     if n.is_descriptor_task
-                    else f'\t"{node_id}" -> "{n.event}"'
+                    else f'\t"{node_id}" -> "{n.id}"'
                 )
 
                 if edge not in edges:
                     edges.append(edge)
 
             # reset the iterator to point to the last item in the queue
-            # children = last_node.get_children()
-            # if children:
             iterator = task_state.bf_traversal(last_node)
         else:
             for child in node.get_children():
-                edge = f'\t"{node.event}" -> '
+                edge = f'\t"{node.id}" -> '
                 if child.is_parallel_execution_node:
                     parallel_nodes = child.get_parallel_nodes()
                     if not parallel_nodes:
@@ -96,9 +97,9 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
                         else f'"{node_id}"'
                     )
                 elif node.is_descriptor_task:
-                    edge += f'"{child.event}" [taillabel="{child._descriptor}"]'
+                    edge += f'"{child.id}" [taillabel="{child._descriptor}"]'
                 else:
-                    edge += f'"{child.event}"'
+                    edge += f'"{child.id}"'
 
                 if edge not in edges:
                     edges.append(edge)
@@ -109,5 +110,5 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
     for edge in edges:
         f.write(f"{edge}\n")
 
-    f.write("}\n")
+    f.write("}")
     return f.getvalue()
