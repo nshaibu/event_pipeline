@@ -1,14 +1,11 @@
 import typing
 from pydantic_mini import BaseModel
 from event_pipeline.exceptions import ObjectDoesNotExist
+from event_pipeline.backends.connectors.dummy import DummyConnector
 from event_pipeline.backends.store import KeyValueStoreBackendBase
 
 
 _memory = {}
-
-
-class DummyConnector:
-    pass
 
 
 class InMemoryKeyValueStoreBackend(KeyValueStoreBackendBase):
@@ -72,25 +69,14 @@ class InMemoryKeyValueStoreBackend(KeyValueStoreBackendBase):
         record_klass: typing.Type[BaseModel],
         **filter_kwargs,
     ):
-        schema_data = self._cursor[schema_name]
-        if "id" in filter_kwargs:
-            pk = filter_kwargs["id"]
-            try:
-                return [self.load_record(schema_data[pk], record_klass=record_klass)]
-            except KeyError:
-                return []
+        try:
+            schema_data = self._cursor[schema_name]
+        except KeyError:
+            raise ObjectDoesNotExist(f"Schema '{schema_name}' does not exists")
 
-        def match_conditions(result):
-            # TODO: implement filter for nested dict and list
-            return all(
-                [
-                    getattr(result, key, None) == value
-                    for key, value in filter_kwargs.items()
-                    if hasattr(result, key)
-                ]
-            )
+        match_func = self._generate_filter_match(**filter_kwargs)
 
-        return [
-            self.load_record(state, record_klass=record_klass)
-            for state in filter(match_conditions, schema_data.values())
-        ]
+        if schema_data:
+            return [record for record in schema_data.values() if match_func(record)]
+
+        return []

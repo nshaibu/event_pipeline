@@ -77,7 +77,7 @@ class ScheduleMixin:
             )
 
     def schedule_job(self, trigger: ScheduleTrigger, **scheduler_kwargs):
-        sched = _PIPELINE_BACKGROUND_SCHEDULER
+        sched = self.get_pipeline_scheduler()
         _job_op = _PipeLineJob(self, sched)
 
         self._validate_trigger_args(trigger, scheduler_kwargs)

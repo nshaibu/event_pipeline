@@ -15,6 +15,16 @@ class KeyValueStoreBackendBase(abc.ABC):
         self.connector = self.connector_klass(**connector_config)
         self._connector_lock = threading.Lock()
 
+    @staticmethod
+    def _generate_filter_match(**filter_kwargs):
+        def match_record(record):
+            for key, value in filter_kwargs.items():
+                if not hasattr(record, key) or getattr(record, key) != value:
+                    return False
+            return True
+
+        return match_record
+
     def close(self):
         if self.connector:
             self.connector.disconnect()
