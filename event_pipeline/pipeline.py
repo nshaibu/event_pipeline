@@ -247,7 +247,8 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
         if cls.__signature__:
             return cls
 
-        parameters = []
+        positional_args = []
+        keyword_args = []
         for name, instance in cls.get_fields():
             if name:
                 param_args = {
@@ -261,11 +262,17 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
                 }
                 if instance.default is not EMPTY:
                     param_args["default"] = instance.default
+                elif instance.required is False:
+                    param_args["default"] = None
 
                 param = Parameter(**param_args)
-                parameters.append(param)
 
-        cls.__signature__ = Signature(parameters)
+                if param.default is Parameter.empty:
+                    positional_args.append(param)
+                else:
+                    keyword_args.append(param)
+
+        cls.__signature__ = Signature((*positional_args, *keyword_args))
         return cls
 
     def __eq__(self, other):
