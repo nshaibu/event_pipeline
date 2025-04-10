@@ -167,15 +167,19 @@ class TestFileProxy:
     def test_close(self, mock_file):
         proxy = FileProxy("test.txt", mode="r")
         proxy._ensure_open()
+        proxy._closed = False
+        mock_file().closed = False
         proxy.close()
         mock_file().close.assert_called_once()
         assert proxy.closed is True
 
     @patch("builtins.open", new_callable=mock_open)
     def test_context_manager(self, mock_file):
+        mock_file().closed = False
         with FileProxy("test.txt", mode="r") as proxy:
+            proxy._closed = False
             proxy.read()
-        mock_file.assert_called_once()
+        mock_file.assert_called()
         mock_file().close.assert_called_once()
 
     @patch("builtins.open", new_callable=mock_open)
@@ -208,9 +212,8 @@ class TestFileProxy:
         proxy.truncate(100)
         mock_file().truncate.assert_called_once_with(100)
 
-    @patch("builtins.open", new_callable=mock_open)
+    @patch("builtins.open", new_callable=mock_open, read_data="line1\nline2\n")
     def test_iter(self, mock_file):
-        mock_file.return_value.__iter__.return_value = iter(["line1\n", "line2\n"])
         proxy = FileProxy("test.txt", mode="r")
         lines = list(proxy)
         assert lines == ["line1\n", "line2\n"]

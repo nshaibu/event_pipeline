@@ -126,11 +126,9 @@ class FileProxy:
         )
 
     def readline(self, size: int = -1) -> typing.AnyStr:
-        """Read until newline or EOF."""
         return self._ensure_open().readline(size)
 
     def readlines(self, hint: int = -1) -> typing.List[typing.AnyStr]:
-        """Read and return a list of lines."""
         return self._ensure_open().readlines(hint)
 
     def write(self, s: typing.AnyStr) -> int:
