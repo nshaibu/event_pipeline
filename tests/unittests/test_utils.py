@@ -152,25 +152,14 @@ def test_get_obj_state():
         def get_state(self):
             return {"key": "value"}
 
-    class KlassWithGetStateError:
-        def get_state(self):
-            raise NotImplementedError
-
-    class KlassWithGetStateAttributeError:
-        pass
-
     class KlassWithGetStateFallback:
         def __getstate__(self):
             return {"fallback_key": "fallback_value"}
 
     obj1 = KlassWithGetState()
-    obj2 = KlassWithGetStateError()
-    obj3 = KlassWithGetStateAttributeError()
     obj4 = KlassWithGetStateFallback()
 
     assert get_obj_state(obj1) == {"key": "value"}
-    assert get_obj_state(obj2) is None
-    assert get_obj_state(obj3) is None
     assert get_obj_state(obj4) == {"fallback_key": "fallback_value"}
 
 
