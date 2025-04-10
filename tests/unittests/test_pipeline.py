@@ -54,7 +54,7 @@ class PipelineTest(unittest.TestCase):
         pipe = self.pipeline_klass(name="name", csv_file="tests/unittests/test_task.py")
         self.assertIsNotNone(pipe.csv_file)
 
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             self.pipeline_klass(name="name", csv_file="none.file")
 
         with pytest.raises(TypeError):
