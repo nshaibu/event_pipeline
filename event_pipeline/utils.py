@@ -9,13 +9,14 @@ try:
 except ImportError:
     # No windows support for this lib
     resource = None
+
 from inspect import signature, Parameter, isgeneratorfunction, isgenerator
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
-from treelib.tree import Tree
+
 from .exceptions import ImproperlyConfigured
 from .constants import EMPTY, BATCH_PROCESSOR_TYPE
 
@@ -48,54 +49,6 @@ def _extend_recursion_depth(limit: int = 1048576):
         logger.error(f"Extending system recursive depth failed. {str(e)}")
         return e
     return limit
-
-
-class GraphTree(Tree):
-
-    def return_graphviz_data(
-        self,
-        shape="circle",
-        graph="digraph",
-        t_filter=None,
-        key=None,
-        reverse=False,
-        sorting=True,
-    ) -> str:
-        """Exports the tree in the dot format of the graphviz software"""
-        nodes, connections = [], []
-        if self.nodes:
-            for n in self.expand_tree(
-                mode=self.WIDTH,
-                filter=t_filter,
-                key=key,
-                reverse=reverse,
-                sorting=sorting,
-            ):
-                nid = self[n].identifier
-                state = '"{0}" [label="{1}", shape={2}]'.format(nid, self[n].tag, shape)
-                nodes.append(state)
-
-                for c in self.children(nid):
-                    cid = c.identifier
-                    edge = "->" if graph == "digraph" else "--"
-                    connections.append(('"{0}" ' + edge + ' "{1}"').format(nid, cid))
-
-        # write nodes and connections to dot format
-        f = StringIO()
-
-        f.write(graph + " tree {\n")
-        for n in nodes:
-            f.write("\t" + n + "\n")
-
-        if len(connections) > 0:
-            f.write("\n")
-
-        for c in connections:
-            f.write("\t" + c + "\n")
-
-        f.write("}")
-
-        return f.getvalue()
 
 
 def generate_unique_id(obj: object):
@@ -224,33 +177,6 @@ def validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE) -> bool:
         raise ImproperlyConfigured("Batch processor error") from e
 
 
-class FakeLock:
-    def __init__(self):
-        pass
-
-    def acquire(self, block=True, timeout=-1):
-        """Simulate acquiring the lock (actually calling threading lock)."""
-        pass
-
-    def release(self):
-        """Simulate releasing the lock (actually calling threading lock)."""
-        pass
-
-    def __getstate__(self):
-        """Return the state for pickling (lock itself is not picklable, so we skip it)."""
-        return {}
-
-    def __setstate__(self, state):
-        """Restores the lock state (since we're simulating, no need to restore anything)."""
-        pass
-
-    def __enter__(self):
-        return self.acquire()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return self.release()
-
-
 def get_expected_args(
     func: typing.Callable, include_type: bool = False
 ) -> typing.Dict[str, typing.Any]:
@@ -288,4 +214,4 @@ def get_obj_state(obj: typing.Any) -> typing.Dict[str, typing.Any]:
 
 
 def get_obj_klass_import_str(obj: typing.Any) -> str:
-    return f"{obj.__module__}.{obj.__qualname__}"
+    return f"{obj.__class__.__module__}.{obj.__class__.__qualname__}"

@@ -14,8 +14,11 @@ class RedisConnector(BackendConnectorBase):
         return self._cursor
 
     def disconnect(self):
-        self._cursor.close()
-        self._cursor = None
+        if self._cursor:
+            self._cursor.close()
+            self._cursor = None
 
     def is_connected(self):
-        return self._cursor is None or self.cursor.ping()
+        if self.cursor is not None:
+            return self.cursor.ping()
+        return False

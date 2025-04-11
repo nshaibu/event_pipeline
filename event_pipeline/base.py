@@ -460,6 +460,9 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             execute_on_event_method (bool, optional): If True, processes the result via
                 success/failure handlers; otherwise, wraps it in `EventResult`.
         """
+        if not isinstance(descriptor, int):
+            raise ValueError("descriptor must be an integer")
+
         if execute_on_event_method:
             if result_status:
                 res = self.on_success(result)

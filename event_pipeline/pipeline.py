@@ -12,6 +12,7 @@ from concurrent.futures import ProcessPoolExecutor, Future, CancelledError
 from collections import OrderedDict, ChainMap, deque
 from functools import lru_cache
 from inspect import Signature, Parameter
+from treelib.tree import Tree
 
 try:
     import graphviz
@@ -35,7 +36,6 @@ from .constants import (
     EMPTY,
     BATCH_PROCESSOR_TYPE,
 )
-from .utils import GraphTree
 from .exceptions import (
     ImproperlyConfigured,
     BadPipelineError,
@@ -398,7 +398,7 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
             if not field.has_batch_operation:
                 yield name, field
 
-    def get_pipeline_tree(self) -> GraphTree:
+    def get_pipeline_tree(self) -> Tree:
         """
         Constructs and returns the pipeline's execution tree.
 
@@ -417,7 +417,7 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
         """
         state: PipelineTask = self._state.start
         if state:
-            tree = GraphTree()
+            tree = Tree()
             for node in state.bf_traversal(state):
                 tag = ""
                 if node.is_conditional:
