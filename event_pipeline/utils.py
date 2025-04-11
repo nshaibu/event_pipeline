@@ -9,6 +9,7 @@ try:
 except ImportError:
     # No windows support for this lib
     resource = None
+
 from inspect import signature, Parameter, isgeneratorfunction, isgenerator
 
 try:
@@ -213,4 +214,4 @@ def get_obj_state(obj: typing.Any) -> typing.Dict[str, typing.Any]:
 
 
 def get_obj_klass_import_str(obj: typing.Any) -> str:
-    return f"{obj.__module__}.{obj.__class__.__qualname__}"
+    return f"{obj.__class__.__module__}.{obj.__class__.__qualname__}"
