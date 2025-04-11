@@ -148,7 +148,7 @@ class EntityContentType:
         return f"<EntityContentType: backend={self.backend_import_str}, type={self.entity_content_type}>"
 
 
-class ResultSet(MutableSet[Result]):
+class ResultSet(MutableSet):
     """A collection of Result objects with filtering and query capabilities."""
 
     def __init__(self, results: typing.List[Result]) -> None:
