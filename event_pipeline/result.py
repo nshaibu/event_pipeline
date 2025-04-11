@@ -151,6 +151,21 @@ class EntityContentType:
 class ResultSet(MutableSet):
     """A collection of Result objects with filtering and query capabilities."""
 
+    # Dictionary of filter operators and their implementation
+    _FILTER_OPERATORS = {
+        "contains",
+        "startswith",
+        "endswith",
+        "icontains",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "in",
+        "exact",
+        "isnull",
+    }
+
     def __init__(self, results: typing.List[Result]) -> None:
         self._content: typing.Dict[str, Result] = {}
         self._context_types: typing.Set[EntityContentType] = set()
@@ -230,30 +245,6 @@ class ResultSet(MutableSet):
             raise MultiValueError(f"More than one result found: {len(qs)}!=1")
         return qs[0]
 
-    # def filter(self, **filter_params) -> "ResultSet":
-    #     """Filter results by attribute values."""
-    #     # Fast path for ID lookups
-    #     if "id" in filter_params:
-    #         pk = filter_params["id"]
-    #         try:
-    #             return ResultSet([self._content[pk]])
-    #         except KeyError:
-    #             return ResultSet([])
-    #
-    #     def match_conditions(result: Result) -> bool:
-    #         """
-    #         Check if a result matches all filter conditions.
-    #         TODO: Implement filtering for nested dict and list
-    #         """
-    #         return all(
-    #             getattr(result, key, None) == value
-    #             for key, value in filter_params.items()
-    #             if hasattr(result, key)
-    #         )
-    #
-    #     filtered_results = list(filter(match_conditions, self._content.values()))
-    #     return ResultSet(filtered_results)
-
     def filter(self, **filter_params) -> "ResultSet":
         """
         Filter results by attribute values with support for nested fields.
@@ -330,21 +321,6 @@ class ResultSet(MutableSet):
                     return False
 
         return True
-
-    # Dictionary of filter operators and their implementation
-    _FILTER_OPERATORS = {
-        "contains",
-        "startswith",
-        "endswith",
-        "icontains",
-        "gt",
-        "gte",
-        "lt",
-        "lte",
-        "in",
-        "exact",
-        "isnull",
-    }
 
     def _get_field_value(
         self, obj: typing.Any, field_path: typing.List[str]
