@@ -1,5 +1,5 @@
 import typing
-from ..utils import generate_unique_id
+from event_pipeline.utils import generate_unique_id, get_obj_klass_import_str
 
 
 class ObjectIdentityMixin:
@@ -13,7 +13,7 @@ class ObjectIdentityMixin:
 
     @property
     def __object_import_str__(self):
-        return f"{self.__class__.__module__}.{self.__class__.__name__}"
+        return get_obj_klass_import_str(self)
 
     def get_state(self) -> typing.Dict[str, typing.Any]:
         raise NotImplementedError()

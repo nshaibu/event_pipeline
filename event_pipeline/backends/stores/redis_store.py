@@ -13,16 +13,6 @@ class RedisStoreBackend(KeyValueStoreBackendBase):
         if not self.connector.is_connected():
             raise ConnectionError("Redis is not connected.")
 
-    @staticmethod
-    def _generate_filter_match(**filter_kwargs):
-        def match_record(record):
-            for key, value in filter_kwargs.items():
-                if not hasattr(record, key) or getattr(record, key) != value:
-                    return False
-            return True
-
-        return match_record
-
     def exists(self, schema_name: str, record_key: str) -> bool:
         self._check_connection()
         return self.connector.cursor.hexists(schema_name, record_key)

@@ -6,6 +6,8 @@ from event_pipeline.utils import (
     build_event_arguments_from_pipeline,
     _extend_recursion_depth,
     get_expected_args,
+    get_obj_state,
+    get_obj_klass_import_str,
 )
 
 
@@ -143,3 +145,27 @@ def test_get_get_expected_args():
         "event": inspect.Parameter.empty,
         "_complex": inspect.Parameter.empty,
     }
+
+
+def test_get_obj_state():
+    class KlassWithGetState:
+        def get_state(self):
+            return {"key": "value"}
+
+    class KlassWithGetStateFallback:
+        def __getstate__(self):
+            return {"fallback_key": "fallback_value"}
+
+    obj1 = KlassWithGetState()
+    obj4 = KlassWithGetStateFallback()
+
+    assert get_obj_state(obj1) == {"key": "value"}
+    assert get_obj_state(obj4) == {"fallback_key": "fallback_value"}
+
+
+def test_get_obj_klass_import_str():
+    class Klass:
+        pass
+
+    obj = Klass()
+    assert get_obj_klass_import_str(obj) == f"{obj.__module__}.{Klass.__qualname__}"
