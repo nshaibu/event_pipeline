@@ -378,13 +378,11 @@ class ResultSet(MutableSet):
     ) -> bool:
         """
         Apply a filter operator to a field.
-
         Args:
             obj: The object to check
             field_path: Path to the field (as string with __ separators)
             operator: The operator to apply
             filter_value: Value to compare against
-
         Returns:
             True if the condition is met, False otherwise
         """
@@ -396,7 +394,6 @@ class ResultSet(MutableSet):
 
         # Apply the appropriate operator
         if operator == "contains":
-            # Check if actual_value contains filter_value
             if hasattr(actual_value, "__contains__"):
                 return filter_value in actual_value
             return False
