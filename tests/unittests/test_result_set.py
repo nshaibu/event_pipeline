@@ -17,7 +17,10 @@ class MockResult:
 @pytest.fixture
 def mock_results():
     return [
-        MockResult(id="1", content={"name": "Alice", "age": 30, "tags": ["urgent", "important"]}),
+        MockResult(
+            id="1",
+            content={"name": "Alice", "age": 30, "tags": ["urgent", "important"]},
+        ),
         MockResult(id="2", content={"name": "Bob", "age": 25, "tags": ["important"]}),
         MockResult(id="3", content={"name": "Charlie", "age": 35, "tags": ["urgent"]}),
     ]
@@ -64,7 +67,9 @@ def test_result_set_get_no_match(result_set):
 
 
 def test_result_set_get_multiple_matches(result_set):
-    result_set.add(MockResult(id="4", content={"name":"Alice", "age": 30, "tags": ["important"]}))
+    result_set.add(
+        MockResult(id="4", content={"name": "Alice", "age": 30, "tags": ["important"]})
+    )
     with pytest.raises(MultiValueError):
         result_set.get(content__name="Alice")
 
@@ -113,14 +118,22 @@ def test_result_set_discard_invalid_type(result_set):
 
 
 def test_entity_content_type_equality():
-    entity1 = EntityContentType(backend_import_str="backend1", entity_content_type="type1")
-    entity2 = EntityContentType(backend_import_str="backend1", entity_content_type="type1")
-    entity3 = EntityContentType(backend_import_str="backend2", entity_content_type="type2")
+    entity1 = EntityContentType(
+        backend_import_str="backend1", entity_content_type="type1"
+    )
+    entity2 = EntityContentType(
+        backend_import_str="backend1", entity_content_type="type1"
+    )
+    entity3 = EntityContentType(
+        backend_import_str="backend2", entity_content_type="type2"
+    )
 
     assert entity1 == entity2
     assert entity1 != entity3
 
 
 def test_entity_content_type_hash():
-    entity = EntityContentType(backend_import_str="backend1", entity_content_type="type1")
+    entity = EntityContentType(
+        backend_import_str="backend1", entity_content_type="type1"
+    )
     assert hash(entity) == hash(("backend1", "type1"))
