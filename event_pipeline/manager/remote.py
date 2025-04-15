@@ -8,6 +8,7 @@ import inspect
 import typing
 import pickle
 import logging
+import multiprocessing as mp
 from pathlib import Path
 from importlib import import_module
 from multiprocessing.reduction import ForkingPickler
@@ -67,7 +68,7 @@ class RemoteTaskManager(BaseManager):
         self._sock: typing.Optional[socket.socket] = None
         # self._process_context = mp.get_context("spawn")
         # self._process_pool = ProcessPoolExecutor(mp_context=self._process_context)
-        self._process_pool = ThreadPoolExecutor(max_workers=1)
+        self._thread_pool = ThreadPoolExecutor(max_workers=4)
 
     def __enter__(self) -> "RemoteTaskManager":
         return self
@@ -227,7 +228,7 @@ class RemoteTaskManager(BaseManager):
             while not self._shutdown:
                 try:
                     client_sock, client_addr = self._sock.accept()
-                    self._process_pool.submit(
+                    self._thread_pool.submit(
                         self._handle_client, client_sock, client_addr
                     )
                 except socket.timeout:
@@ -258,10 +259,10 @@ class RemoteTaskManager(BaseManager):
             except Exception as e:
                 logger.error(f"Error closing server socket: {str(e)}", exc_info=e)
 
-        if self._process_pool:
+        if self._thread_pool:
             try:
-                self._process_pool.shutdown(wait=True)
+                self._thread_pool.shutdown(wait=True)
             except Exception as e:
-                logger.error(f"Error shutting down process pool: {str(e)}", exc_info=e)
+                logger.error(f"Error shutting down thread pool: {str(e)}", exc_info=e)
 
         logger.info("Task manager shutdown complete")

@@ -146,11 +146,15 @@ class RemoteExecutor(Executor):
             logger.error(f"Error executing remote task: {str(e)}")
             raise
 
+    def task_queue(self) -> queue.Queue:
+        """Separated for easy mocking"""
+        return self._tasks
+
     def _process_queue(self):
         """Process tasks from the queue"""
         while not self._shutdown:
             try:
-                task_id, future, task_message = self._tasks.get(timeout=0.1)
+                task_id, future, task_message = self.task_queue().get(timeout=0.1)
                 if not future.set_running_or_notify_cancel():
                     continue
 
