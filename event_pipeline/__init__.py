@@ -20,6 +20,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __version__ = "1.1.dev6"
+__author__ = "nshaibu <nafiushaibu1@gmail.com>"
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 from .base import (
     EventBase,

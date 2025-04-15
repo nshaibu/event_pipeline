@@ -291,13 +291,10 @@ class HadoopConnector:
     def get_job_status(self, job_id: str) -> str:
         """
         Get status of a submitted job.
-
         Args:
             job_id: Job identifier returned by submit_job.
-
         Returns:
             str: One of PENDING, RUNNING, FINISHED, CANCELLED, CANCELLED_AND_NOTIFIED.
-
         Raises:
             KeyError: If job_id is not found.
         """
@@ -695,4 +692,3 @@ class HadoopExecutor(Executor):
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.shutdown(wait=True)
-

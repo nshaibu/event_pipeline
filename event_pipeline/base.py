@@ -56,11 +56,11 @@ class ExecutorInitializerConfig(object):
     thread_name_prefix: typing.Union[str, EMPTY] = EMPTY
     host: typing.Union[str, EMPTY] = EMPTY
     port: typing.Union[int, EMPTY] = EMPTY
-    timeout: typing.Union[int, EMPTY] = (DEFAULT_TIMEOUT,)
-    use_encryption: bool = (True,)
-    client_cert_path: typing.Optional[str] = (None,)
-    client_key_path: typing.Optional[str] = (None,)
-    ca_cert_path: typing.Optional[str] = (None,)
+    timeout: typing.Union[int, EMPTY] = 30  # "DEFAULT_TIMEOUT"
+    use_encryption: bool = False
+    client_cert_path: typing.Optional[str] = None
+    client_key_path: typing.Optional[str] = None
+    ca_cert_path: typing.Optional[str] = None
 
 
 @dataclass

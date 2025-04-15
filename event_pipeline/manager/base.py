@@ -9,7 +9,6 @@ class BaseManager(ABC):
     def __init__(self, host, port):
         self._host = host
         self._port = port
-        self._sock = None
 
     def __repr__(self):
         return f"{self.__class__.__name__}(host={self._host}, port={self._port})"

@@ -24,3 +24,9 @@ BATCH_PROCESSOR_TYPE = typing.Callable[
     ],
     typing.Union[typing.Iterator[typing.Any], typing.Generator],
 ]
+
+
+DEFAULT_CONNECTION_TIMEOUT = 30  # seconds
+CHUNK_SIZE = 4096
+CONNECTION_BACKLOG_SIZE = 5
+QUEUE_SIZE = 1000

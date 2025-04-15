@@ -1,6 +1,7 @@
-from .broadcast import BroadcastPipeline
+#
+import broadcast
 
-p = BroadcastPipeline(name="obrafour")
+p = broadcast.BroadcastPipeline(name="obrafour")
 p.start(force_rerun=True)
-p.draw_ascii_graph()
-p.draw_graphviz_image()
+# p.draw_ascii_graph()
+# p.draw_graphviz_image()

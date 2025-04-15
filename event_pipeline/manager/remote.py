@@ -1,19 +1,33 @@
 import socket
+import types
+import zlib
 import ssl
+import sys
+import os
+import inspect
+import typing
 import pickle
 import logging
-import typing
-import concurrent.futures
+from types import TracebackType
+from pathlib import Path
+from importlib import import_module
+from multiprocessing.reduction import ForkingPickler
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from typing import Optional, Tuple, Type
 from .base import BaseManager
+from event_pipeline import EventBase
+from event_pipeline.conf import ConfigLoader
 
 logger = logging.getLogger(__name__)
 
-
-# Constants for remote execution
 DEFAULT_TIMEOUT = 30  # seconds
 CHUNK_SIZE = 4096
 BACKLOG_SIZE = 5
 QUEUE_SIZE = 1000
+
+CONF = ConfigLoader.get_lazily_loaded_config()
+
+PROJECT_ROOT = CONF.PROJECT_ROOT_DIR
 
 
 class RemoteTaskManager(BaseManager):
@@ -26,10 +40,11 @@ class RemoteTaskManager(BaseManager):
         self,
         host: str,
         port: int,
-        cert_path: typing.Optional[str] = None,
-        key_path: typing.Optional[str] = None,
-        ca_certs_path: typing.Optional[str] = None,
+        cert_path: Optional[str] = None,
+        key_path: Optional[str] = None,
+        ca_certs_path: Optional[str] = None,
         require_client_cert: bool = False,
+        socket_timeout: float = DEFAULT_TIMEOUT,
     ):
         """
         Initialize the task manager.
@@ -41,52 +56,157 @@ class RemoteTaskManager(BaseManager):
             key_path: Path to server private key file
             ca_certs_path: Path to CA certificates for client verification
             require_client_cert: Whether to require client certificates
+            socket_timeout: Socket timeout in seconds
         """
         super().__init__(host=host, port=port)
         self._cert_path = cert_path
         self._key_path = key_path
         self._ca_certs_path = ca_certs_path
         self._require_client_cert = require_client_cert
+        self._socket_timeout = socket_timeout
 
         self._shutdown = False
-        self._process_pool = concurrent.futures.ProcessPoolExecutor()
+        self._sock: Optional[socket.socket] = None
+        # self._process_context = mp.get_context("spawn")
+        # self._process_pool = ProcessPoolExecutor(mp_context=self._process_context)
+        self._process_pool = ThreadPoolExecutor(max_workers=1)
+
+    def __enter__(self) -> "RemoteTaskManager":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.shutdown()
+
+    @classmethod
+    def auto_load_all_task_modules(cls):
+        """
+        Auto-discover and load all modules containing event classes that inherit from EventBase.
+        Searches through the project directory for Python modules and registers event classes.
+        """
+        project_root = PROJECT_ROOT
+        logger.info(f"Searching for event modules in: {project_root}")
+
+        discovered_events: typing.Set[Type] = set()
+
+        def is_event_class(obj: Type) -> bool:
+            """Check if an object is a class inheriting from EventBase"""
+            return (
+                inspect.isclass(obj)
+                and hasattr(obj, "__module__")
+                and EventBase in [base for base in inspect.getmro(obj)[1:]]
+            )
+
+        def explore_module(module_name: str) -> None:
+            """Explore a module for event classes"""
+            try:
+                module = import_module(module_name)
+                for name, obj in inspect.getmembers(module):
+                    if is_event_class(obj):
+                        discovered_events.add(obj)
+                        logger.debug(
+                            f"Discovered event class: {obj.__module__}.{obj.__name__}"
+                        )
+            except Exception as e:
+                logger.warning(f"Failed to load module {module_name}: {e}")
+
+        # Walk through all Python packages in the project
+        for root, dirs, files in os.walk(str(project_root)):
+            # Skip __pycache__ and virtual environment directories
+            dirs[:] = [d for d in dirs if not d.startswith(("__", "."))]
+
+            if "__init__.py" in files:
+                # Calculate the module path relative to project root
+                rel_path = Path(root).relative_to(project_root)
+                module_path = str(rel_path).replace(os.sep, ".")
+                if module_path:
+                    explore_module(module_path)
+
+        # Register discovered event modules
+        for event_class in discovered_events:
+            module = sys.modules.get(event_class.__module__)
+            if module:
+                cls.register_task_module(event_class.__module__, module)
+                logger.info(f"Registered event module: {event_class.__module__}")
+
+        logger.info(f"Discovered {len(discovered_events)} event classes")
+
+    @staticmethod
+    def register_task_module(module_name: str, module: types.ModuleType) -> None:
+        """
+        Register a module containing event classes for task execution.
+
+        Args:
+            module_name: The fully qualified module name
+            module: The module object to register
+        """
+        if module_name not in sys.modules:
+            sys.modules[module_name] = module
+            logger.debug(f"Registered module in sys.modules: {module_name}")
 
     def _create_server_socket(self) -> socket.socket:
-        """Create and configure the server socket"""
+        """Create and configure the server socket with proper timeout and SSL if enabled"""
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.settimeout(self._socket_timeout)
 
         if not (self._cert_path and self._key_path):
             return sock
 
-        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        context.load_cert_chain(certfile=self._cert_path, keyfile=self._key_path)
-
-        if self._ca_certs_path:
-            context.load_verify_locations(self._ca_certs_path)
-            if self._require_client_cert:
-                context.verify_mode = ssl.CERT_REQUIRED
-
-        return context.wrap_socket(sock, server_side=True)
-
-    def _handle_client(self, client_sock: socket.socket, client_addr: tuple):
-        """Handle a client connection"""
         try:
+            context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            context.load_cert_chain(certfile=self._cert_path, keyfile=self._key_path)
+
+            if self._ca_certs_path:
+                context.load_verify_locations(self._ca_certs_path)
+                if self._require_client_cert:
+                    context.verify_mode = ssl.CERT_REQUIRED
+
+            return context.wrap_socket(sock, server_side=True)
+        except (ssl.SSLError, OSError) as e:
+            logger.error(f"Failed to create SSL context: {str(e)}", exc_info=e)
+            raise
+
+    def _handle_client(
+        self, client_sock: socket.socket, client_addr: Tuple[str, int]
+    ) -> None:
+        """Handle a client connection with proper error handling and logging"""
+        client_info = f"{client_addr[0]}:{client_addr[1]}"
+        logger.info(f"New client connection from {client_info}")
+
+        try:
+            client_sock.settimeout(self._socket_timeout)
+
             # Receive task message
             msg_size = int.from_bytes(client_sock.recv(8), "big")
-            msg_data = b""
+            # if msg_size > QUEUE_SIZE * CHUNK_SIZE:  # Basic size validation
+            #     raise ValueError(f"Message size too large: {msg_size}")
+
+            msg_data = bytearray()
             while len(msg_data) < msg_size:
                 chunk = client_sock.recv(min(CHUNK_SIZE, msg_size - len(msg_data)))
                 if not chunk:
-                    return
-                msg_data += chunk
+                    raise ConnectionError("Connection closed while receiving data")
+                msg_data.extend(chunk)
 
-            task_message = pickle.loads(msg_data)
+            try:
+                decompressed_data = zlib.decompress(msg_data)
+                task_message = ForkingPickler.loads(decompressed_data)
+            except (zlib.error, pickle.UnpicklingError) as e:
+                raise ValueError(f"Invalid task data received: {str(e)}")
 
             # Execute task
             try:
                 result = task_message.fn(*task_message.args, **task_message.kwargs)
             except Exception as e:
+                logger.error(
+                    f"Task execution failed for client {client_info}: {str(e)}",
+                    exc_info=e,
+                )
                 result = e
 
             # Send result back
@@ -94,15 +214,19 @@ class RemoteTaskManager(BaseManager):
             client_sock.sendall(len(result_data).to_bytes(8, "big"))
             client_sock.sendall(result_data)
 
+            logger.info(f"Successfully completed task for client {client_info}")
+
         except Exception as e:
-            logger.error(f"Error handling client {client_addr}: {str(e)}", exc_info=e)
+            logger.error(f"Error handling client {client_info}: {str(e)}", exc_info=e)
         finally:
             try:
                 client_sock.close()
-            except:
+                logger.debug(f"Closed connection from {client_info}")
+            except Exception:
                 pass
 
-    def start(self):
+    def start(self) -> None:
+        """Start the task manager with proper error handling"""
         try:
             self._sock = self._create_server_socket()
             self._sock.bind((self._host, self._port))
@@ -116,19 +240,44 @@ class RemoteTaskManager(BaseManager):
                     self._process_pool.submit(
                         self._handle_client, client_sock, client_addr
                     )
+                    # client_sock.close()
                 except socket.timeout:
-                    continue
+                    logger.warning(
+                        "Connection timed out. Listening on %s:%d",
+                        self._host,
+                        self._port,
+                    )
+                    continue  # Allow checking shutdown flag
+                except Exception as e:
+                    if not self._shutdown:
+                        logger.error(
+                            f"Error accepting client connection: {str(e)}", exc_info=e
+                        )
 
         except Exception as e:
-            logger.error(f"Error in task manager: {str(e)}", exc_info=e)
+            logger.error(f"Fatal error in task manager: {str(e)}", exc_info=e)
+            raise
         finally:
             self.shutdown()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
+        """Gracefully shutdown the task manager"""
+        if self._shutdown:
+            return
+
         self._shutdown = True
+        logger.info("Shutting down task manager...")
+
         if self._sock:
             try:
                 self._sock.close()
-            except:
-                pass
-        self._process_pool.shutdown()
+            except Exception as e:
+                logger.error(f"Error closing server socket: {str(e)}", exc_info=e)
+
+        if self._process_pool:
+            try:
+                self._process_pool.shutdown(wait=True)
+            except Exception as e:
+                logger.error(f"Error shutting down process pool: {str(e)}", exc_info=e)
+
+        logger.info("Task manager shutdown complete")

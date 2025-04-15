@@ -6,16 +6,21 @@ import typing
 import concurrent.futures
 import threading
 import queue
+import zlib
 import time
+from io import BytesIO
 from concurrent.futures import Executor
 from dataclasses import dataclass
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.exceptions import InvalidKey
+from multiprocessing.reduction import ForkingPickler
+
+# from pathlib import Path
+# from multiprocessing.reduction import ForkingPickler
+# from cryptography.hazmat.primitives import hashes, serialization
+# from cryptography.hazmat.primitives.asymmetric import padding, rsa
+# from cryptography.exceptions import InvalidKey
 
 logger = logging.getLogger(__name__)
 
-# Constants for remote execution
 DEFAULT_TIMEOUT = 30  # seconds
 CHUNK_SIZE = 4096
 BACKLOG_SIZE = 5
@@ -44,8 +49,9 @@ class RemoteExecutor(Executor):
         self,
         host: str,
         port: int,
+        *,
         timeout: int = DEFAULT_TIMEOUT,
-        use_encryption: bool = True,
+        use_encryption: bool = False,
         client_cert_path: typing.Optional[str] = None,
         client_key_path: typing.Optional[str] = None,
         ca_cert_path: typing.Optional[str] = None,
@@ -99,23 +105,56 @@ class RemoteExecutor(Executor):
 
         return context.wrap_socket(sock, server_hostname=self._host)
 
+    @staticmethod
+    def _send_task_in_chunks(
+        client_socket: socket.socket, task_message: TaskMessage
+    ) -> int:
+        data = ForkingPickler.dumps(task_message, protocol=pickle.HIGHEST_PROTOCOL)
+        compressed_data = zlib.compress(data)
+        data_size = len(compressed_data)
+        client_socket.sendall(data_size.to_bytes(8, "big"))
+
+        stream_fd = BytesIO(compressed_data)
+
+        sent = 0
+        while sent < data_size:
+            chunk = stream_fd.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            client_socket.sendall(chunk)
+            sent += len(chunk)
+
+        return sent
+
+    @staticmethod
+    def _receive_result_in_chunks(client_socket: socket.socket) -> bytes:
+        result_size = int.from_bytes(client_socket.recv(8), "big")
+        result_data = b""
+        while len(result_data) < result_size:
+            chunk = client_socket.recv(min(CHUNK_SIZE, result_size - len(result_data)))
+            if not chunk:
+                raise ConnectionError("Connection closed by server")
+            result_data += chunk
+        return result_data
+
     def _send_task(self, task_message: TaskMessage) -> typing.Any:
         """Send a task to the remote server and get the result"""
         try:
             with self._create_secure_connection() as sock:
-                # Serialize and send task
-                data = pickle.dumps(task_message)
-                sock.sendall(len(data).to_bytes(8, "big"))
-                sock.sendall(data)
+                now = time.time()
+                data_size = self._send_task_in_chunks(sock, task_message)
+
+                logger.debug(
+                    f"Successfully sent {data_size} bytes to {self._host}:{self._port} "
+                    f"and it took {time.time() - now:.2f} seconds"
+                )
 
                 # Receive result
-                result_size = int.from_bytes(sock.recv(8), "big")
-                result_data = b""
-                while len(result_data) < result_size:
-                    chunk = sock.recv(min(CHUNK_SIZE, result_size - len(result_data)))
-                    if not chunk:
-                        raise ConnectionError("Connection closed by server")
-                    result_data += chunk
+                result_data = self._receive_result_in_chunks(sock)
+
+                logger.debug(
+                    f"Receive {len(result_data)} bytes from {self._host}:{self._port}"
+                )
 
                 result = pickle.loads(result_data)
                 if isinstance(result, Exception):
@@ -144,8 +183,11 @@ class RemoteExecutor(Executor):
                 continue
             except Exception as e:
                 logger.error(f"Error in task processing thread: {str(e)}")
+                raise
 
-    def submit(self, fn: typing.Callable, *args, **kwargs) -> concurrent.futures.Future:
+    def submit(
+        self, fn: typing.Callable, /, *args, **kwargs
+    ) -> concurrent.futures.Future:
         """Submit a task for execution on the remote server"""
         if self._shutdown:
             raise RuntimeError("Executor has been shutdown")

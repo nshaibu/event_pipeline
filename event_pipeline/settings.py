@@ -1,3 +1,7 @@
+from pathlib import Path
+
+PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent
+
 MAX_EVENT_RETRIES = 5
 MAX_EVENT_BACKOFF_FACTOR = 0.05
 MAX_EVENT_BACKOFF = 100

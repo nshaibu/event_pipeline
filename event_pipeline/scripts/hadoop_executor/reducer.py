@@ -8,8 +8,8 @@ def reduce_collect():
     errors = []
 
     for line in sys.stdin:
-        key, value = line.strip().split('\t', 1)
-        value = pickle.loads(value.encode('utf-8'))
+        key, value = line.strip().split("\t", 1)
+        value = pickle.loads(value.encode("utf-8"))
 
         if key == "result":
             results.append(value)
@@ -29,4 +29,3 @@ def reduce_collect():
 
 if __name__ == "__main__":
     reduce_collect()
-

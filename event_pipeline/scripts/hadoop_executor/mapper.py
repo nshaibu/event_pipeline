@@ -8,7 +8,7 @@ def map_execute():
     try:
         # Load the job information from HDFS
         job_path = sys.argv[1]
-        with open(job_path, 'rb') as f:
+        with open(job_path, "rb") as f:
             fn, args, kwargs = pickle.load(f)
 
         # Execute the function
@@ -20,10 +20,7 @@ def map_execute():
 
     except Exception as e:
         print("error\t", end="")
-        error_info = {
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
+        error_info = {"error": str(e), "traceback": traceback.format_exc()}
         sys.stdout.buffer.write(pickle.dumps(error_info))
 
 
