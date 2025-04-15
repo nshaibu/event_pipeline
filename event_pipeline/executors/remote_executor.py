@@ -12,6 +12,7 @@ from io import BytesIO
 from concurrent.futures import Executor
 from dataclasses import dataclass
 from multiprocessing.reduction import ForkingPickler
+from event_pipeline.conf import ConfigLoader
 
 # from pathlib import Path
 # from multiprocessing.reduction import ForkingPickler
@@ -21,10 +22,12 @@ from multiprocessing.reduction import ForkingPickler
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT = 30  # seconds
-CHUNK_SIZE = 4096
-BACKLOG_SIZE = 5
-QUEUE_SIZE = 1000
+CONF = ConfigLoader.get_lazily_loaded_config()
+
+DEFAULT_TIMEOUT = CONF.DEFAULT_CONNECTION_TIMEOUT
+CHUNK_SIZE = CONF.DATA_CHUNK_SIZE
+BACKLOG_SIZE = CONF.CONNECTION_BACKLOG_SIZE
+QUEUE_SIZE = CONF.DATA_QUEUE_SIZE
 
 
 @dataclass

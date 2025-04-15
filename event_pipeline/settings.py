@@ -19,3 +19,8 @@ RESULT_BACKEND_CONFIG = {
     # "CONNECTION_TIMEOUT": 30,  # Seconds to wait for connection acquisition
     # "IDLE_TIMEOUT": 300,  # Seconds before closing idle connections
 }
+
+DEFAULT_CONNECTION_TIMEOUT = 30  # seconds
+DATA_CHUNK_SIZE = 4096
+CONNECTION_BACKLOG_SIZE = 5
+DATA_QUEUE_SIZE = 1000
