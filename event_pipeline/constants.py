@@ -24,4 +24,3 @@ BATCH_PROCESSOR_TYPE = typing.Callable[
     ],
     typing.Union[typing.Iterator[typing.Any], typing.Generator],
 ]
-

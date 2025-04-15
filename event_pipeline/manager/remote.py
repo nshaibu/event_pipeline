@@ -8,12 +8,10 @@ import inspect
 import typing
 import pickle
 import logging
-from types import TracebackType
 from pathlib import Path
 from importlib import import_module
 from multiprocessing.reduction import ForkingPickler
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from typing import Optional, Tuple, Type
 from .base import BaseManager
 from event_pipeline import EventBase
 from event_pipeline.conf import ConfigLoader
@@ -21,7 +19,6 @@ from event_pipeline.conf import ConfigLoader
 logger = logging.getLogger(__name__)
 
 CONF = ConfigLoader.get_lazily_loaded_config()
-
 
 DEFAULT_TIMEOUT = CONF.DEFAULT_CONNECTION_TIMEOUT
 CHUNK_SIZE = CONF.DATA_CHUNK_SIZE
@@ -40,9 +37,9 @@ class RemoteTaskManager(BaseManager):
         self,
         host: str,
         port: int,
-        cert_path: Optional[str] = None,
-        key_path: Optional[str] = None,
-        ca_certs_path: Optional[str] = None,
+        cert_path: typing.Optional[str] = None,
+        key_path: typing.Optional[str] = None,
+        ca_certs_path: typing.Optional[str] = None,
         require_client_cert: bool = False,
         socket_timeout: float = DEFAULT_TIMEOUT,
     ):
@@ -74,12 +71,7 @@ class RemoteTaskManager(BaseManager):
     def __enter__(self) -> "RemoteTaskManager":
         return self
 
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
-    ) -> None:
+    def __exit__(self, *args, **kwargs) -> None:
         self.shutdown()
 
     @classmethod
@@ -91,9 +83,9 @@ class RemoteTaskManager(BaseManager):
         project_root = PROJECT_ROOT
         logger.info(f"Searching for event modules in: {project_root}")
 
-        discovered_events: typing.Set[Type] = set()
+        discovered_events: typing.Set[typing.Type] = set()
 
-        def is_event_class(obj: Type) -> bool:
+        def is_event_class(obj: typing.Type) -> bool:
             """Check if an object is a class inheriting from EventBase"""
             return (
                 inspect.isclass(obj)
@@ -172,7 +164,7 @@ class RemoteTaskManager(BaseManager):
             raise
 
     def _handle_client(
-        self, client_sock: socket.socket, client_addr: Tuple[str, int]
+        self, client_sock: socket.socket, client_addr: typing.Tuple[str, int]
     ) -> None:
         """Handle a client connection with proper error handling and logging"""
         client_info = f"{client_addr[0]}:{client_addr[1]}"
