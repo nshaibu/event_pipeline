@@ -3,6 +3,10 @@ import logging
 import time
 import uuid
 import sys
+import socket
+import pickle
+import zlib
+from io import BytesIO
 
 try:
     import resource
@@ -10,6 +14,7 @@ except ImportError:
     # No windows support for this lib
     resource = None
 
+from multiprocessing.reduction import ForkingPickler
 from inspect import signature, Parameter, isgeneratorfunction, isgenerator
 
 try:
@@ -215,3 +220,86 @@ def get_obj_state(obj: typing.Any) -> typing.Dict[str, typing.Any]:
 
 def get_obj_klass_import_str(obj: typing.Any) -> str:
     return f"{obj.__class__.__module__}.{obj.__class__.__qualname__}"
+
+
+def send_data_over_socket(
+    sock: socket.socket,
+    data: typing.Any,
+    chunk_size: typing.Optional[int] = None,
+) -> int:
+    """
+    Send data over a socket connection in chunks.
+
+    This function splits the given data into smaller chunks of the specified
+    size and sends them over the provided client socket. It ensures that
+    large data is sent efficiently without overwhelming the network connection.
+    Args:
+        sock (socket.socket): The socket object representing the
+                                       active connection to the client.
+        data (Any): The data to be sent over the socket. It could be of any
+                    type, and should be pickleable.
+        chunk_size (int): The maximum size (in bytes) for each chunk of data
+                          to be sent in one transmission.
+    Returns:
+        int: The total number of bytes successfully sent across the socket.
+    Raises:
+        socket.error: If there is an error while sending data through the socket.
+        TypeError: If the data provided is not serializable or the chunk_size
+                   is non-positive.
+    """
+    now = time.time()
+    data = ForkingPickler.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
+    compressed_data = zlib.compress(data)
+    data_size = len(compressed_data)
+    sock.sendall(data_size.to_bytes(8, "big"))
+
+    stream_fd = BytesIO(compressed_data)
+    sent = 0
+
+    if chunk_size is None:
+        chunk = stream_fd.getvalue()
+        sent = data_size
+        sock.sendall(chunk)
+    else:
+        chunk_size = abs(chunk_size)
+        while sent < data_size:
+            chunk = stream_fd.read(chunk_size)
+            if not chunk:
+                break
+            sock.sendall(chunk)
+            sent += len(chunk)
+
+    logger.debug(
+        f"Successfully sent {data_size} bytes to {sock.getpeername()[0]} at {now} "
+        f"and it took {time.time() - now:.2f} seconds"
+    )
+
+    return sent
+
+
+def receive_data_from_socket(sock: socket.socket, chunk_size: int) -> bytes:
+    """
+    Receive data from a socket in chunks.
+    Args:
+        sock (socket.socket): The socket object from which data is to be
+                               received. It must represent an active
+                               connection.
+        chunk_size (int): The size (in bytes) of each chunk to read at a time.
+                          This allows for efficient handling of large data
+                          transmissions.
+    Returns:
+        bytes: The complete data received from the socket, concatenated into
+               a single bytes object.
+    Raises:
+        socket.error: If there is an error while receiving data from the socket.
+        ValueError: If the received data is incomplete or the chunk size is
+                    non-positive.
+    """
+    result_size = int.from_bytes(sock.recv(8), "big")
+    result_data = b""
+    while len(result_data) < result_size:
+        chunk = sock.recv(min(chunk_size, result_size - len(result_data)))
+        if not chunk:
+            break
+        result_data += chunk
+    return result_data

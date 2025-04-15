@@ -15,6 +15,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from .base import BaseManager
 from event_pipeline import EventBase
 from event_pipeline.conf import ConfigLoader
+from event_pipeline.utils import send_data_over_socket, receive_data_from_socket
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class RemoteTaskManager(BaseManager):
         self._socket_timeout = socket_timeout
 
         self._shutdown = False
-        self._sock: Optional[socket.socket] = None
+        self._sock: typing.Optional[socket.socket] = None
         # self._process_context = mp.get_context("spawn")
         # self._process_pool = ProcessPoolExecutor(mp_context=self._process_context)
         self._process_pool = ThreadPoolExecutor(max_workers=1)
@@ -166,45 +167,42 @@ class RemoteTaskManager(BaseManager):
     def _handle_client(
         self, client_sock: socket.socket, client_addr: typing.Tuple[str, int]
     ) -> None:
-        """Handle a client connection with proper error handling and logging"""
+        """Handle a client connection"""
         client_info = f"{client_addr[0]}:{client_addr[1]}"
         logger.info(f"New client connection from {client_info}")
 
         try:
             client_sock.settimeout(self._socket_timeout)
+            exception = None
 
             # Receive task message
-            msg_size = int.from_bytes(client_sock.recv(8), "big")
-            # if msg_size > QUEUE_SIZE * CHUNK_SIZE:  # Basic size validation
-            #     raise ValueError(f"Message size too large: {msg_size}")
-
-            msg_data = bytearray()
-            while len(msg_data) < msg_size:
-                chunk = client_sock.recv(min(CHUNK_SIZE, msg_size - len(msg_data)))
-                if not chunk:
-                    raise ConnectionError("Connection closed while receiving data")
-                msg_data.extend(chunk)
-
             try:
+                msg_data = receive_data_from_socket(client_sock, chunk_size=CHUNK_SIZE)
+
                 decompressed_data = zlib.decompress(msg_data)
                 task_message = ForkingPickler.loads(decompressed_data)
             except (zlib.error, pickle.UnpicklingError) as e:
-                raise ValueError(f"Invalid task data received: {str(e)}")
+                logger.error(f"Failed to decompress message: {str(e)}", exc_info=e)
+                exception = ValueError(f"Invalid task data received: {str(e)}")
+            except ModuleNotFoundError as e:
+                logger.error(f"Failed to decompress task data: {str(e)}", exc_info=e)
+                exception = e
 
             # Execute task
-            try:
-                result = task_message.fn(*task_message.args, **task_message.kwargs)
-            except Exception as e:
-                logger.error(
-                    f"Task execution failed for client {client_info}: {str(e)}",
-                    exc_info=e,
-                )
-                result = e
+            if exception is None:
+                try:
+                    result = task_message.fn(*task_message.args, **task_message.kwargs)
+                except Exception as e:
+                    logger.error(
+                        f"Task execution failed for client {client_info}: {str(e)}",
+                        exc_info=e,
+                    )
+                    result = e
+            else:
+                result = exception
 
             # Send result back
-            result_data = pickle.dumps(result)
-            client_sock.sendall(len(result_data).to_bytes(8, "big"))
-            client_sock.sendall(result_data)
+            send_data_over_socket(client_sock, result, chunk_size=CHUNK_SIZE)
 
             logger.info(f"Successfully completed task for client {client_info}")
 
@@ -232,13 +230,7 @@ class RemoteTaskManager(BaseManager):
                     self._process_pool.submit(
                         self._handle_client, client_sock, client_addr
                     )
-                    # client_sock.close()
                 except socket.timeout:
-                    logger.warning(
-                        "Connection timed out. Listening on %s:%d",
-                        self._host,
-                        self._port,
-                    )
                     continue  # Allow checking shutdown flag
                 except Exception as e:
                     if not self._shutdown:

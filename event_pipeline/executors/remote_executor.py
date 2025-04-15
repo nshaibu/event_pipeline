@@ -7,12 +7,11 @@ import concurrent.futures
 import threading
 import queue
 import zlib
-import time
-from io import BytesIO
 from concurrent.futures import Executor
 from dataclasses import dataclass
 from multiprocessing.reduction import ForkingPickler
 from event_pipeline.conf import ConfigLoader
+from event_pipeline.utils import send_data_over_socket, receive_data_from_socket
 
 # from pathlib import Path
 # from multiprocessing.reduction import ForkingPickler
@@ -108,62 +107,41 @@ class RemoteExecutor(Executor):
 
         return context.wrap_socket(sock, server_hostname=self._host)
 
-    @staticmethod
-    def _send_task_in_chunks(
-        client_socket: socket.socket, task_message: TaskMessage
-    ) -> int:
-        data = ForkingPickler.dumps(task_message, protocol=pickle.HIGHEST_PROTOCOL)
-        compressed_data = zlib.compress(data)
-        data_size = len(compressed_data)
-        client_socket.sendall(data_size.to_bytes(8, "big"))
-
-        stream_fd = BytesIO(compressed_data)
-
-        sent = 0
-        while sent < data_size:
-            chunk = stream_fd.read(CHUNK_SIZE)
-            if not chunk:
-                break
-            client_socket.sendall(chunk)
-            sent += len(chunk)
-
-        return sent
-
-    @staticmethod
-    def _receive_result_in_chunks(client_socket: socket.socket) -> bytes:
-        result_size = int.from_bytes(client_socket.recv(8), "big")
-        result_data = b""
-        while len(result_data) < result_size:
-            chunk = client_socket.recv(min(CHUNK_SIZE, result_size - len(result_data)))
-            if not chunk:
-                raise ConnectionError("Connection closed by server")
-            result_data += chunk
-        return result_data
-
     def _send_task(self, task_message: TaskMessage) -> typing.Any:
         """Send a task to the remote server and get the result"""
         try:
             with self._create_secure_connection() as sock:
-                now = time.time()
-                data_size = self._send_task_in_chunks(sock, task_message)
-
-                logger.debug(
-                    f"Successfully sent {data_size} bytes to {self._host}:{self._port} "
-                    f"and it took {time.time() - now:.2f} seconds"
+                data_size = send_data_over_socket(
+                    sock, task_message, chunk_size=CHUNK_SIZE
                 )
 
+                if data_size <= 0:
+                    # raise exception
+                    pass
+
                 # Receive result
-                result_data = self._receive_result_in_chunks(sock)
+                result_data = receive_data_from_socket(sock, chunk_size=CHUNK_SIZE)
 
                 logger.debug(
                     f"Receive {len(result_data)} bytes from {self._host}:{self._port}"
                 )
 
-                result = pickle.loads(result_data)
+                try:
+                    decompressed_data = zlib.decompress(result_data)
+                    result = ForkingPickler.loads(decompressed_data)
+                except (zlib.error, pickle.UnpicklingError) as e:
+                    logger.error(f"Failed to decompress message: {str(e)}", exc_info=e)
+                    result = ValueError(f"Invalid task result data received: {str(e)}")
+                except ModuleNotFoundError as e:
+                    logger.error(
+                        f"Failed to decompress task result data: {str(e)}", exc_info=e
+                    )
+                    result = e
+
                 if isinstance(result, Exception):
                     raise result
-                return result
 
+                return result
         except Exception as e:
             logger.error(f"Error executing remote task: {str(e)}")
             raise
@@ -212,7 +190,7 @@ class RemoteExecutor(Executor):
 
         return future
 
-    def shutdown(self, wait: bool = True):
+    def shutdown(self, wait: bool = True, cancel_futures: bool = False):
         """Shutdown the executor"""
         self._shutdown = True
         if wait:
