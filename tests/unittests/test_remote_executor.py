@@ -26,9 +26,6 @@ class TestRemoteExecutor(unittest.TestCase):
         cls.client_key = os.path.join(cls.cert_dir, "client.key")
         cls.ca_cert = os.path.join(cls.cert_dir, "ca.crt")
 
-        # Generate test certificates here...
-        # In real tests, you would use OpenSSL to generate these
-
     def setUp(self):
         self.host = "localhost"
         self.port = 12345
