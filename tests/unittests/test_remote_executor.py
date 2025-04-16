@@ -1,26 +1,27 @@
 import unittest
-from unittest.mock import patch, Mock, MagicMock
-import socket
-import queue
-import threading
-import zlib
-import pickle
-from concurrent.futures import Future
-from event_pipeline.executors.remote_executor import RemoteExecutor, TaskMessage
-
-import unittest
 import socket
 import threading
 import tempfile
 import os
+import zlib
+import pickle
 from unittest.mock import Mock, patch
+from concurrent.futures import Future
 from event_pipeline.manager.remote import RemoteTaskManager
-# from event_pipeline.executors.remote_executor import (
-#     RemoteExecutor,
-#     TaskMessage,
-# )
-#
-#
+from event_pipeline.executors.remote_executor import RemoteExecutor, TaskMessage
+
+
+class MockContextManager:
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        return
+
 
 def dummy_task(x, y):
     return x + y
@@ -103,7 +104,6 @@ class TestRemoteExecutorWithSSL(unittest.TestCase):
         executor.shutdown()
 
     def test_multiple_task_submission(self):
-        import pdb;pdb.set_trace()
         executor = RemoteExecutor(
             host=self.host,
             port=self.port,
@@ -186,22 +186,6 @@ class TestRemoteTaskManager(unittest.TestCase):
         server_thread.join(timeout=1)
         self.assertTrue(manager._shutdown)
         mock_socket.return_value.close.assert_called()
-
-
-def dummy_task(x, y):
-    return x + y
-
-
-class MockContextManager:
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        return
 
 
 class TestRemoteExecutor(unittest.TestCase):
