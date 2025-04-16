@@ -9,6 +9,7 @@ from concurrent.futures import Executor, ProcessPoolExecutor
 from .result import EventResult, ResultSet
 from .constants import EMPTY, MAX_RETRIES, MAX_BACKOFF, MAX_BACKOFF_FACTOR
 from .executors.default_executor import DefaultExecutor
+from .executors.remote_executor import RemoteExecutor
 from .utils import get_function_call_args
 from .conf import ConfigLoader
 from .exceptions import StopProcessingError, MaxRetryError, SwitchTask
@@ -53,6 +54,13 @@ class ExecutorInitializerConfig(object):
     max_workers: typing.Union[int, EMPTY] = EMPTY
     max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY
     thread_name_prefix: typing.Union[str, EMPTY] = EMPTY
+    host: typing.Union[str, EMPTY] = EMPTY
+    port: typing.Union[int, EMPTY] = EMPTY
+    timeout: typing.Union[int, EMPTY] = 30  # "DEFAULT_TIMEOUT"
+    use_encryption: bool = False
+    client_cert_path: typing.Optional[str] = None
+    client_key_path: typing.Optional[str] = None
+    ca_cert_path: typing.Optional[str] = None
 
 
 @dataclass
@@ -225,7 +233,11 @@ class _ExecutorInitializerMixin(object):
         return self.executor_config
 
     def is_multiprocessing_executor(self):
-        return self.get_executor_class() == ProcessPoolExecutor
+        """Check if using multiprocessing or remote executor"""
+        return (
+            self.get_executor_class() == ProcessPoolExecutor
+            or self.get_executor_class() == RemoteExecutor
+        )
 
     def get_executor_context(self) -> typing.Dict[str, typing.Any]:
         """
