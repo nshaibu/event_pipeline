@@ -1,15 +1,12 @@
 import unittest
 import socket
 import threading
-import tempfile
+import pytest
 import os
 import zlib
 import pickle
 from unittest.mock import Mock, patch
 from concurrent.futures import Future
-
-import pytest
-
 from event_pipeline.manager.remote import RemoteTaskManager
 from event_pipeline.executors.remote_executor import RemoteExecutor, TaskMessage
 
@@ -37,11 +34,21 @@ class TestRemoteExecutorWithSSL(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.cert_dir = BASE_DIR
-        cls.server_cert = os.path.join(cls.cert_dir, "event_pipeline/scripts/certificates/server.crt")
-        cls.server_key = os.path.join(cls.cert_dir, "event_pipeline/scripts/certificates/server.key")
-        cls.client_cert = os.path.join(cls.cert_dir, "event_pipeline/scripts/certificates/client.crt")
-        cls.client_key = os.path.join(cls.cert_dir, "event_pipeline/scripts/certificates/client.key")
-        cls.ca_cert = os.path.join(cls.cert_dir, "event_pipeline/scripts/certificates/ca.crt")
+        cls.server_cert = os.path.join(
+            cls.cert_dir, "event_pipeline/scripts/certificates/server.crt"
+        )
+        cls.server_key = os.path.join(
+            cls.cert_dir, "event_pipeline/scripts/certificates/server.key"
+        )
+        cls.client_cert = os.path.join(
+            cls.cert_dir, "event_pipeline/scripts/certificates/client.crt"
+        )
+        cls.client_key = os.path.join(
+            cls.cert_dir, "event_pipeline/scripts/certificates/client.key"
+        )
+        cls.ca_cert = os.path.join(
+            cls.cert_dir, "event_pipeline/scripts/certificates/ca.crt"
+        )
 
     def setUp(self):
         self.host = "localhost"
