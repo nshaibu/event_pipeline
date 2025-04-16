@@ -887,5 +887,5 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
         return pipeline, exception
 
     def __del__(self):
-        if self._monitor_thread:
+        if hasattr(self, "_monitor_thread") and self._monitor_thread:
             self._monitor_thread.join()

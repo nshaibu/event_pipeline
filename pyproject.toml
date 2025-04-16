@@ -77,7 +77,8 @@ concurrency=["multiprocessing"]
 source=["event_pipeline"]
 omit = [
     "event_pipeline/parser/*",
-    "tests/*"
+    "tests/*",
+    "event_pipeline/scripts/*"
 ]
 data_file=".coverage"
 
