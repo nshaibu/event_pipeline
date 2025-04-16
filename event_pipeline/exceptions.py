@@ -30,11 +30,11 @@ class TaskError(PipelineError):
     pass
 
 
-class EventDoesNotExist(ValueError, PipelineError):
+class EventDoesNotExist(PipelineError, ValueError):
     pass
 
 
-class StateError(ValueError, PipelineError):
+class StateError(PipelineError, ValueError):
     pass
 
 
