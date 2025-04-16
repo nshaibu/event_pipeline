@@ -116,6 +116,54 @@ class PipelineTest(unittest.TestCase):
         self.assertIsNotNone(loaded_pipe)
         self.assertEqual(loaded_pipe.get_cache_key(), cache_key)
 
+    def test_pipeline_equality(self):
+        pipe1 = self.pipeline_klass(name="test1")
+        pipe2 = self.pipeline_klass(name="test1")
+        pipe3 = self.pipeline_klass(name="test2")
+
+        self.assertEqual(pipe1, pipe1)
+        self.assertNotEqual(pipe1, pipe2)  # Different IDs
+        self.assertNotEqual(pipe1, pipe3)
+        self.assertNotEqual(pipe1, "not a pipeline")
+
+    def test_pipeline_hash(self):
+        pipe = self.pipeline_klass(name="test")
+        try:
+            hash(pipe)
+        except Exception as e:
+            self.fail(f"Pipeline hash raised an exception: {e}")
+
+    def test_pipeline_state_persistence(self):
+        pipe = self.pipeline_klass(name="test")
+        state = pipe.__getstate__()
+        pipe.__setstate__(state)
+
+        self.assertIsNotNone(pipe._state)
+        self.assertIsNotNone(pipe._state.pipeline_cache)
+
+    def test_pipeline_rerun(self):
+        pipe = self.pipeline_klass(name="test")
+        pipe.start()
+
+        with pytest.raises(EventDone):
+            pipe.start()  # Should raise without force_rerun
+
+        try:
+            pipe.start(force_rerun=True)  # Should work with force_rerun
+        except EventDone:
+            self.fail("Pipeline start with force_rerun raised EventDone!")
+
+    def test_pipeline_get_non_batch_fields(self):
+        fields = list(self.pipeline_klass.get_non_batch_fields())
+        self.assertTrue(len(fields) > 0)
+        self.assertTrue(all(isinstance(f[1], InputDataField) for f in fields))
+
+    def test_get_first_error_execution_node(self):
+        pipe = self.pipeline_klass(name="test")
+        pipe.start()
+        error_node = pipe.get_first_error_execution_node()
+        self.assertIsNone(error_node)  # No errors in normal execution
+
     @classmethod
     def tearDownClass(cls):
         del cls.M
