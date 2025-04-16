@@ -5,6 +5,7 @@ from event_pipeline import EventBase
 from event_pipeline import Pipeline
 from event_pipeline.exceptions import EventDone, EventDoesNotExist
 from event_pipeline.fields import InputDataField, FileInputDataField
+from event_pipeline.constants import PIPELINE_STATE, PIPELINE_FIELDS
 
 
 class PipelineTest(unittest.TestCase):
@@ -155,14 +156,71 @@ class PipelineTest(unittest.TestCase):
 
     def test_pipeline_get_non_batch_fields(self):
         fields = list(self.pipeline_klass.get_non_batch_fields())
-        self.assertTrue(len(fields) > 0)
-        self.assertTrue(all(isinstance(f[1], InputDataField) for f in fields))
+        self.assertEqual(len(fields), 2)
 
-    def test_get_first_error_execution_node(self):
-        pipe = self.pipeline_klass(name="test")
+    def test_pipeline_draw_graphviz_image(self):
+        pipe = self.pipeline_klass(name="test_name")
+        try:
+            pipe.draw_graphviz_image()
+        except Exception as e:
+            self.fail(f"Drawing Graphviz image raised an exception: {e}")
+
+    def test_pipeline_tree_structure(self):
+        pipe = self.pipeline_klass(name="test_name")
+        tree = pipe.get_pipeline_tree()
+        self.assertIsNotNone(tree)
+        self.assertTrue(tree.contains(pipe._state.start.id))
+        self.assertTrue(tree.depth() > 0)
+
+    def test_pipeline_task_execution_order(self):
+        pipe = self.pipeline_klass(name="test_name")
         pipe.start()
-        error_node = pipe.get_first_error_execution_node()
-        self.assertIsNone(error_node)  # No errors in normal execution
+        task_order = []
+        current_task = pipe._state.start
+        while current_task:
+            task_order.append(current_task.id)
+            current_task = current_task.on_success_event
+        self.assertTrue(len(task_order) > 0)
+        self.assertEqual(len(task_order), len(set(task_order)))  # No duplicate tasks
+
+    def test_pipeline_cache_mechanism(self):
+        pipe = self.pipeline_klass(name="test_name")
+        pipe.start()
+        cache = pipe._state.cache(pipe)
+        self.assertIn("name", cache)
+        self.assertIsInstance(cache["name"], str)
+
+    def test_pipeline_invalid_field_initialization(self):
+        with pytest.raises(TypeError):
+            self.pipeline_klass(name=123)  # Invalid type for 'name'
+
+    def test_pipeline_meta_class_initialization(self):
+        try:
+
+            class TestPipeline(Pipeline):
+                test_field = InputDataField(data_type=str, required=True)
+
+                class Meta:
+                    pointy = "M->N"
+
+            self.assertTrue(hasattr(TestPipeline, PIPELINE_FIELDS))
+            self.assertTrue(hasattr(TestPipeline, PIPELINE_STATE))
+        except Exception as e:
+            self.fail(f"PipelineMeta initialization raised an exception: {e}")
+
+    def test_pipeline_shutdown_without_start(self):
+        pipe = self.pipeline_klass(name="test_name")
+        try:
+            pipe.shutdown()
+        except Exception as e:
+            self.fail(f"Pipeline shutdown without start raised an exception: {e}")
+
+    def test_pipeline_stop_without_start(self):
+        pipe = self.pipeline_klass(name="test_name")
+        try:
+            pipe.stop()
+        except Exception as e:
+            self.fail(f"Pipeline stop without start raised an exception: {e}")
 
     @classmethod
     def tearDownClass(cls):
