@@ -159,8 +159,9 @@ class PipelineTest(unittest.TestCase):
         fields = list(self.pipeline_klass.get_non_batch_fields())
         self.assertEqual(len(fields), 2)
 
-    @pytest.mark.skipif(shutil.which("dot") is None,
-                        reason="'dot' command not found in PATH")
+    @pytest.mark.skipif(
+        shutil.which("dot") is None, reason="'dot' command not found in PATH"
+    )
     def test_pipeline_draw_graphviz_image(self):
         pipe = self.pipeline_klass(name="test_name")
         try:
