@@ -8,7 +8,6 @@ import inspect
 import typing
 import pickle
 import logging
-import multiprocessing as mp
 from pathlib import Path
 from importlib import import_module
 from multiprocessing.reduction import ForkingPickler
@@ -16,7 +15,11 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from .base import BaseManager
 from event_pipeline import EventBase
 from event_pipeline.conf import ConfigLoader
-from event_pipeline.utils import send_data_over_socket, receive_data_from_socket
+from event_pipeline.utils import (
+    send_data_over_socket,
+    receive_data_from_socket,
+    create_server_ssl_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,12 +72,6 @@ class RemoteTaskManager(BaseManager):
         # self._process_context = mp.get_context("spawn")
         # self._process_pool = ProcessPoolExecutor(mp_context=self._process_context)
         self._thread_pool = ThreadPoolExecutor(max_workers=4)
-
-    def __enter__(self) -> "RemoteTaskManager":
-        return self
-
-    def __exit__(self, *args, **kwargs) -> None:
-        self.shutdown()
 
     @classmethod
     def auto_load_all_task_modules(cls):
@@ -152,13 +149,12 @@ class RemoteTaskManager(BaseManager):
             return sock
 
         try:
-            context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            context.load_cert_chain(certfile=self._cert_path, keyfile=self._key_path)
-
-            if self._ca_certs_path:
-                context.load_verify_locations(self._ca_certs_path)
-                if self._require_client_cert:
-                    context.verify_mode = ssl.CERT_REQUIRED
+            context = create_server_ssl_context(
+                cert_path=self._cert_path,
+                key_path=self._key_path,
+                ca_certs_path=self._ca_certs_path,
+                require_client_cert=self._require_client_cert,
+            )
 
             return context.wrap_socket(sock, server_side=True)
         except (ssl.SSLError, OSError) as e:

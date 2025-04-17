@@ -5,6 +5,7 @@ import pytest
 import os
 import zlib
 import pickle
+import queue
 from unittest.mock import Mock, patch
 from concurrent.futures import Future
 from event_pipeline.manager.remote import RemoteTaskManager
@@ -303,10 +304,11 @@ class TestRemoteExecutor(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.executor.submit(dummy_task, 1, 2)
 
-    # @patch("event_pipeline.executors.remote_executor.queue.Queue.get")
-    # def test_process_queue_with_empty_queue(self, mock_queue_get):
-    #     mock_queue_get.side_effect = queue.Empty
-    #     self.executor._process_queue()  # Should not raise any exceptions
+    @pytest.mark.skip(reason="Test Hanging")
+    @patch("event_pipeline.executors.remote_executor.queue.Queue.get")
+    def test_process_queue_with_empty_queue(self, mock_queue_get):
+        mock_queue_get.side_effect = queue.Empty
+        self.executor._process_queue()  # Should not raise any exceptions
 
     @patch("event_pipeline.executors.remote_executor.socket.create_connection")
     def test_connection_error_handling(self, mock_create_connection):

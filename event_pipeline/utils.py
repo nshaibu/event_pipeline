@@ -6,6 +6,7 @@ import sys
 import socket
 import pickle
 import zlib
+import ssl
 from io import BytesIO
 
 try:
@@ -303,3 +304,52 @@ def receive_data_from_socket(sock: socket.socket, chunk_size: int) -> bytes:
             break
         result_data += chunk
     return result_data
+
+
+def create_server_ssl_context(
+    cert_path: str, key_path: str, ca_certs_path: str, require_client_cert: bool
+) -> ssl.SSLContext:
+    """
+    Creates and configures an SSLContext object for secure communication.
+    Args:
+        cert_path (str): Path to the server's SSL certificate file.
+        key_path (str): Path to the server's private key file.
+        ca_certs_path (str): Path to the file containing CA certificates for verifying client certificates.
+        require_client_cert (bool): Whether to require clients to present a valid certificate.
+    Returns:
+        ssl.SSLContext: A configured SSL context object ready for use in secure servers or sockets.
+    """
+    try:
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+
+        if ca_certs_path:
+            context.load_verify_locations(ca_certs_path)
+            if require_client_cert:
+                context.verify_mode = ssl.CERT_REQUIRED
+
+        return context
+    except (ssl.SSLError, OSError) as e:
+        logger.error(f"Failed to create SSL context: {str(e)}", exc_info=e)
+        raise
+
+
+def create_client_ssl_context(
+    client_cert_path: str, client_key_path: str, ca_certs_path: str
+) -> ssl.SSLContext:
+    """
+    Creates and configures an SSLContext object for secure communication.
+    :param client_cert_path: Path to the client certificate file.
+    :param client_key_path: Path to the client private key file.
+    :param ca_certs_path: Path to the file containing CA certificates for verifying client certificates.
+    :return: SSLContext object.
+    """
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+
+    if ca_certs_path:
+        context.load_verify_locations(ca_certs_path)
+
+    if client_cert_path and client_key_path:
+        context.load_cert_chain(certfile=client_cert_path, keyfile=client_key_path)
+
+    return context

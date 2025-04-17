@@ -1,0 +1,93 @@
+import unittest
+from unittest.mock import Mock, patch, MagicMock
+import threading
+import xmlrpc.client
+from concurrent.futures import Future
+
+from event_pipeline.base import ExecutorInitializerConfig
+from event_pipeline.executors.rpc_executor import RPCExecutor
+from event_pipeline.manager.rpc_manager import RPCManager
+
+
+def example_task(x: int) -> int:
+    return x * 2
+
+
+class TestRPCImplementation(unittest.TestCase):
+    def setUp(self):
+        self.host = "localhost"
+        self.port = 8000
+        
+        # Start RPC server
+        self.manager = RPCManager(self.host, self.port)
+        self.server_thread = threading.Thread(target=self.manager.start)
+        self.server_thread.daemon = True
+        self.server_thread.start()
+
+        # Create executor
+        config = ExecutorInitializerConfig(
+            host=self.host,
+            port=self.port,
+            max_workers=2
+        )
+        self.executor = RPCExecutor(config)
+
+    def tearDown(self):
+        self.executor.shutdown()
+        self.manager.shutdown()
+        self.server_thread.join(timeout=1)
+
+    def test_function_execution(self):
+        """Test executing a function via RPC"""
+        future = self.executor.submit(example_task, 21)
+        result = future.result(timeout=5)
+        self.assertEqual(result, 42)
+
+    @patch('xmlrpc.client.ServerProxy')
+    def test_rpc_error_handling(self, mock_server):
+        """Test handling of RPC errors"""
+        mock_proxy = Mock()
+        mock_server.return_value = mock_proxy
+        mock_proxy.execute.side_effect = xmlrpc.client.Fault(1, "Test error")
+
+        future = self.executor.submit(example_task, 21)
+        with self.assertRaises(Exception) as ctx:
+            future.result(timeout=5)
+        self.assertIn("RPC error", str(ctx.exception))
+
+    def test_invalid_function(self):
+        """Test handling of invalid function execution"""
+        def bad_task():
+            raise ValueError("Bad task")
+            
+        future = self.executor.submit(bad_task)
+        with self.assertRaises(Exception) as ctx:
+            future.result(timeout=5)
+        self.assertIn("Bad task", str(ctx.exception))
+
+    def test_concurrent_execution(self):
+        """Test concurrent execution of multiple tasks"""
+        futures = [
+            self.executor.submit(example_task, i)
+            for i in range(5)
+        ]
+        results = [f.result(timeout=5) for f in futures]
+        self.assertEqual(results, [0, 2, 4, 6, 8])
+
+    def test_executor_shutdown(self):
+        """Test proper shutdown behavior"""
+        self.executor.shutdown()
+        with self.assertRaises(RuntimeError):
+            self.executor.submit(example_task, 1)
+
+    @patch('xmlrpc.client.ServerProxy')
+    def test_server_connection_error(self, mock_server):
+        """Test handling of server connection errors"""
+        mock_server.side_effect = ConnectionError("Connection failed")
+        
+        config = ExecutorInitializerConfig(
+            host="invalid-host",
+            port=9999
+        )
+        with self.assertRaises(Exception):
+            RPCExecutor(config)

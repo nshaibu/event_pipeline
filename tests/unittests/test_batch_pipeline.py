@@ -1,10 +1,8 @@
+import pytest
 import unittest
 import multiprocessing as mp
 from typing import List, Iterator
 from unittest.mock import Mock, patch
-
-import pytest
-
 from event_pipeline import EventBase
 from event_pipeline.pipeline import BatchPipeline, Pipeline, BatchPipelineStatus
 from event_pipeline.fields import InputDataField
@@ -144,7 +142,7 @@ class TestBatchPipeline(unittest.TestCase):
             batch.execute()
         self.assertEqual(len(batch._configured_pipelines), 0)
 
-    @pytest.mark.skip("Hunging fix it later")
+    @pytest.mark.skip("Hanging fix it later")
     def test_signal_handling(self):
         """Test signal handling during batch processing"""
 

@@ -100,7 +100,7 @@ def test_auto_load_all_task_modules(
     mock_import_module.assert_called()
 
 
-@pytest.mark.skip(reason="Test hunging")
+@pytest.mark.skip(reason="Test hanging")
 @patch("event_pipeline.manager.remote.socket.socket")
 def test_start_and_shutdown(mock_socket, remote_task_manager):
     mock_socket_instance = mock_socket.return_value

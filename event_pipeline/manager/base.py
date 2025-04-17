@@ -26,3 +26,9 @@ class BaseManager(ABC):
 
     def __del__(self):
         self.shutdown()
+
+    def __enter__(self) -> "BaseManager":
+        return self
+
+    def __exit__(self, *args, **kwargs) -> None:
+        self.shutdown()

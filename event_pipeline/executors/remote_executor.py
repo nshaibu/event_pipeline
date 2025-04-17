@@ -11,7 +11,11 @@ from concurrent.futures import Executor
 from dataclasses import dataclass
 from multiprocessing.reduction import ForkingPickler
 from event_pipeline.conf import ConfigLoader
-from event_pipeline.utils import send_data_over_socket, receive_data_from_socket
+from event_pipeline.utils import (
+    send_data_over_socket,
+    receive_data_from_socket,
+    create_client_ssl_context,
+)
 
 # from pathlib import Path
 # from multiprocessing.reduction import ForkingPickler
@@ -95,15 +99,11 @@ class RemoteExecutor(Executor):
         if not self._use_encryption:
             return sock
 
-        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-
-        if self._ca_cert_path:
-            context.load_verify_locations(self._ca_cert_path)
-
-        if self._client_cert_path and self._client_key_path:
-            context.load_cert_chain(
-                certfile=self._client_cert_path, keyfile=self._client_key_path
-            )
+        context = create_client_ssl_context(
+            client_cert_path=self._client_cert_path,
+            client_key_path=self._client_key_path,
+            ca_certs_path=self._ca_cert_path,
+        )
 
         return context.wrap_socket(sock, server_hostname=self._host)
 
@@ -116,7 +116,7 @@ class RemoteExecutor(Executor):
                 )
 
                 if data_size <= 0:
-                    # raise exception
+                    # TODO: raise exception
                     pass
 
                 # Receive result
