@@ -1,12 +1,8 @@
+import pytest
 import unittest
 from unittest.mock import Mock, patch, MagicMock
 import threading
 import xmlrpc.client
-from concurrent.futures import Future
-
-import pytest
-
-from event_pipeline.base import ExecutorInitializerConfig
 from event_pipeline.executors.rpc_executor import XMLRPCExecutor
 from event_pipeline.manager.rpc_manager import XMLRPCManager
 
