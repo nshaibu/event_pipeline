@@ -9,6 +9,6 @@ from examples import broadcast
 #     manager.register_task_module("broadcast", broadcast); manager.start()
 
 
-with XMLRPCManager("localhost", port=8990) as manager:
-    manager.start()
+# with XMLRPCManager("localhost", port=8990) as manager:
+#     manager.start()
 

@@ -8,7 +8,7 @@ import pickle
 import queue
 from unittest.mock import Mock, patch
 from concurrent.futures import Future
-from event_pipeline.manager.remote import RemoteTaskManager
+from event_pipeline.manager.remote_manager import RemoteTaskManager
 from event_pipeline.executors.remote_executor import RemoteExecutor, TaskMessage
 
 

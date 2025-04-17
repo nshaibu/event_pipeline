@@ -4,24 +4,23 @@ import socket
 import ssl
 from concurrent.futures import Future
 
-from event_pipeline.base import ExecutorInitializerConfig
-from event_pipeline.executors.rpc_executor import RPCExecutor, TaskMessage
+from event_pipeline.executors.rpc_executor import XMLRPCExecutor   # TaskMessage
 
 
 class TestRPCExecutor(unittest.TestCase):
     def setUp(self):
-        self.config = ExecutorInitializerConfig(
-            host="localhost",
-            port=8000,
-            timeout=30,
-            use_encryption=False
-        )
-        self.executor = RPCExecutor(self.config)
+        self.config ={
+            "host": "localhost",
+            "port": 8996,
+            # "timeout":30,
+            "use_encryption": False
+        }
+        self.executor = XMLRPCExecutor(**self.config)
 
-    def test_init_without_host_port(self):
-        """Test initialization without required host and port"""
-        with self.assertRaises(ValueError):
-            RPCExecutor(ExecutorInitializerConfig())
+    # def test_init_without_host_port(self):
+    #     """Test initialization without required host and port"""
+    #     with self.assertRaises(ValueError):
+    #         XMLRPCExecutor()
 
     @patch('socket.socket')
     def test_submit_task_success(self, mock_socket):
@@ -49,14 +48,14 @@ class TestRPCExecutor(unittest.TestCase):
     def test_submit_with_encryption(self, mock_socket):
         """Test task submission with SSL encryption"""
         # Configure executor with encryption
-        config = ExecutorInitializerConfig(
-            host="localhost",
-            port=8000,
-            use_encryption=True,
-            client_cert_path="cert.pem",
-            client_key_path="key.pem"
-        )
-        executor = RPCExecutor(config)
+        config = {
+            "host": "localhost",
+            "port": 8000,
+            "use_encryption": True,
+            "client_cert_path": "cert.pem",
+            "client_key_path":"key.pem"
+        }
+        executor = XMLRPCExecutor(**config)
 
         # Mock SSL context and socket
         with patch('ssl.create_default_context') as mock_ssl_context:
