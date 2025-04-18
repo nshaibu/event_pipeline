@@ -3,6 +3,7 @@ import zlib
 import cloudpickle
 from event_pipeline.executors.message import TaskMessage
 
+
 def test_task_message_serialization_and_deserialization():
     # Create a sample TaskMessage object
     task_message = TaskMessage(
