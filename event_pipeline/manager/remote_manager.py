@@ -106,8 +106,6 @@ class RemoteTaskManager(BaseManager):
             try:
                 msg_data = receive_data_from_socket(client_sock, chunk_size=CHUNK_SIZE)
 
-                # decompressed_data = zlib.decompress(msg_data)
-                # task_message = ForkingPickler.loads(decompressed_data)
                 task_message, is_task_message = TaskMessage.deserialize(msg_data)
                 if not is_task_message:
                     logger.error(
