@@ -6,6 +6,7 @@ from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from .base import BaseManager
 from event_pipeline.utils import create_server_ssl_context
+from event_pipeline.executors.message import TaskMessage
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,9 @@ class XMLRPCManager(BaseManager):
                     require_client_cert=self._require_client_cert,
                 )
 
-                self._server.socket = context.wrap_socket(sock=self._server.socket, server_side=True)
+                self._server.socket = context.wrap_socket(
+                    sock=self._server.socket, server_side=True
+                )
 
             # Register functions
             self._server.register_function(self.execute, "execute")
@@ -73,31 +76,25 @@ class XMLRPCManager(BaseManager):
             logger.error(f"Error starting RPC server: {e}")
             raise
 
-    def execute(self, name: str, source: str, args: tuple, kwargs: dict):
+    def execute(self, name: str, message: bytes) -> typing.Any:
         """
         Execute a function received via RPC.
 
         Args:
             name: Function name
-            source: Function source code
-            args: Positional arguments
-            kwargs: Keyword arguments
-
+            message: Function pickled body
         Returns:
             Function result or error dict
         """
         try:
-            # Create function from source
-            scope = {}
-            exec(source, scope)
-            fn = scope[name]
+            task_message, _ = TaskMessage.deserialize(message.data)
 
             # Execute function
-            result = fn(*args, **kwargs)
+            result = task_message.fn(*task_message.args, **task_message.kwargs)
             return result
 
         except Exception as e:
-            logger.error(f"Error executing {name}: {e}")
+            logger.error(f"Error executing {name}: {e}", exc_info=e)
             return {"error": str(e)}
 
     def shutdown(self) -> None:

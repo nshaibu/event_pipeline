@@ -9,7 +9,7 @@ class ComputeTask(EventBase):
         "host": "localhost",
         "port": 8990,
         "max_workers": 4,
-        "use_encryption": False  # Set to True for SSL/TLS
+        "use_encryption": False,  # Set to True for SSL/TLS
     }
 
     def process(self, x: int) -> tuple[bool, int]:
@@ -27,7 +27,7 @@ class SecureComputeTask(EventBase):
         "max_workers": 4,
         "use_encryption": True,
         "client_cert_path": "/path/to/client.crt",
-        "client_key_path": "/path/to/client.key"
+        "client_key_path": "/path/to/client.key",
     }
 
     def process(self, data: list) -> tuple[bool, float]:

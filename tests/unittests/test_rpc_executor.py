@@ -6,16 +6,16 @@ from concurrent.futures import Future
 
 import pytest
 
-from event_pipeline.executors.rpc_executor import XMLRPCExecutor   # TaskMessage
+from event_pipeline.executors.rpc_executor import XMLRPCExecutor  # TaskMessage
 
 
 class TestRPCExecutor(unittest.TestCase):
     def setUp(self):
-        self.config ={
+        self.config = {
             "host": "localhost",
             "port": 8996,
             # "timeout":30,
-            "use_encryption": False
+            "use_encryption": False,
         }
         self.executor = XMLRPCExecutor(**self.config)
 
@@ -24,7 +24,7 @@ class TestRPCExecutor(unittest.TestCase):
         with self.assertRaises(TypeError):
             XMLRPCExecutor()
 
-    @patch('socket.socket')
+    @patch("socket.socket")
     def test_submit_task_success(self, mock_socket):
         """Test successful task submission"""
         # Mock socket and response
@@ -32,22 +32,23 @@ class TestRPCExecutor(unittest.TestCase):
         mock_socket.return_value = mock_sock
         mock_sock.recv.side_effect = [
             (20).to_bytes(8, "big"),  # Size
-            b"success_result"  # Result data
+            b"success_result",  # Result data
         ]
 
         # Test function
-        def test_fn(x): return x * 2
+        def test_fn(x):
+            return x * 2
 
         # Submit task
         future = self.executor.submit(test_fn, 10)
-        
+
         # Verify result
         self.assertIsInstance(future, Future)
         self.assertTrue(mock_sock.connect.called)
         self.assertTrue(mock_sock.sendall.called)
 
     @pytest.mark.skip(reason="not implemented")
-    @patch('socket.socket')
+    @patch("socket.socket")
     def test_submit_with_encryption(self, mock_socket):
         """Test task submission with SSL encryption"""
         # Configure executor with encryption
@@ -56,26 +57,26 @@ class TestRPCExecutor(unittest.TestCase):
             "port": 8000,
             "use_encryption": True,
             "client_cert_path": "cert.pem",
-            "client_key_path": "key.pem"
+            "client_key_path": "key.pem",
         }
         executor = XMLRPCExecutor(**config)
 
         # Mock SSL context and socket
-        with patch('ssl.create_default_context') as mock_ssl_context:
+        with patch("ssl.create_default_context") as mock_ssl_context:
             mock_context = Mock()
             mock_ssl_context.return_value = mock_context
-            
+
             # Submit task
-            def test_fn(): pass
+            def test_fn():
+                pass
+
             executor.submit(test_fn)
 
             # Verify SSL setup
             mock_ssl_context.assert_called_once()
-            mock_context.load_cert_chain.assert_called_once_with(
-                "cert.pem", "key.pem"
-            )
+            mock_context.load_cert_chain.assert_called_once_with("cert.pem", "key.pem")
 
-    @patch('socket.socket')
+    @patch("socket.socket")
     def test_submit_task_failure(self, mock_socket):
         """Test handling of task submission failure"""
         # Mock socket to raise exception
@@ -84,9 +85,11 @@ class TestRPCExecutor(unittest.TestCase):
         mock_sock.connect.side_effect = ConnectionError("Connection failed")
 
         # Submit task
-        def test_fn(): pass
+        def test_fn():
+            pass
+
         future = self.executor.submit(test_fn)
-        
+
         # Verify exception is set on future
         self.assertTrue(future.exception())
         self.assertIsInstance(future.exception(), ConnectionError)
@@ -95,23 +98,23 @@ class TestRPCExecutor(unittest.TestCase):
         """Test executor shutdown"""
         self.executor.shutdown()
         self.assertTrue(self.executor._shutdown)
-        
+
         # Verify cannot submit after shutdown
         with self.assertRaises(RuntimeError):
             self.executor.submit(lambda: None)
 
-    @patch('socket.socket')
+    @patch("socket.socket")
     def test_chunked_data_transfer(self, mock_socket):
         """Test large data transfer in chunks"""
         mock_sock = MagicMock()
         mock_socket.return_value = mock_sock
-        
+
         # Mock receiving large data in chunks
         mock_sock.recv.side_effect = [
             (1024).to_bytes(8, "big"),  # Size
             b"chunk1",
             b"chunk2",
-            b"chunk3"
+            b"chunk3",
         ]
 
         # Create large test data
@@ -119,6 +122,6 @@ class TestRPCExecutor(unittest.TestCase):
             return "large_result" * 100
 
         future = self.executor.submit(test_fn)
-        
+
         # Verify multiple recv calls
         self.assertTrue(mock_sock.recv.call_count > 1)

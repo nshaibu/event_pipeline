@@ -71,9 +71,9 @@ def test_create_server_socket_with_ssl(
     assert server_socket == mock_ssl_instance.wrap_socket.return_value
 
 
-@patch("event_pipeline.manager.remote_manager.Path.relative_to")
-@patch("event_pipeline.manager.remote_manager.os.walk")
-@patch("event_pipeline.manager.remote_manager.import_module")
+@patch("event_pipeline.manager.base.Path.relative_to")
+@patch("event_pipeline.manager.base.os.walk")
+@patch("event_pipeline.manager.base.import_module")
 def test_auto_load_all_task_modules(
     mock_import_module, mock_os_walk, mock_relative_path, remote_task_manager
 ):
@@ -87,12 +87,12 @@ def test_auto_load_all_task_modules(
     mock_relative_path.return_value = "root/module"
 
     with patch(
-        "event_pipeline.manager.remote_manager.inspect.getmembers",
+        "event_pipeline.manager.base.inspect.getmembers",
         return_value=[("EventBase", mock_event_class)],
     ):
-        with patch("event_pipeline.manager.remote_manager.inspect.isclass", return_value=True):
+        with patch("event_pipeline.manager.base.inspect.isclass", return_value=True):
             with patch(
-                "event_pipeline.manager.remote_manager.inspect.getmro",
+                "event_pipeline.manager.base.inspect.getmro",
                 return_value=[object, MagicMock()],
             ):
                 remote_task_manager.auto_load_all_task_modules()

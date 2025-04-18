@@ -1,4 +1,4 @@
-osyntax = "proto3";
+syntax = "proto3";
 
 package event_pipeline;
 
@@ -14,8 +14,8 @@ service TaskExecutor {
 // Task execution request
 message TaskRequest {
   string task_id = 1;
-  string function_source = 2;
-  string function_name = 3;
+  bytes fn = 2;
+  string name = 3;
   bytes args = 4;     // Serialized arguments
   bytes kwargs = 5;   // Serialized keyword arguments
 }

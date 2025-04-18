@@ -4,9 +4,9 @@ import typing
 import grpc
 import cloudpickle
 from concurrent import futures
-
 from .base import BaseManager
 from event_pipeline.protos import task_pb2, task_pb2_grpc
+from event_pipeline.executors.message import TaskMessage
 
 logger = logging.getLogger(__name__)
 
@@ -18,24 +18,27 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
         """Execute a task and return the result."""
         try:
             # Create function from source
-            scope = {}
-            exec(request.function_source, scope)
-            fn = scope[request.function_name]
+            # scope = {}
+            # exec(request.function_source, scope)
+            # fn = scope[request.function_name]
 
             # Deserialize arguments
-            args = cloudpickle.loads(request.args)
-            kwargs = cloudpickle.loads(request.kwargs)
+            fn, _ = TaskMessage.deserialize(request.fn)
+            args, _ = TaskMessage.deserialize(request.args)
+            kwargs, _ = TaskMessage.deserialize(request.kwargs)
 
             # Execute function
             result = fn(*args, **kwargs)
 
             # Serialize result
-            serialized_result = cloudpickle.dumps(result)
+            serialized_result = TaskMessage.serialize_object(result)
 
             return task_pb2.TaskResponse(success=True, result=serialized_result)
 
         except Exception as e:
-            logger.error(f"Error executing task {request.task_id}: {str(e)}")
+            logger.error(
+                f"Error executing task {request.task_id}, name: {request.name}: {str(e)}"
+            )
             return task_pb2.TaskResponse(success=False, error=str(e))
 
     def ExecuteStream(self, request, context):
@@ -47,23 +50,31 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
             )
 
             # Create and execute function
-            scope = {}
-            exec(request.function_source, scope)
-            fn = scope[request.function_name]
+            # scope = {}
+            # exec(request.function_source, scope)
+            # fn = scope[request.function_name]
+
+            # Deserialize arguments
+            fn, _ = TaskMessage.deserialize(request.fn)
+            args, _ = TaskMessage.deserialize(request.args)
+            kwargs, _ = TaskMessage.deserialize(request.kwargs)
 
             yield task_pb2.TaskStatus(
                 status=task_pb2.TaskStatus.RUNNING, message="Task started"
             )
 
             # Execute with arguments
-            args = cloudpickle.loads(request.args)
-            kwargs = cloudpickle.loads(request.kwargs)
+            # args = cloudpickle.loads(request.args)
+            # kwargs = cloudpickle.loads(request.kwargs)
             result = fn(*args, **kwargs)
+
+            # Serialize result
+            serialized_result = TaskMessage.serialize_object(result)
 
             # Send completion
             yield task_pb2.TaskStatus(
                 status=task_pb2.TaskStatus.COMPLETED,
-                result=cloudpickle.dumps(result),
+                result=serialized_result,
                 message="Task completed",
             )
 

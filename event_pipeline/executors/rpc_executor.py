@@ -5,8 +5,8 @@ import inspect
 import xmlrpc.client
 from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from threading import Lock
-from dataclasses import dataclass
 from event_pipeline.utils import create_client_ssl_context
+from event_pipeline.executors.message import TaskMessage
 
 logger = logging.getLogger(__name__)
 
@@ -82,13 +82,17 @@ class XMLRPCExecutor(Executor):
     ) -> None:
         """Submit a task to the remote server"""
         try:
-            # Get function source code and name
-            source = inspect.getsource(fn)
-            name = fn.__name__
+            task_message = TaskMessage(
+                task_id=str(id(future)),
+                fn=fn,
+                args=args,
+                kwargs=kwargs,
+                encrypted=self._use_encryption,
+            )
 
             # Make RPC call
             try:
-                result = self._proxy.execute(name, source, args, kwargs)
+                result = self._proxy.execute(fn.__name__, task_message.serialize())
 
                 # Handle error result
                 if isinstance(result, dict) and result.get("error"):

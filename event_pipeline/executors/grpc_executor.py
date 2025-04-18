@@ -4,12 +4,10 @@ import typing
 import threading
 import grpc
 import cloudpickle
-from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from threading import Lock
-from dataclasses import dataclass
-
-from event_pipeline.base import ExecutorInitializerConfig
+from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from event_pipeline.protos import task_pb2, task_pb2_grpc
+from event_pipeline.executors.message import TaskMessage
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +56,6 @@ class GRPCExecutor(Executor):
         self._client_key_path = client_key_path
         self._ca_cert_path = ca_cert_path
 
-        # self._config = config or ExecutorInitializerConfig()
         self._shutdown = False
         self._lock = Lock()
         self._thread_pool = ThreadPoolExecutor(max_workers=max_workers)
@@ -112,18 +109,19 @@ class GRPCExecutor(Executor):
         """Submit a task to the remote server"""
         try:
             # Get function source and name
-            source = inspect.getsource(fn)
-            name = fn.__name__
+            # source = inspect.getsource(fn)
+            # name = fn.__name__
 
             # Serialize arguments
-            serialized_args = cloudpickle.dumps(args)
-            serialized_kwargs = cloudpickle.dumps(kwargs)
+            serialized_fn = TaskMessage.serialize_object(fn)
+            serialized_args = TaskMessage.serialize_object(args)
+            serialized_kwargs = TaskMessage.serialize_object(kwargs)
 
             # Create request
             request = task_pb2.TaskRequest(
                 task_id=str(id(future)),
-                function_source=source,
-                function_name=name,
+                fn=serialized_fn,
+                name=fn.__name__,
                 args=serialized_args,
                 kwargs=serialized_kwargs,
             )
@@ -133,7 +131,7 @@ class GRPCExecutor(Executor):
                 try:
                     for response in self._stub.ExecuteStream(request):
                         if response.status == task_pb2.TaskStatus.COMPLETED:
-                            result = cloudpickle.loads(response.result)
+                            result, _ = TaskMessage.deserialize(response.result)
                             future.set_result(result)
                             break
                         elif response.status == task_pb2.TaskStatus.FAILED:
@@ -152,7 +150,7 @@ class GRPCExecutor(Executor):
                     response = self._stub.Execute(request)
 
                     if response.success:
-                        result = cloudpickle.loads(response.result)
+                        result, _ = TaskMessage.deserialize(response.result)
                         future.set_result(result)
                     else:
                         future.set_exception(Exception(response.error))

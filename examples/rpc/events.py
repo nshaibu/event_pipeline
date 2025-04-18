@@ -10,7 +10,7 @@ class ComputeTask(EventBase):
         "port": 8990,
         "timeout": 30,
         "max_workers": 4,
-        "use_encryption": False
+        "use_encryption": False,
     }
 
     def process(self, x: int) -> tuple[bool, int]:

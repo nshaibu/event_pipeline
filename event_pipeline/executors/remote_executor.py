@@ -7,8 +7,8 @@ import concurrent.futures
 import threading
 import queue
 import zlib
+import cloudpickle
 from concurrent.futures import Executor
-from dataclasses import dataclass
 from multiprocessing.reduction import ForkingPickler
 from event_pipeline.conf import ConfigLoader
 from event_pipeline.utils import (
@@ -16,12 +16,7 @@ from event_pipeline.utils import (
     receive_data_from_socket,
     create_client_ssl_context,
 )
-
-# from pathlib import Path
-# from multiprocessing.reduction import ForkingPickler
-# from cryptography.hazmat.primitives import hashes, serialization
-# from cryptography.hazmat.primitives.asymmetric import padding, rsa
-# from cryptography.exceptions import InvalidKey
+from event_pipeline.executors.message import TaskMessage
 
 logger = logging.getLogger(__name__)
 
@@ -31,18 +26,6 @@ DEFAULT_TIMEOUT = CONF.DEFAULT_CONNECTION_TIMEOUT
 CHUNK_SIZE = CONF.DATA_CHUNK_SIZE
 BACKLOG_SIZE = CONF.CONNECTION_BACKLOG_SIZE
 QUEUE_SIZE = CONF.DATA_QUEUE_SIZE
-
-
-@dataclass
-class TaskMessage:
-    """Message format for task communication"""
-
-    task_id: str
-    fn: typing.Callable
-    args: tuple
-    kwargs: dict
-    client_cert: typing.Optional[bytes] = None
-    encrypted: bool = False
 
 
 class RemoteExecutor(Executor):
@@ -111,13 +94,14 @@ class RemoteExecutor(Executor):
         """Send a task to the remote server and get the result"""
         try:
             with self._create_secure_connection() as sock:
+
                 data_size = send_data_over_socket(
-                    sock, task_message, chunk_size=CHUNK_SIZE
+                    sock, data=task_message.serialize(), chunk_size=CHUNK_SIZE
                 )
 
-                if data_size <= 0:
-                    # TODO: raise exception
-                    pass
+                logger.debug(
+                    "Sent task %s of size %d bytes to server", task_message, data_size
+                )
 
                 # Receive result
                 result_data = receive_data_from_socket(sock, chunk_size=CHUNK_SIZE)
@@ -127,8 +111,9 @@ class RemoteExecutor(Executor):
                 )
 
                 try:
-                    decompressed_data = zlib.decompress(result_data)
-                    result = ForkingPickler.loads(decompressed_data)
+                    # decompressed_data = zlib.decompress(result_data)
+                    # result = cloudpickle.loads(decompressed_data)
+                    result, _ = TaskMessage.deserialize(result_data)
                 except (zlib.error, pickle.UnpicklingError) as e:
                     logger.error(f"Failed to decompress message: {str(e)}", exc_info=e)
                     result = ValueError(f"Invalid task result data received: {str(e)}")

@@ -225,7 +225,7 @@ def get_obj_klass_import_str(obj: typing.Any) -> str:
 
 def send_data_over_socket(
     sock: socket.socket,
-    data: typing.Any,
+    data: bytes,
     chunk_size: typing.Optional[int] = None,
 ) -> int:
     """
@@ -237,8 +237,7 @@ def send_data_over_socket(
     Args:
         sock (socket.socket): The socket object representing the
                                        active connection to the client.
-        data (Any): The data to be sent over the socket. It could be of any
-                    type, and should be pickleable.
+        data (bytes): The data to be sent over the socket. It should be a bytes object.
         chunk_size (int): The maximum size (in bytes) for each chunk of data
                           to be sent in one transmission.
     Returns:
@@ -249,12 +248,12 @@ def send_data_over_socket(
                    is non-positive.
     """
     now = time.time()
-    data = ForkingPickler.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
-    compressed_data = zlib.compress(data)
-    data_size = len(compressed_data)
+    # data = ForkingPickler.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
+    # compressed_data = zlib.compress(data)
+    data_size = len(data)
     sock.sendall(data_size.to_bytes(8, "big"))
 
-    stream_fd = BytesIO(compressed_data)
+    stream_fd = BytesIO(data)
     sent = 0
 
     if chunk_size is None:

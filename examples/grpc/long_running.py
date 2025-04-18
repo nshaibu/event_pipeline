@@ -8,7 +8,7 @@ class LongRunningTask(EventBase):
         "host": "localhost",
         "port": 8990,
         "max_workers": 4,
-        "use_encryption": False
+        "use_encryption": False,
     }
 
     def process(self, iterations: int) -> tuple[bool, list]:
@@ -18,28 +18,23 @@ class LongRunningTask(EventBase):
             # Do some work
             chunk_result = i * i
             results.append(chunk_result)
-            
+
         return True, results
 
 
 def run_example():
     # Create task
-    task = LongRunningTask(
-        execution_context={},
-        task_id="long-task-1"
-    )
+    task = LongRunningTask(execution_context={}, task_id="long-task-1")
 
     # Submit with streaming enabled
     future = task.executor.submit(
-        task.process,
-        iterations=10,
-        long_running=True  # Enable streaming updates
+        task.process, iterations=10, long_running=True  # Enable streaming updates
     )
 
     # Add status callback
     def on_status_update(status, message):
         print(f"Task status: {status} - {message}")
-    
+
     future.add_status_callback(on_status_update)
 
     # Wait for result

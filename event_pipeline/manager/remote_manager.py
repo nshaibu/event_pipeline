@@ -1,25 +1,21 @@
 import socket
-import types
 import zlib
 import ssl
-import sys
-import os
-import inspect
 import typing
 import pickle
 import logging
-from pathlib import Path
-from importlib import import_module
-from multiprocessing.reduction import ForkingPickler
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
+import cloudpickle
+
 from .base import BaseManager
-from event_pipeline import EventBase
 from event_pipeline.conf import ConfigLoader
 from event_pipeline.utils import (
     send_data_over_socket,
     receive_data_from_socket,
     create_server_ssl_context,
 )
+from event_pipeline.executors.message import TaskMessage
 
 logger = logging.getLogger(__name__)
 
@@ -73,72 +69,6 @@ class RemoteTaskManager(BaseManager):
         # self._process_pool = ProcessPoolExecutor(mp_context=self._process_context)
         self._thread_pool = ThreadPoolExecutor(max_workers=4)
 
-    @classmethod
-    def auto_load_all_task_modules(cls):
-        """
-        Auto-discover and load all modules containing event classes that inherit from EventBase.
-        Searches through the project directory for Python modules and registers event classes.
-        """
-        project_root = PROJECT_ROOT
-        logger.info(f"Searching for event modules in: {project_root}")
-
-        discovered_events: typing.Set[typing.Type] = set()
-
-        def is_event_class(obj: typing.Type) -> bool:
-            """Check if an object is a class inheriting from EventBase"""
-            return (
-                inspect.isclass(obj)
-                and hasattr(obj, "__module__")
-                and EventBase in [base for base in inspect.getmro(obj)[1:]]
-            )
-
-        def explore_module(module_name: str) -> None:
-            """Explore a module for event classes"""
-            try:
-                module = import_module(module_name)
-                for name, obj in inspect.getmembers(module):
-                    if is_event_class(obj):
-                        discovered_events.add(obj)
-                        logger.debug(
-                            f"Discovered event class: {obj.__module__}.{obj.__name__}"
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to load module {module_name}: {e}")
-
-        # Walk through all Python packages in the project
-        for root, dirs, files in os.walk(str(project_root)):
-            # Skip __pycache__ and virtual environment directories
-            dirs[:] = [d for d in dirs if not d.startswith(("__", "."))]
-
-            if "__init__.py" in files:
-                # Calculate the module path relative to project root
-                rel_path = Path(root).relative_to(project_root)
-                module_path = str(rel_path).replace(os.sep, ".")
-                if module_path:
-                    explore_module(module_path)
-
-        # Register discovered event modules
-        for event_class in discovered_events:
-            module = sys.modules.get(event_class.__module__)
-            if module:
-                cls.register_task_module(event_class.__module__, module)
-                logger.info(f"Registered event module: {event_class.__module__}")
-
-        logger.info(f"Discovered {len(discovered_events)} event classes")
-
-    @staticmethod
-    def register_task_module(module_name: str, module: types.ModuleType) -> None:
-        """
-        Register a module containing event classes for task execution.
-
-        Args:
-            module_name: The fully qualified module name
-            module: The module object to register
-        """
-        if module_name not in sys.modules:
-            sys.modules[module_name] = module
-            logger.debug(f"Registered module in sys.modules: {module_name}")
-
     def _create_server_socket(self) -> socket.socket:
         """Create and configure the server socket with proper timeout and SSL if enabled"""
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -176,8 +106,16 @@ class RemoteTaskManager(BaseManager):
             try:
                 msg_data = receive_data_from_socket(client_sock, chunk_size=CHUNK_SIZE)
 
-                decompressed_data = zlib.decompress(msg_data)
-                task_message = ForkingPickler.loads(decompressed_data)
+                # decompressed_data = zlib.decompress(msg_data)
+                # task_message = ForkingPickler.loads(decompressed_data)
+                task_message, is_task_message = TaskMessage.deserialize(msg_data)
+                if not is_task_message:
+                    logger.error(
+                        f"Invalid message: {task_message} is not a task message"
+                    )
+                    exception = ValueError(
+                        "Invalid task message: Received message from client is not a task message"
+                    )
             except (zlib.error, pickle.UnpicklingError) as e:
                 logger.error(f"Failed to decompress message: {str(e)}", exc_info=e)
                 exception = ValueError(f"Invalid task data received: {str(e)}")
@@ -199,9 +137,15 @@ class RemoteTaskManager(BaseManager):
                 result = exception
 
             # Send result back
-            send_data_over_socket(client_sock, result, chunk_size=CHUNK_SIZE)
+            data_size = send_data_over_socket(
+                client_sock,
+                data=TaskMessage.serialize_object(result),
+                chunk_size=CHUNK_SIZE,
+            )
 
-            logger.info(f"Successfully completed task for client {client_info}")
+            logger.info(
+                f"Successfully completed task for client {client_info}, data size: {data_size} bytes sent"
+            )
 
         except Exception as e:
             logger.error(f"Error handling client {client_info}: {str(e)}", exc_info=e)
