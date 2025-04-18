@@ -7,7 +7,7 @@ def dummy_task(a: int, b: int) -> int:
     return a + b
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     with GRPCExecutor("localhost", port=8990) as executor:
         future = executor.submit(dummy_task, 20090, 3998)
         print(future.result())

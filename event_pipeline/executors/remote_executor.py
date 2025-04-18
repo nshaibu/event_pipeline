@@ -111,8 +111,6 @@ class RemoteExecutor(Executor):
                 )
 
                 try:
-                    # decompressed_data = zlib.decompress(result_data)
-                    # result = cloudpickle.loads(decompressed_data)
                     result, _ = TaskMessage.deserialize(result_data)
                 except (zlib.error, pickle.UnpicklingError) as e:
                     logger.error(f"Failed to decompress message: {str(e)}", exc_info=e)
