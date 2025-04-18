@@ -1,10 +1,10 @@
 from event_pipeline import EventBase
-from event_pipeline.executors.rpc_executor import RPCExecutor
+from event_pipeline.executors.rpc_executor import XMLRPCExecutor
 
 
 class ComputeTask(EventBase):
     # Configure the executor with remote server details
-    executor = RPCExecutor
+    executor = XMLRPCExecutor
     executor_config = {
         "host": "localhost",
         "port": 8990,

@@ -15,7 +15,6 @@ except ImportError:
     # No windows support for this lib
     resource = None
 
-from multiprocessing.reduction import ForkingPickler
 from inspect import signature, Parameter, isgeneratorfunction, isgenerator
 
 try:
