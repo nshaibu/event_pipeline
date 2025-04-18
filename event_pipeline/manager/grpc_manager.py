@@ -1,8 +1,6 @@
 import logging
-import threading
 import typing
 import grpc
-import cloudpickle
 from concurrent import futures
 from .base import BaseManager
 from event_pipeline.protos import task_pb2, task_pb2_grpc
@@ -17,11 +15,6 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
     def Execute(self, request, context):
         """Execute a task and return the result."""
         try:
-            # Create function from source
-            # scope = {}
-            # exec(request.function_source, scope)
-            # fn = scope[request.function_name]
-
             # Deserialize arguments
             fn, _ = TaskMessage.deserialize(request.fn)
             args, _ = TaskMessage.deserialize(request.args)
@@ -49,11 +42,6 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
                 status=task_pb2.TaskStatus.PENDING, message="Task received"
             )
 
-            # Create and execute function
-            # scope = {}
-            # exec(request.function_source, scope)
-            # fn = scope[request.function_name]
-
             # Deserialize arguments
             fn, _ = TaskMessage.deserialize(request.fn)
             args, _ = TaskMessage.deserialize(request.args)
@@ -64,8 +52,6 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
             )
 
             # Execute with arguments
-            # args = cloudpickle.loads(request.args)
-            # kwargs = cloudpickle.loads(request.kwargs)
             result = fn(*args, **kwargs)
 
             # Serialize result

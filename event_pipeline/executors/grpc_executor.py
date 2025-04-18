@@ -1,9 +1,6 @@
 import logging
-import inspect
 import typing
-import threading
 import grpc
-import cloudpickle
 from threading import Lock
 from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from event_pipeline.protos import task_pb2, task_pb2_grpc
@@ -108,10 +105,6 @@ class GRPCExecutor(Executor):
     ) -> None:
         """Submit a task to the remote server"""
         try:
-            # Get function source and name
-            # source = inspect.getsource(fn)
-            # name = fn.__name__
-
             # Serialize arguments
             serialized_fn = TaskMessage.serialize_object(fn)
             serialized_args = TaskMessage.serialize_object(args)

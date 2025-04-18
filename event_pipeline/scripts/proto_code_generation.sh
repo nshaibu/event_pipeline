@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
-python -m grpc_tools.protoc -I./event_pipeline/protos \
---python_out=././event_pipeline/protos \
---pyi_out=./event_pipeline/protos \
---grpc_python_out=./event_pipeline/protos ./event_pipeline/protos/task.proto
+project_root=./event_pipeline/protos
+python_code_dir=./event_pipeline/protos
+proto_script_path=./event_pipeline/protos/task.proto
+
+python -m grpc_tools.protoc -I${project_root}\
+--python_out=${python_code_dir} \
+--pyi_out=${python_code_dir} \
+--grpc_python_out=${python_code_dir}
