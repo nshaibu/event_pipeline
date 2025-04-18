@@ -1,6 +1,6 @@
 build==1.2.2.post1
 pyproject_hooks==1.2.0
 Sphinx==8.2.1
-grpcio>=1.60.0
+grpcio>=1.71.0
 grpcio-tools>=1.60.0
 cloudpickle>=3.0.0
