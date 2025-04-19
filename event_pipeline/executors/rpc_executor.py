@@ -1,7 +1,5 @@
 import logging
 import typing
-import threading
-import inspect
 import xmlrpc.client
 from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from threading import Lock
