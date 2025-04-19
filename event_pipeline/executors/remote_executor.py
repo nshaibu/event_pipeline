@@ -7,9 +7,7 @@ import concurrent.futures
 import threading
 import queue
 import zlib
-import cloudpickle
 from concurrent.futures import Executor
-from multiprocessing.reduction import ForkingPickler
 from event_pipeline.conf import ConfigLoader
 from event_pipeline.utils import (
     send_data_over_socket,
