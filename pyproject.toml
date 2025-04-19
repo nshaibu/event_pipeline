@@ -78,7 +78,8 @@ source=["event_pipeline"]
 omit = [
     "event_pipeline/parser/*",
     "tests/*",
-    "event_pipeline/scripts/*"
+    "event_pipeline/scripts/*",
+    "event_piipeline/protos/*"
 ]
 data_file=".coverage"
 
@@ -106,3 +107,6 @@ skip_covered = true
 
 [tool.coverage.html]
 directory = "coverage_html_report"
+
+[tool.black]
+exclude = "protos"

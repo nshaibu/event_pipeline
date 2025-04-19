@@ -6,6 +6,7 @@ import sys
 import socket
 import pickle
 import zlib
+import ssl
 from io import BytesIO
 
 try:
@@ -14,7 +15,6 @@ except ImportError:
     # No windows support for this lib
     resource = None
 
-from multiprocessing.reduction import ForkingPickler
 from inspect import signature, Parameter, isgeneratorfunction, isgenerator
 
 try:
@@ -224,7 +224,7 @@ def get_obj_klass_import_str(obj: typing.Any) -> str:
 
 def send_data_over_socket(
     sock: socket.socket,
-    data: typing.Any,
+    data: bytes,
     chunk_size: typing.Optional[int] = None,
 ) -> int:
     """
@@ -236,8 +236,7 @@ def send_data_over_socket(
     Args:
         sock (socket.socket): The socket object representing the
                                        active connection to the client.
-        data (Any): The data to be sent over the socket. It could be of any
-                    type, and should be pickleable.
+        data (bytes): The data to be sent over the socket. It should be a bytes object.
         chunk_size (int): The maximum size (in bytes) for each chunk of data
                           to be sent in one transmission.
     Returns:
@@ -248,12 +247,12 @@ def send_data_over_socket(
                    is non-positive.
     """
     now = time.time()
-    data = ForkingPickler.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
-    compressed_data = zlib.compress(data)
-    data_size = len(compressed_data)
+    # data = ForkingPickler.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
+    # compressed_data = zlib.compress(data)
+    data_size = len(data)
     sock.sendall(data_size.to_bytes(8, "big"))
 
-    stream_fd = BytesIO(compressed_data)
+    stream_fd = BytesIO(data)
     sent = 0
 
     if chunk_size is None:
@@ -303,3 +302,52 @@ def receive_data_from_socket(sock: socket.socket, chunk_size: int) -> bytes:
             break
         result_data += chunk
     return result_data
+
+
+def create_server_ssl_context(
+    cert_path: str, key_path: str, ca_certs_path: str, require_client_cert: bool
+) -> ssl.SSLContext:
+    """
+    Creates and configures an SSLContext object for secure communication.
+    Args:
+        cert_path (str): Path to the server's SSL certificate file.
+        key_path (str): Path to the server's private key file.
+        ca_certs_path (str): Path to the file containing CA certificates for verifying client certificates.
+        require_client_cert (bool): Whether to require clients to present a valid certificate.
+    Returns:
+        ssl.SSLContext: A configured SSL context object ready for use in secure servers or sockets.
+    """
+    try:
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+
+        if ca_certs_path:
+            context.load_verify_locations(ca_certs_path)
+            if require_client_cert:
+                context.verify_mode = ssl.CERT_REQUIRED
+
+        return context
+    except (ssl.SSLError, OSError) as e:
+        logger.error(f"Failed to create SSL context: {str(e)}", exc_info=e)
+        raise
+
+
+def create_client_ssl_context(
+    client_cert_path: str, client_key_path: str, ca_certs_path: str
+) -> ssl.SSLContext:
+    """
+    Creates and configures an SSLContext object for secure communication.
+    :param client_cert_path: Path to the client certificate file.
+    :param client_key_path: Path to the client private key file.
+    :param ca_certs_path: Path to the file containing CA certificates for verifying client certificates.
+    :return: SSLContext object.
+    """
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+
+    if ca_certs_path:
+        context.load_verify_locations(ca_certs_path)
+
+    if client_cert_path and client_key_path:
+        context.load_cert_chain(certfile=client_cert_path, keyfile=client_key_path)
+
+    return context
