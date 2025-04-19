@@ -117,7 +117,7 @@ class XMLRPCExecutor(Executor):
         """Clean shutdown of the executor"""
         with self._lock:
             self._shutdown = True
-            if sys.version_info > (3, 8):
-                self._thread_pool.shutdown(wait=wait, cancel_futures=cancel_futures)
-            else:
+            if sys.version_info < (3, 9):
                 self._thread_pool.shutdown(wait=wait)
+            else:
+                self._thread_pool.shutdown(wait=wait, cancel_futures=cancel_futures)
