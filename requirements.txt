@@ -12,5 +12,5 @@ redis==5.2.1
 cryptography>=41.0.0
 hdfs>=2.7.0
 grpcio>=1.60.0
-grpcio-tools>=1.60.0
+grpcio-tools<=1.70.0   # >=1.60.0
 cloudpickle>=3.0.0

@@ -80,37 +80,34 @@ class ScheduleMixin:
         """
         Schedule a pipeline job. There are three triggers used for scheduling a job: cron, date, and interval.
 
-        - cron: CronTrigger: Triggers when current time matches all specified time constraints, similarly to
-        how the UNIX cron scheduler works.
-            :param int|str year: 4-digit year
-            :param int|str month: month (1-12)
-            :param int|str day: day of month (1-31)
-            :param int|str week: ISO week (1-53)
-            :param int|str day_of_week: number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)
-            :param int|str hour: hour (0-23)
-            :param int|str minute: minute (0-59)
-            :param int|str second: second (0-59)
-            :param datetime|str start_date: earliest possible date/time to trigger on (inclusive)
-            :param datetime|str end_date: latest possible date/time to trigger on (inclusive)
-            :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
-                (defaults to scheduler timezone)
-            :param int|None jitter: delay the job execution by ``jitter`` seconds at most
+        - CronTrigger: Triggers when current time matches all specified time constraints, similarly to how the UNIX cron scheduler works.
+            - :param int|str year: 4-digit year
+            - :param int|str month: month (1-12)
+            - :param int|str day: day of month (1-31)
+            - :param int|str week: ISO week (1-53)
+            - :param int|str day_of_week: number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)
+            - :param int|str hour: hour (0-23)
+            - :param int|str minute: minute (0-59)
+            - :param int|str second: second (0-59)
+            - :param datetime|str start_date: earliest possible date/time to trigger on (inclusive)
+            - :param datetime|str end_date: latest possible date/time to trigger on (inclusive)
+            - :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations (defaults to scheduler timezone)
+            - :param int|None jitter: delay the job execution by ``jitter`` seconds at most
 
-        - date: DateTrigger: Triggers once on the given datetime. If ``run_date`` is left empty, current time is used.
-            :param datetime|str run_date: the date/time to run the job at
-            :param datetime.tzinfo|str timezone: time zone for ``run_date`` if it doesn't have one already
+        - DateTrigger: Triggers once on the given datetime. If ``run_date`` is left empty, current time is used.
+            - :param datetime|str run_date: the date/time to run the job at
+            - :param datetime.tzinfo|str timezone: time zone for ``run_date`` if it doesn't have one already
 
-        - interval: IntervalTrigger: Triggers on specified intervals, starting on ``start_date`` if specified,
-        ``datetime.now()`` + interval otherwise.
-            :param int weeks: number of weeks to wait
-            :param int days: number of days to wait
-            :param int hours: number of hours to wait
-            :param int minutes: number of minutes to wait
-            :param int seconds: number of seconds to wait
-            :param datetime|str start_date: starting point for the interval calculation
-            :param datetime|str end_date: latest possible date/time to trigger on
-            :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
-            :param int|None jitter: delay the job execution by ``jitter`` seconds at most
+        - IntervalTrigger: Triggers on specified intervals, starting on ``start_date`` if specified, ``datetime.now()`` + interval otherwise.
+            - :param int weeks: number of weeks to wait
+            - :param int days: number of days to wait
+            - :param int hours: number of hours to wait
+            - :param int minutes: number of minutes to wait
+            - :param int seconds: number of seconds to wait
+            - :param datetime|str start_date: starting point for the interval calculation
+            - :param datetime|str end_date: latest possible date/time to trigger on
+            - :param datetime.tzinfo|str timezone: time zone to use for the date/time calculations
+            - :param int|None jitter: delay the job execution by ``jitter`` seconds at most
 
         :param trigger: Trigger to execute
         :param scheduler_kwargs: Keyword arguments to pass to the scheduler
