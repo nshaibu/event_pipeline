@@ -1,3 +1,4 @@
+import sys
 import logging
 import typing
 import xmlrpc.client
@@ -116,4 +117,7 @@ class XMLRPCExecutor(Executor):
         """Clean shutdown of the executor"""
         with self._lock:
             self._shutdown = True
-            self._thread_pool.shutdown(wait=wait, cancel_futures=cancel_futures)
+            if sys.version_info > (3, 8):
+                self._thread_pool.shutdown(wait=wait, cancel_futures=cancel_futures)
+            else:
+                self._thread_pool.shutdown(wait=wait)
