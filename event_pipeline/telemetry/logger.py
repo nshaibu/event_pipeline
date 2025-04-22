@@ -51,7 +51,7 @@ class TelemetryLogger:
             self._publishers.remove(publisher)
 
     def start_event(
-        self, event_name: str, task_id: str, process_id: Optional[int] = None
+        self, event_name: str, task_id: str, process_id: typing.Optional[int] = None
     ) -> None:
         """Record the start of an event execution"""
         with self._lock:

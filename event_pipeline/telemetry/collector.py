@@ -1,5 +1,5 @@
-from typing import Optional
-from ..signal.signals import (
+import typing
+from event_pipeline.signal.signals import (
     event_execution_init,
     event_execution_start,
     event_execution_end,
@@ -8,16 +8,18 @@ from ..signal.signals import (
     pipeline_execution_start,
     pipeline_execution_end,
 )
-from ..base import EventBase
-from ..task import EventExecutionContext
 from .logger import telemetry
+
+if typing.TYPE_CHECKING:
+    from event_pipeline.base import EventBase
+    from event_pipeline.task import EventExecutionContext
 
 
 class MetricsCollector:
     """Collects metrics by listening to pipeline signals"""
 
     @staticmethod
-    def on_event_init(sender: EventBase, **kwargs) -> None:
+    def on_event_init(sender: "EventBase", **kwargs) -> None:
         """Handle event initialization"""
         task_id = kwargs.get("task_id")
         if task_id:
@@ -29,7 +31,7 @@ class MetricsCollector:
 
     @staticmethod
     def on_event_end(
-        sender: EventBase, execution_context: EventExecutionContext, **kwargs
+        sender: "EventBase", execution_context: "EventExecutionContext", **kwargs
     ) -> None:
         """Handle event completion"""
         error = None
@@ -41,7 +43,7 @@ class MetricsCollector:
 
     @staticmethod
     def on_event_retry(
-        sender: EventBase, task_id: str, retry_count: int, max_attempts: int, **kwargs
+        sender: "EventBase", task_id: str, retry_count: int, max_attempts: int, **kwargs
     ) -> None:
         """Handle event retry"""
         telemetry.record_retry(task_id)

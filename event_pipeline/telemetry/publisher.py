@@ -11,8 +11,8 @@ import typing
 from datetime import datetime
 from dataclasses import asdict
 
-from .logger import EventMetrics
-from ..utils import get_obj_state
+if typing.TYPE_CHECKING:
+    from .logger import EventMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class MetricsPublisher(abc.ABC):
     """Base interface for metrics publishing adapters."""
 
     @abc.abstractmethod
-    def publish_event_metrics(self, metrics: EventMetrics) -> None:
+    def publish_event_metrics(self, metrics: "EventMetrics") -> None:
         """Publish event metrics to the backend system."""
         pass
 
@@ -50,8 +50,9 @@ class MetricsPublisher(abc.ABC):
         """Publish network operation metrics to the backend system."""
         pass
 
-    def format_metrics(self, metrics: typing.Union[EventMetrics, dict]) -> dict:
+    def format_metrics(self, metrics: typing.Union["EventMetrics", dict]) -> dict:
         """Format metrics into a standardized dictionary format."""
+        from .logger import EventMetrics
         if isinstance(metrics, EventMetrics):
             data = asdict(metrics)
             data.update(
@@ -93,7 +94,7 @@ class ElasticsearchPublisher(MetricsPublisher):
         date = datetime.now().strftime("%Y.%m.%d")
         return f"{self.index_prefix}-{metric_type}-{date}"
 
-    def publish_event_metrics(self, metrics: EventMetrics) -> None:
+    def publish_event_metrics(self, metrics: "EventMetrics") -> None:
         """Publish event metrics to Elasticsearch."""
         try:
             data = self.format_metrics(metrics)
@@ -141,7 +142,7 @@ class PrometheusPublisher(MetricsPublisher):
 
         prometheus_client.start_http_server(port)
 
-    def publish_event_metrics(self, metrics: EventMetrics) -> None:
+    def publish_event_metrics(self, metrics: "EventMetrics") -> None:
         """Publish event metrics to Prometheus."""
         try:
             self.event_duration.labels(
@@ -201,7 +202,7 @@ class GrafanaCloudPublisher(MetricsPublisher):
         self.base_url = f"https://grafana-{region}.grafana.net/api/v1/metrics"
         self.org_slug = org_slug
 
-    def publish_event_metrics(self, metrics: EventMetrics) -> None:
+    def publish_event_metrics(self, metrics: "EventMetrics") -> None:
         """Publish event metrics to Grafana Cloud."""
         try:
             data = self.format_metrics(metrics)
@@ -230,7 +231,7 @@ class CompositePublisher(MetricsPublisher):
     def __init__(self, publishers: typing.List[MetricsPublisher]):
         self.publishers = publishers
 
-    def publish_event_metrics(self, metrics: EventMetrics) -> None:
+    def publish_event_metrics(self, metrics: "EventMetrics") -> None:
         """Publish event metrics to all configured publishers."""
         for publisher in self.publishers:
             try:
