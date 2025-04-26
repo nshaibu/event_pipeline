@@ -1,7 +1,10 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import json
 from datetime import datetime
+
+import pytest
+
+from ..utils import is_package_installed
 
 from event_pipeline.telemetry.logger import EventMetrics
 from event_pipeline.telemetry.publisher import (
@@ -33,6 +36,7 @@ class TestMetricsPublishers(unittest.TestCase):
             "latency": 0.25,
         }
 
+    @pytest.mark.skipif(is_package_installed("elasticsearch") is False, reason="Elasticsearch not installed")
     @patch("elasticsearch.Elasticsearch")
     def test_elasticsearch_publisher(self, mock_es):
         # Setup mock
@@ -52,6 +56,7 @@ class TestMetricsPublishers(unittest.TestCase):
         self.assertEqual(call_args["document"]["event_name"], "TestEvent")
         self.assertEqual(call_args["document"]["status"], "completed")
 
+    @pytest.mark.skipif(is_package_installed("prometheus_client") is False, reason="Prometheus not installed")
     @patch("prometheus_client.start_http_server")
     @patch("prometheus_client.Histogram")
     @patch("prometheus_client.Counter")

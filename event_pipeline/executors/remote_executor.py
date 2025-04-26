@@ -121,8 +121,7 @@ class RemoteExecutor(Executor):
                 )
 
                 try:
-                    decompressed_data = zlib.decompress(result_data)
-                    result = ForkingPickler.loads(decompressed_data)
+                    result, _ = task_message.deserialize(result_data)
 
                     # Record successful operation
                     network_telemetry.end_operation(
@@ -130,7 +129,8 @@ class RemoteExecutor(Executor):
                         bytes_sent=data_size,
                         bytes_received=received_size,
                     )
-
+                    if isinstance(result, Exception):
+                        raise result
                     return result
                 except (zlib.error, pickle.UnpicklingError) as e:
                     error = f"Failed to decompress message: {str(e)}"
