@@ -1,19 +1,16 @@
 Tutorials - Pointy-lang
 =======================
 
-Pointy Language is a powerful domain-specific language (DSL) for creating event-based workflows. This tutorial will guide you from basic concepts to advanced workflows using Pointy Language's intuitive arrow-based syntax.
-
-
-.. contents:: Table of Contents
-   :depth: 2
-   :local:
+Pointy Language is a powerful domain-specific language (DSL) for creating event-based workflows. This tutorial will
+guide you from basic concepts to advanced workflows using Pointy Language's intuitive arrow-based syntax.
 
 
 
 1. Introduction to Pointy Language
-==================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pointy Language uses arrows and operators to represent event flow, making it easy to visualize and define workflows. Its primary purpose is to model sequences of operations, conditional branching, parallel execution, and result piping.
+Pointy Language uses arrows and operators to represent event flow, making it easy to visualize and define workflows.
+Its primary purpose is to model sequences of operations, conditional branching, parallel execution, and result piping.
 
 Core Features:
 --------------
@@ -24,8 +21,24 @@ Core Features:
 - Result piping between events
 - Retry mechanisms for handling failures
 
+Defined Events
+--------------
+
+Events like ``Submit``, ``Validate`` or ``Reject`` are predefined operations that are automatically resolved during pipeline execution.
+These events are defined in two main ways:
+
+- By inheriting from the EventBase class inside the event_pipeline module.
+- By decorating a Python function with the @event decorator from the event_pipeline.decorators module.
+
+Once defined, these events are automatically detected and registered into the pipeline runtime, requiring no additional configuration
+to participate in the event graph execution. When any of these event names are used within a Pointy script, they are automatically resolved
+by the pipeline engine and executed according to their Python definitions.
+
+This mechanism enables Pointy Language to serve as a thin, expressive orchestration layer on top of reusable Python logic,
+allowing you to abstract low-level function implementation while building high-level, declarative workflows.
+
 2. Basic Syntax and Operators
-=============================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Single Events
 -------------
@@ -54,8 +67,8 @@ The parallel operator runs events concurrently::
 
 Both events start at the same time and run independently.
 
-Pipe Result Operator (|->)
---------------------------
+Pipe Result Operator (``|->``)
+------------------------------
 
 This operator passes the output from one event as input to another::
 
@@ -85,7 +98,7 @@ The asterisk operator defines retry behavior for events::
 This increases reliability by automatically retrying failed events.
 
 3. Building Your First Workflow
-===============================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Let's create a simple workflow for processing a document::
 
@@ -106,7 +119,7 @@ This workflow:
 5. On successful save, sends confirmation; otherwise logs the error
 
 4. Intermediate Concepts
-========================
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Combining Parallel and Sequential Operations
 --------------------------------------------
@@ -136,7 +149,7 @@ Create complex decision trees with multiple branches that reunite::
 This executes A, then either B (if A fails) or C (if A succeeds), and finally D regardless of which branch was taken.
 
 5. Advanced Workflows
-=====================
+~~~~~~~~~~~~~~~~~~~~~
 
 Error Handling with Result Piping
 ---------------------------------
@@ -184,7 +197,7 @@ This workflow:
 6. Updates order status with retry capability (up to 3 attempts)
 
 6. Best Practices
-=================
+~~~~~~~~~~~~~~~~~
 
 Naming Conventions
 ------------------
@@ -207,7 +220,7 @@ Documentation
 Comment complex sections of your workflow to explain decision points and conditions.
 
 7. Practical Example: Customer Onboarding Workflow
-==================================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -224,21 +237,115 @@ Comment complex sections of your workflow to explain decision points and conditi
 
 This comprehensive workflow handles a new customer application with:
 
-- Information validation with retry capability
-- Credit check with different paths based on results
-- Parallel processes for account setup
-- Fallback communication methods
-- Follow-up scheduling
+1. Information validation with retry capability
+2. Credit check with different paths based on results
+3. Parallel processes for account setup
+4. Fallback communication methods
+5. Follow-up scheduling
 
-8. Conclusion
-=============
+8. Real-World Example: Data Ingestion Pipeline
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pointy Language provides an elegant solution for defining complex workflows with its intuitive arrow-based syntax. By combining sequential operations, parallel processing, conditional branching, and result piping, you can create sophisticated event-based systems that handle both happy paths and error conditions seamlessly.
+::
 
-As you become more familiar with Pointy Language, you'll find it increasingly natural to express even the most complex business processes in this concise and visual format.
+    Preprocess * 3 -> Validate (
+        0 -> FailHandler,
+        1 -> Enrich
+    ) || LogPreprocessing -> Enrich -> StoreData (
+        0 -> RetryStore * 2,
+        1 -> NotifySuccess
+    )
+
+Explanation:
+
+1. Retry Preprocess up to 3 times.
+2. If Validate fails, run FailHandler; else go to Enrich.
+3. LogPreprocessing executes in parallel.
+4. Enrich is followed by StoreData.
+5. If StoreData fails, RetryStore executes up to 2 retries.
+6. On success, NotifySuccess runs.
+
+9. Use Case: Scheduled ETL Pipeline
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Extract -> Clean || Validate || Deduplicate |-> Transform -> Load (0 -> AlertAdmin, 1 -> SuccessLog)
+
+Explanation:
+1. Data is extracted and passed to three parallel stages: cleaning, validation, and deduplication.
+2. Results are piped into a transformation step.
+3. Load step attempts to store data; on failure, notify admin, otherwise log success.
+
+10. Highly Parallel Workflow with Result Routing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    A || B || C |-> D (0 -> ErrorHandler, 1 -> Finalize)
+
+Use Case:
+Concurrent processing of services A, B, and C, combined into D. Depending on D's result,
+route to either ErrorHandler or Finalize.
+
+11. Dynamic Routing with Custom Condition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Review -> Decision (0 -> Rework, 1 -> Approve, 3 -> AuditTrail)
+
+Explanation:
+
+1. Descriptor 3 can represent "needs manual audit".
+2. Route outcome accordingly.
+
+12. Nested Parallel with Retry and Conditional Sink
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Init * 2 -> (Fetch || Parse || Normalize) |-> Aggregate (0 -> AlertOps, 1 -> Save)
+
+Explanation:
+
+1. Init is retried twice.
+2. Three events execute in parallel.
+3. Results are aggregated.
+4. If aggregation fails, notify ops. Else save results.
+
+13. Complex Approval Workflow with Decision Sink
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Submit -> Validate (
+        0 -> Reject,
+        1 -> AutoApprove || HumanReview |-> FinalApproval (0 -> Escalate, 1 -> NotifyUser)
+    )
+
+Scenario:
+
+1. A form submission is validated.
+2. On success, it goes to approval, which can be automatic or manual.
+3. Results go to final decision.
+4. If failed, escalate; if passed, notify the user.
+
+14. Conclusion
+~~~~~~~~~~~~~~
+
+Pointy Language provides an elegant solution for defining complex workflows with its intuitive arrow-based syntax. By combining
+sequential operations, parallel processing, conditional branching, and result piping, you can create sophisticated event-based
+systems that handle both happy paths and error conditions seamlessly.
+
+As you become more familiar with Pointy Language, you'll find it increasingly natural to express even the most complex business
+processes in this concise and visual format.
+
+This makes it ideal for event-driven systems, data processing flows, microservice orchestration, ETL pipelines,
+and any scenario requiring dynamic, observable execution control.
 
 Appendix: Quick Reference
-=========================
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Operators
 ---------

@@ -4,13 +4,8 @@ Tutorials - Pipeline
 This comprehensive tutorial will guide you through creating powerful event-based workflows using the ``event_pipeline`` module and Pointy Language syntax. By the end, you'll understand how to define, visualize, and execute complex pipelines for your applications.
 
 
-.. contents:: Table of Contents
-   :depth: 2
-   :local:
-
-
 Setting Up Your First Pipeline
-==============================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To begin using ``event_pipeline``, you'll need to create a custom pipeline class by inheriting from the base ``Pipeline`` class::
 
@@ -23,7 +18,7 @@ To begin using ``event_pipeline``, you'll need to create a custom pipeline class
 This basic structure serves as the foundation for your pipeline. Next, we'll add input fields and define the workflow structure.
 
 Defining Input Fields
-=====================
+~~~~~~~~~~~~~~~~~~~~~
 
 Input fields define the data that flows through your pipeline. The ``event_pipeline.fields`` module provides field types to specify data requirements::
 
@@ -43,7 +38,7 @@ Events in your pipeline can access these fields by including the field name in t
         return f"Processing data for {username} ({email})"
 
 Structuring Workflows with Pointy Language
-==========================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Pointy Language Basics
 ----------------------
@@ -57,12 +52,12 @@ Pointy Language uses arrow-based syntax to define the flow between events. Here 
 - **Retry Operator (*)**: Automatically retry failed events
 
 Defining Workflow Structure
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 There are three ways to define your pipeline structure using Pointy Language:
 
 1. Using External ``.pty`` Files
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------
 
 Create a file with the same name as your pipeline class (e.g., ``MyPipeline.pty``)::
 
@@ -74,7 +69,7 @@ Create a file with the same name as your pipeline class (e.g., ``MyPipeline.pty`
 The ``event_pipeline`` module will automatically load this file if it has the same name as your pipeline class.
 
 2. Using the Meta Subclass
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 You can embed the Pointy Language script directly in your class::
 
@@ -85,7 +80,7 @@ You can embed the Pointy Language script directly in your class::
             pointy = "FetchData -> ValidateData (0 -> HandleError, 1 -> ProcessData) -> SaveResults"
 
 3. Using Meta Dictionary
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 Alternatively, use a dictionary to define meta options::
 
@@ -103,7 +98,7 @@ You can also specify a custom file path::
             file = "/path/to/your/workflow.pty"
 
 Advanced Pipeline Techniques
-============================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Sequential Execution
 --------------------
@@ -176,7 +171,7 @@ Here's a more complex example combining multiple features::
         0 -> LogFetchError |-> NotifyAdmin,
         1 -> ValidateData (
             0 -> CleanData |-> RetryValidation,
-            1 -> (ProcessMetadata || EnrichData) |-> SaveResults
+            1 -> ProcessMetadata || EnrichData |-> SaveResults
         )
     ) -> SendNotification (
         0 -> LogNotificationError,
@@ -196,7 +191,7 @@ This workflow:
 9. Either logs notification errors or marks the process complete
 
 Visualizing Pipelines
-=====================
+~~~~~~~~~~~~~~~~~~~~~
 
 The ``event_pipeline`` module provides tools to visualize your pipeline structure:
 
@@ -212,7 +207,7 @@ Generate a text-based diagram of your pipeline::
     pipeline.draw_ascii_graph()
 
 Graphviz Visualization
--------------------
+----------------------
 
 For a more detailed graphical representation (requires Graphviz and xdot)::
 
@@ -222,7 +217,7 @@ For a more detailed graphical representation (requires Graphviz and xdot)::
 This creates a visual diagram showing the flow between events, including branches and conditions.
 
 Executing Pipelines
-===================
+~~~~~~~~~~~~~~~~~~~
 
 To run your pipeline, instantiate it with input values and call the ``start`` method::
 
@@ -245,7 +240,7 @@ You can also provide input values when starting the pipeline::
     result = pipeline.start(username="john_doe", email="john@example.com")
 
 Complete Example: Document Processing Pipeline
-==============================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Let's put everything together with a complete example of a document processing pipeline::
 
@@ -308,7 +303,7 @@ In this example:
 4. We execute the pipeline with sample input values
 
 Summary
-======
+~~~~~~~
 
 The ``event_pipeline`` module combined with Pointy Language provides a powerful framework for defining, visualizing, and executing complex workflows. By leveraging the arrow-based syntax, you can create sophisticated processing pipelines with conditional branching, parallel execution, result piping, and automatic retries.
 

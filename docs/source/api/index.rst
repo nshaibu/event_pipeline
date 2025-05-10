@@ -1,5 +1,5 @@
 API Reference
-============
+=============
 
 This section provides detailed API documentation for the Event Pipeline framework.
 
@@ -22,12 +22,12 @@ This section provides detailed API documentation for the Event Pipeline framewor
    parser
 
 Core Components
--------------
+---------------
 
 The Event Pipeline framework consists of several core components:
 
 Events & Pipeline
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 Core execution components that define event behavior and pipeline structure:
 
 - Event system (:doc:`events`)
@@ -35,7 +35,7 @@ Core execution components that define event behavior and pipeline structure:
 - Event results (:doc:`result`)
 
 Data & Signals
-~~~~~~~~~~~
+~~~~~~~~~~~~~~
 Data handling and communication components:
 
 - Data fields (:doc:`fields`)
@@ -43,7 +43,7 @@ Data handling and communication components:
 - Pipeline parsers (:doc:`parser`)
 
 Infrastructure
-~~~~~~~~~~~
+~~~~~~~~~~~~~~
 Backend and execution infrastructure:
 
 - Backend storage (:doc:`backend`)
@@ -52,7 +52,7 @@ Backend and execution infrastructure:
 - Reusable mixins (:doc:`mixins`)
 
 Monitoring & Management  
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 Operational management components:
 
 - Scheduling (:doc:`scheduling`)
