@@ -33,7 +33,7 @@ jobs:
               uses: actions/upload-artifact@v3
               with:
                 name: sphinx-html
-                path: docs/_build/html
+                path: docs/build/html
 
     deploy:
         needs: build
