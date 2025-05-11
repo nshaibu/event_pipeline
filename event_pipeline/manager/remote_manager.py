@@ -4,9 +4,7 @@ import ssl
 import typing
 import pickle
 import logging
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-
-import cloudpickle
+from concurrent.futures import ThreadPoolExecutor
 
 from .base import BaseManager
 from event_pipeline.conf import ConfigLoader

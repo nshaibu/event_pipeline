@@ -59,6 +59,11 @@ dev = [
     "platformdirs==4.3.6",
     "redis==5.2.1"
 ]
+metrics = [
+    "elasticsearch>=8.0.0",
+    "prometheus-client>=0.20.0",
+    "requests>=2.31.0"
+]
 [tool.setuptools]
 packages = [
     "event_pipeline",
@@ -68,7 +73,8 @@ packages = [
     "event_pipeline.signal",
     "event_pipeline.backends",
     "event_pipeline.backends.stores",
-    "event_pipeline.backends.connectors"
+    "event_pipeline.backends.connectors",
+    "event_pipeline.telemetry"
 ]
 
 [tool.coverage.run]
