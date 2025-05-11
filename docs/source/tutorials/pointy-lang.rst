@@ -273,6 +273,7 @@ Explanation:
     Extract -> Clean || Validate || Deduplicate |-> Transform -> Load (0 -> AlertAdmin, 1 -> SuccessLog)
 
 Explanation:
+
 1. Data is extracted and passed to three parallel stages: cleaning, validation, and deduplication.
 2. Results are piped into a transformation step.
 3. Load step attempts to store data; on failure, notify admin, otherwise log success.
@@ -285,6 +286,7 @@ Explanation:
     A || B || C |-> D (0 -> ErrorHandler, 1 -> Finalize)
 
 Use Case:
+
 Concurrent processing of services A, B, and C, combined into D. Depending on D's result,
 route to either ErrorHandler or Finalize.
 
