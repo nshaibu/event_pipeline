@@ -4,12 +4,14 @@ Tutorials - Events
 Introduction
 ------------
 
-This documentation provides a comprehensive guide to defining and configuring events in the event pipeline system. Events are the core components that define the processing logic and execution behavior within the pipeline.
+This documentation provides a comprehensive guide to defining and configuring events in the event pipeline system.
+Events are the core components that define the processing logic and execution behavior within the pipeline.
 
 Define the Event Class
 ~~~~~~~~~~~~~~~~~~~~~~
 
-To define an event, you need to inherit from the ``EventBase`` class and override the ``process`` method. This method contains the logic that will be executed when the event is processed.
+To define an event, you need to inherit from the ``EventBase`` class and override the ``process`` method. This method
+contains the logic that will be executed when the event is processed.
 
 .. code-block:: python
 
