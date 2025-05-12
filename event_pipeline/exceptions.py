@@ -117,3 +117,7 @@ class SwitchTask(Exception):
 
 class TaskSwitchingError(PipelineError):
     """TaskSwitchingError raised when a task switch fails."""
+
+
+class SqlOperationError(ValueError):
+    """SqlOperationError raised when a SQL operation fails."""
