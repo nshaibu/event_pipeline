@@ -4,7 +4,11 @@ from unittest.mock import MagicMock
 from pydantic_mini import BaseModel
 
 from event_pipeline.backends.stores.sqlite_store import SqliteStoreBackend
-from event_pipeline.exceptions import ObjectDoesNotExist, ObjectExistError, SqlOperationError
+from event_pipeline.exceptions import (
+    ObjectDoesNotExist,
+    ObjectExistError,
+    SqlOperationError,
+)
 
 
 class MockRecord(BaseModel):
@@ -31,14 +35,14 @@ def sqlite_store():
 
 @pytest.fixture
 def sample_record():
-    return MockRecord(id = "1", name="John Doe")
+    return MockRecord(id="1", name="John Doe")
 
 
 # Helper function to simulate cursor description
 def get_cursor_description():
     return [
-        ('id', None, None, None, None, None, None),
-        ('name', None, None, None, None, None, None)
+        ("id", None, None, None, None, None, None),
+        ("name", None, None, None, None, None, None),
     ]
 
 
@@ -61,7 +65,10 @@ def test_create_schema(sqlite_store, sample_record):
     sqlite_store.create_schema("test_schema", sample_record)
 
     sqlite_store.connector.cursor.execute.assert_called_once()
-    assert "CREATE TABLE test_schema" in sqlite_store.connector.cursor.execute.call_args[0][0]
+    assert (
+        "CREATE TABLE test_schema"
+        in sqlite_store.connector.cursor.execute.call_args[0][0]
+    )
 
 
 def test_create_existing_schema(sqlite_store, sample_record):
@@ -111,7 +118,9 @@ def test_delete_nonexistent_record(sqlite_store):
 
 
 def test_get_record(sqlite_store, sample_record):
-    sqlite_store.connector.cursor.fetchone.return_value = (pickle.dumps(sample_record.__dict__),)
+    sqlite_store.connector.cursor.fetchone.return_value = (
+        pickle.dumps(sample_record.__dict__),
+    )
 
     result = sqlite_store.get_record("test_schema", MockRecord, "1")
     assert isinstance(result, MockRecord)
@@ -129,8 +138,8 @@ def test_filter_record_basic(sqlite_store):
     sqlite_store._check_if_schema_exists = MagicMock(return_value=True)
     sqlite_store.connector.cursor.description = get_cursor_description()
     sqlite_store.connector.cursor.fetchall.return_value = [
-        pickle.dumps(MockRecord(id = "2", name = "John Doe").__dict__),
-        pickle.dumps(MockRecord(id = "3", name = "Jane Doe").__dict__)
+        pickle.dumps(MockRecord(id="2", name="John Doe").__dict__),
+        pickle.dumps(MockRecord(id="3", name="Jane Doe").__dict__),
     ]
 
     results = sqlite_store.filter_record("test_schema", MockRecord, name="John Doe")
@@ -142,14 +151,11 @@ def test_filter_record_complex(sqlite_store):
     sqlite_store._check_if_schema_exists = MagicMock(return_value=True)
     sqlite_store.connector.cursor.description = get_cursor_description()
     sqlite_store.connector.cursor.fetchall.return_value = [
-        pickle.dumps(MockRecord(id = "4", name = "James Doe").__dict__)
+        pickle.dumps(MockRecord(id="4", name="James Doe").__dict__)
     ]
 
     results = sqlite_store.filter_record(
-        "test_schema",
-        MockRecord,
-        age__gt=25,
-        name__contains="John"
+        "test_schema", MockRecord, age__gt=25, name__contains="John"
     )
     assert len(results) == 1
 
@@ -162,11 +168,9 @@ def test_filter_record_nonexistent_schema(sqlite_store):
 
 
 def test_build_sql_filter(sqlite_store):
-    where_clause, params = sqlite_store._build_sql_filter({
-        "name": "John",
-        "age__gt": 25,
-        "email__contains": "@example.com"
-    })
+    where_clause, params = sqlite_store._build_sql_filter(
+        {"name": "John", "age__gt": 25, "email__contains": "@example.com"}
+    )
 
     assert "name = ?" in where_clause
     assert "age > ?" in where_clause

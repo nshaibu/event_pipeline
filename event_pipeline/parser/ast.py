@@ -7,6 +7,31 @@ class Expression:
         self.op = operator
 
 
+class GroupExpression:
+
+    def __init__(self):
+        self.op = "EXPRESSION-GROUP"
+
+    def set_value(self, value: typing.Any, initial_value: typing.Any):
+        raise NotImplementedError
+
+
+class AssignmentExpression(Expression):
+    def __init__(self, variable: typing.Any, value: typing.Any):
+        super().__init__("ASSIGNMENT")
+        self.variable = variable
+        self.value = value
+
+
+class AssignmentExpressionGroup(GroupExpression):
+
+    def __init__(self, expr0: Expression, expr1: Expression):
+        super().__init__()
+
+    def set_value(self, value: typing.Any, initial_value: typing.Any):
+        pass
+
+
 class BinOp(Expression):
     def __init__(self, op, left_node, right_node):
         super().__init__(op)
@@ -17,9 +42,9 @@ class BinOp(Expression):
         return f"BinOp({self.op}, {self.left}, {self.right})"
 
 
-class ConditionalGroup(Expression):
+class ConditionalGroup(GroupExpression):
     def __init__(self, expr0: Expression, expr1: Expression):
-        super().__init__("EXPRESSION-GROUP")
+        super().__init__()
         self._descriptors: typing.Dict[int, BinOp] = {}
 
         self.set_value(expr0, expr0)
@@ -91,8 +116,9 @@ class ConditionalBinOP(Expression):
 
 
 class TaskName(object):
-    def __init__(self, value):
+    def __init__(self, value: str, assign_group: AssignmentExpressionGroup = None):
         self.value = value
+        self.assign_group = assign_group
 
     def __repr__(self):
         return f"Task({self.value})"
