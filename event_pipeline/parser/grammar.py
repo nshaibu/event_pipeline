@@ -3,7 +3,15 @@ __all__ = ["pointy_parser"]
 from . import lexer
 from ply.yacc import yacc, YaccError
 
-from .ast import BinOp, Descriptor, TaskName, ConditionalBinOP, ConditionalGroup
+from .ast import (
+    BinOp,
+    Descriptor,
+    TaskName,
+    ConditionalBinOP,
+    ConditionalGroup,
+    AssignmentExpression,
+    AssignmentExpressionGroup,
+)
 
 pointy_lexer = lexer.PointyLexer()
 tokens = pointy_lexer.tokens
@@ -71,10 +79,14 @@ def p_factor(p):
 
 def p_task_taskname(p):
     """
-    task : TASKNAME
+    task : IDENTIFIER
+        | IDENTIFIER LBRACKET task_config_assigment_group RBRACKET
     """
     # p[0] = ("TASKNAME", p[1])
-    p[0] = TaskName(p[1])
+    if p.length == 1:
+        p[0] = TaskName(p[1])
+    else:
+        p[0] = TaskName(p[1], p[3])
 
 
 def p_task_group(p):
@@ -92,6 +104,22 @@ def p_task_conditional_statement(p):
     """
     # p[0] = ("GROUP", p[1], p[3])
     p[0] = ConditionalBinOP(p[1], p[3])
+
+
+def p_assignment_expression(p):
+    """
+    assignment_expression : IDENTIFIER ASSIGN VALUE
+    """
+
+    p[0] = AssignmentExpression(p[1], p[3])
+
+
+def p_assignment_expression_group(p):
+    """
+    task_config_assigment_group : assignment_expression SEPERATOR assignment_expression
+                                | task_config_assigment_group SEPERATOR assignment_expression
+    """
+    p[0] = AssignmentExpressionGroup(p[1], p[3])
 
 
 def p_error(p):

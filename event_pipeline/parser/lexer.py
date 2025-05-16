@@ -15,23 +15,33 @@ class PointyLexer(object):
         "PPOINTER",
         "PARALLEL",
         "RETRY",
-        "TASKNAME",
+        "ASSIGN",
+        # "TASKNAME",
+        "IDENTIFIER",
         "COMMENT",
         "LPAREN",
         "RPAREN",
+        "LBRACKET",
+        "RBRACKET",
         "NUMBER",
         "DIRECTIVE",
+        "VALUE",
     )
 
     t_ignore = " \t"
     t_LPAREN = r"\("
     t_RPAREN = r"\)"
-    t_TASKNAME = r"[a-zA-Z_][a-zA-Z0-9_]*"
+    t_LBRACKET = r"\["
+    t_RBRACKET = r"\]"
+    # t_TASKNAME = r"[a-zA-Z_][a-zA-Z0-9_]*"
+    t_IDENTIFIER = r"[a-zA-Z_][a-zA-Z0-9_]+"
     t_POINTER = r"\-\>"
     t_PPOINTER = r"\|\-\>"
     t_RETRY = r"\*"
     t_PARALLEL = r"\|\|"
+    t_ASSIGN = r"\="
     t_SEPERATOR = r","
+    t_VALUE = r"[a-zA-Z0-9_\.\-]+"
     t_ignore_COMMENT = r"\#.*"
 
     def t_NUMBER(self, t):
