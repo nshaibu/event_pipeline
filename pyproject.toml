@@ -67,9 +67,13 @@ metrics = [
 [tool.setuptools]
 packages = [
     "event_pipeline",
+    "event_pipeline.translator",
+    "event_pipeline.protos",
     "event_pipeline.parser",
     "event_pipeline.executors",
+    "event_pipeline.manager",
     "event_pipeline.mixins",
+    "event_pipeline.mixins.utils",
     "event_pipeline.signal",
     "event_pipeline.backends",
     "event_pipeline.backends.stores",
