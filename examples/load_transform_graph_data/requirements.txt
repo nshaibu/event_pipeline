@@ -1,0 +1,13 @@
+anyio==4.9.0
+certifi==2025.4.26
+event_pipeline==1.1.dev6
+graphviz==0.20.3
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.10
+more-itertools==10.6.0
+ply==3.11
+six==1.17.0
+sniffio==1.3.1
+treelib==1.7.0

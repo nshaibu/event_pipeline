@@ -53,6 +53,7 @@ class MetricsPublisher(abc.ABC):
     def format_metrics(self, metrics: typing.Union["EventMetrics", dict]) -> dict:
         """Format metrics into a standardized dictionary format."""
         from .logger import EventMetrics
+
         if isinstance(metrics, EventMetrics):
             data = asdict(metrics)
             data.update(
