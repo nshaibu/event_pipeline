@@ -6,19 +6,19 @@ def build_filter_params(filter_kwargs):
     parameters = []
 
     for key, value in filter_kwargs.items():
-        if '__' in key:
-            field, operator = key.rsplit('__', 1)
-            if operator == 'contains':
+        if "__" in key:
+            field, operator = key.rsplit("__", 1)
+            if operator == "contains":
                 conditions.append(f"{field} LIKE %s")
-                parameters.append(f'%{value}%')
-            elif operator == 'startswith':
+                parameters.append(f"%{value}%")
+            elif operator == "startswith":
                 conditions.append(f"{field} LIKE %s")
-                parameters.append(f'{value}%')
-            elif operator == 'endswith':
+                parameters.append(f"{value}%")
+            elif operator == "endswith":
                 conditions.append(f"{field} LIKE %s")
-                parameters.append(f'%{value}')
-            elif operator in ('gt', 'gte', 'lt', 'lte'):
-                op_map = {'gt': '>', 'gte': '>=', 'lt': '<', 'lte': '<='}
+                parameters.append(f"%{value}")
+            elif operator in ("gt", "gte", "lt", "lte"):
+                op_map = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
                 conditions.append(f"{field} {op_map[operator]} %s")
                 parameters.append(value)
         else:

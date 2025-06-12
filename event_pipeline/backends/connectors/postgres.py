@@ -4,14 +4,16 @@ from event_pipeline.backends.connection import BackendConnectorBase
 
 class PostgresConnector(BackendConnectorBase):
     def __init__(self, host, port, db=None, username=None, password=None):
-        super().__init__(host=host, port=port, db=db, username=username, password=password)
+        super().__init__(
+            host=host, port=port, db=db, username=username, password=password
+        )
         self._connection = psycopg.connect(
-                    host=self.host,
-                    port=self.port,
-                    dbname=self.database,
-                    user=self.username,
-                    password=self.password
-                )
+            host=self.host,
+            port=self.port,
+            dbname=self.database,
+            user=self.username,
+            password=self.password,
+        )
         self._cursor = self._connection.cursor()
 
     def connect(self):
@@ -22,7 +24,7 @@ class PostgresConnector(BackendConnectorBase):
                     port=self.port,
                     dbname=self.database,
                     user=self.username,
-                    password=self.password
+                    password=self.password,
                 )
                 self._cursor = self._connection.cursor()
             except psycopg.Error as e:

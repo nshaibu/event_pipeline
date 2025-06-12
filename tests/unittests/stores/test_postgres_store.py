@@ -21,9 +21,7 @@ class MockRecord(BaseModel):
 def postgres_store():
     from unittest.mock import patch, MagicMock
 
-    with (patch('event_pipeline.backends.connectors.postgres.PostgresConnector', autospec=True)
-          as mock_connector_class):
-
+    with patch('event_pipeline.backends.connectors.postgres.PostgresConnector', autospec=True) as mock_connector_class:
         mock_instance = MagicMock()
         mock_instance.connect.return_value = MagicMock()
         mock_instance.is_connected.return_value = True
