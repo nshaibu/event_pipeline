@@ -20,7 +20,8 @@ dependencies = [
     "more-itertools<=10.6.0",
     "pydantic_mini==1.0.4",
     "apscheduler<=3.11.0",
-    "typing-extensions==4.12.2"
+    "typing-extensions==4.12.2",
+    "cloudpickle>=3.0.0",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
