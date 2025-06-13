@@ -583,7 +583,7 @@ class EventExecutionContext(ObjectIdentityMixin):
         """
         return self.get_latest_execution_context()
 
-    def filter_by_event(self, event_name: str) -> ResultSet["EventExecutionContext"]:
+    def filter_by_event(self, event_name: str) -> ResultSet:
         """
         Filters the execution context based on the event name.
         :param event_name: Case-insensitive event name.
