@@ -296,13 +296,20 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
     def __hash__(self):
         return hash(self.id)
 
-    def start(self, force_rerun: bool = False):
+    def start(self, force_rerun: bool = False) -> EventExecutionContext:
         """
         Initiates the execution of the pipeline.
 
         Args:
             force_rerun (bool): If True, allows the pipeline to be executed
                 again even if it has already completed. Defaults to False.
+
+        Return:
+            EventExecutionContext: The execution context of the pipeline. It is a linked list with ability to
+            traverse the various execution contexts for each of the events within the pipeline.
+            The context can be filter base on the event name using the method `filter_by_event`.
+            It is also iterable and thus your can loop over it
+            `for context in pipeline.start(): pass`
 
         Raises:
             EventDone: If the pipeline has already been executed and
@@ -333,18 +340,19 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
                     pipeline=self,
                     execution_context=latest_context,
                 )
-                return
+                return self.execution_context
             elif latest_context.state == ExecutionState.ABORTED:
                 pipeline_shutdown.emit(
                     sender=self.__class__,
                     pipeline=self,
                     execution_context=latest_context,
                 )
-                return
+                return self.execution_context
 
         pipeline_execution_end.emit(
             sender=self.__class__, execution_context=self.execution_context
         )
+        return self.execution_context
 
     def shutdown(self):
         if self.execution_context:
