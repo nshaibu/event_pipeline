@@ -55,27 +55,46 @@ class ExecutionState(Enum):
 
 
 class EventExecutionContext(ObjectIdentityMixin):
-    """
-    Represents the execution context for a particular event in the pipeline.
-
-    This class encapsulates the necessary data and state associated with
-    executing an event, such as the task being processed and the pipeline
-    it belongs to.
-
-    Individual events executing concurrently must acquire the "conditional_variable"
-    before they can make any changes to the execution context. This ensures that only one
-    event can modify the context at a time, preventing race conditions and ensuring thread safety.
-
-    Attributes:
-        task: The specific PipelineTask that is being executed.
-        pipeline: The Pipeline that orchestrates the execution of the task.
-    """
 
     def __init__(
         self,
         task: typing.Union["PipelineTask", typing.List["PipelineTask"]],
         pipeline: "Pipeline",
     ):
+        """
+        Represents the execution context for a particular event in the pipeline.
+
+        This class encapsulates the necessary data and state associated with
+        executing an event, such as the task being processed and the pipeline
+        it belongs to.
+
+        Individual events executing concurrently must acquire the "conditional_variable"
+        before they can make any changes to the execution context. This ensures that only one
+        event can modify the context at a time, preventing race conditions and ensuring thread safety.
+
+        Attributes:
+            task: The specific PipelineTask that is being executed.
+            pipeline: The Pipeline that orchestrates the execution of the task.
+
+
+        Details:
+            Represents the execution context of the pipeline as a bidirectional (doubly-linked) list.
+            Each node corresponds to an event's execution context, allowing traversal both forward and backward
+            through the pipeline's events.
+
+            You can filter contexts by event name using the `filter_by_event` method.
+
+            The context is iterable in the forward direction, so you can loop through it like this:
+                for context in pipeline.start():
+                    pass
+
+            To access specific ends of the context queue:
+            - Use `get_execution_context_head()` to retrieve the head (starting context).
+            - Use `get_tail_context()` to retrieve the tail (ending context).
+
+            Reverse traversal can be done by walking backward from the tail using the linked structure.
+        """
+
         super().__init__()
         self.conditional_variable = Condition()
 
@@ -90,6 +109,12 @@ class EventExecutionContext(ObjectIdentityMixin):
         self.next_context: typing.Optional[EventExecutionContext] = None
 
         self._errors: typing.List[PipelineError] = []
+
+    def __iter__(self):
+        current = self
+        while current is not None:
+            yield current
+            current = current.next_context
 
     @staticmethod
     def _configure_event(event: EventBase, profile: "PipelineTask"):
@@ -532,16 +557,46 @@ class EventExecutionContext(ObjectIdentityMixin):
         )
 
     def get_execution_context_head(self) -> "EventExecutionContext":
+        """
+        Returns the execution context head of the execution context.
+        :return: ExecutionContext head of the execution context.
+        """
         current = self
         while current.previous_context:
             current = current.previous_context
         return current
 
     def get_latest_execution_context(self) -> "EventExecutionContext":
+        """
+        Returns the latest execution context.
+        :return: EventExecutionContext
+        """
         current = self.get_execution_context_head()
         while current.next_context:
             current = current.next_context
         return current
+
+    def get_tail_context(self) -> "EventExecutionContext":
+        """
+        Returns the tail context of the execution context.
+        :return: EventExecutionContext
+        """
+        return self.get_latest_execution_context()
+
+    def filter_by_event(self, event_name: str) -> ResultSet:
+        """
+        Filters the execution context based on the event name.
+        :param event_name: Case-insensitive event name.
+        :return: ResultSet with the filtered execution context.
+        """
+        head = self.get_execution_context_head()
+        event = PipelineTask.resolve_event_name(event_name)
+        result = ResultSet([])
+
+        for context in head:
+            if event in [task.event for task in context.task_profiles]:
+                result.add(context)
+        return result
 
 
 @dataclass
