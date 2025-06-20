@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ===========================================================================================
 """
 
-__version__ = "1.1.dev6"
+__version__ = "2.0.0"
 __author__ = "nshaibu <nafiushaibu1@gmail.com>"
 
 import logging

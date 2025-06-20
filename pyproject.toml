@@ -3,13 +3,14 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "event_pipeline"
-version = "1.1.dev6"
+version = "2.0.0"
 requires-python = ">=3.8"
 authors = [
     {name = "nshaibu", email = "nafiushaibu1@gmail.com"},
+    {name = "lateofrederick", email = ""}
 ]
 description="Simple tool for writing events and pipelines in python"
-keywords=["pipeline","events","concurrency","data","pointy", "pointy lang", "event-pipeline", "redis"]
+keywords=["pipeline","events","concurrency","data","pointy", "pointy-lang", "event-pipeline", "redis", "pointy", "ETL"]
 readme = "README.md"
 license = { file = "LICENSE" }
 dependencies = [
@@ -20,7 +21,15 @@ dependencies = [
     "more-itertools<=10.6.0",
     "pydantic_mini==1.0.4",
     "apscheduler<=3.11.0",
-    "typing-extensions==4.12.2"
+    "typing-extensions==4.12.2",
+    "cloudpickle>=3.0.0",
+    "redis==5.2.1",
+    "cryptography>=41.0.0",
+    "grpcio>=1.60.0",
+    "grpcio-tools<=1.70.0",   # >=1.60.0
+    "psycopg==3.2.5",
+    "psycopg-binary==3.2.5",
+    "psycopg-pool==3.2.6"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -67,9 +76,13 @@ metrics = [
 [tool.setuptools]
 packages = [
     "event_pipeline",
+    "event_pipeline.translator",
+    "event_pipeline.protos",
     "event_pipeline.parser",
     "event_pipeline.executors",
+    "event_pipeline.manager",
     "event_pipeline.mixins",
+    "event_pipeline.mixins.utils",
     "event_pipeline.signal",
     "event_pipeline.backends",
     "event_pipeline.backends.stores",
