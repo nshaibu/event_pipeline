@@ -196,7 +196,7 @@ class EventExecutionContext(ObjectIdentityMixin):
                         executor_config,
                     )
 
-        return event.get_executor_context(params=executor_config)
+        return event.get_executor_context(ctx=executor_config)
 
     def _gather_executors_for_parallel_executions(
         self,
