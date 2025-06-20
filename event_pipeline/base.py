@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 conf = ConfigLoader.get_lazily_loaded_config()
 
 if typing.TYPE_CHECKING:
-    from .task import EventExecutionContext
+    from .task import EventExecutionContext, Options
 
 
 @dataclass
@@ -408,6 +408,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         stop_on_success: bool = False,
         stop_on_error: bool = False,
         run_bypass_event_checks: bool = False,
+        options: "Options" = None,
         **kwargs,
     ):
         """
@@ -428,12 +429,15 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                                           if it is successful. Defaults to `False`.
             stop_on_error (bool, optional): Flag to indicate whether the event should stop execution
                                         if an error occurs. Defaults to `False`.
+            options (Options, optional): Additional options to pass to the event constructor.
+                                        This is automatically assigned at run time
 
         """
         super().__init__(*args, **kwargs)
 
         self._execution_context = execution_context
         self._task_id = task_id
+        self.options = options
         self.previous_result = previous_result
         self.stop_on_exception = stop_on_exception
         self.stop_on_success = stop_on_success

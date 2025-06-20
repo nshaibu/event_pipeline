@@ -123,6 +123,7 @@ class TestEventBase(unittest.TestCase):
                 "stop_on_success": False,
                 "stop_on_error": False,
                 "run_bypass_event_checks": False,
+                "options": None,
                 "kwargs": {},
             },
         )

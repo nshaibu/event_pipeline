@@ -8,7 +8,13 @@ from collections import deque
 from threading import Condition
 from concurrent.futures import Executor, wait, Future
 from enum import Enum, unique
-from .base import EventBase, EventExecutionEvaluationState, EvaluationContext
+from pydantic_mini import BaseModel, MiniAnnotated, Attrib
+from .base import (
+    EventBase,
+    EventExecutionEvaluationState,
+    EvaluationContext,
+    ExecutorInitializerConfig,
+)
 from . import parser
 from .constants import EMPTY
 from .result import EventResult, ResultSet
@@ -35,15 +41,47 @@ from .signal.signals import (
     event_execution_cancelled,
 )
 from .mixins import ObjectIdentityMixin
+from .import_utils import import_string
 
 logger = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
     from .pipeline import Pipeline
+    from .parser.ast import AssignmentExpressionGroup
 
 
 def attach_signal_emitter(signal: SoftSignal, **signal_kwargs) -> None:
     signal.emit(**signal_kwargs)
+
+
+class Options(BaseModel):
+    retry_attempts: typing.Optional[int]
+    executor: typing.Optional[str]
+    executor_config: MiniAnnotated[dict, Attrib(default_factory=dict)]
+    extras: MiniAnnotated[dict, Attrib(default_factory=dict)]
+    execution_evaluation_state: typing.Optional[str]
+
+    @classmethod
+    def from_assigment_expression_group(
+        cls, assigment_expression_group: "AssignmentExpressionGroup"
+    ) -> "Options":
+        fields = [
+            "retry_attempts",
+            "executor",
+            "executor_config",
+            "extras",
+            "execution_evaluation_state",
+        ]
+        assignment_dict = {}
+        for assignment in assigment_expression_group.assignment_groups():
+            if assignment.variable in fields:
+                assignment_dict[assignment.variable] = assignment.value
+            else:
+                if "extras" not in assignment.variable:
+                    assignment_dict["extras"] = {}
+                assignment_dict["extras"][assignment.variable] = assignment.value
+
+        return cls.loads(assignment_dict, _format="dict")
 
 
 class ExecutionState(Enum):
@@ -118,13 +156,54 @@ class EventExecutionContext(ObjectIdentityMixin):
 
     @staticmethod
     def _configure_event(event: EventBase, profile: "PipelineTask"):
-        number_of_retries = profile.extra_config.number_of_retries
-        if number_of_retries:
+        number_of_retries = profile.extra_config.number_of_retries or 0
+        options_retries = profile.options and profile.options.retry_attempts or 0
+        total_retries = number_of_retries + options_retries
+        if total_retries > 1:
             event_retry_policy = event.get_retry_policy()
             if event_retry_policy:
-                event_retry_policy.max_attempts = number_of_retries
+                event_retry_policy.max_attempts = total_retries
             else:
-                event.config_retry_policy(max_attempts=number_of_retries)
+                event.config_retry_policy(max_attempts=total_retries)
+
+    @staticmethod
+    def _get_task_executor_klass(task: "PipelineTask") -> typing.Type[Executor]:
+        if task.options:
+            executor_str = task.options.executor
+            if executor_str is not None:
+                try:
+                    instance = import_string(executor_str)
+                    if not issubclass(instance, Executor):
+                        raise ValueError(f"Unsupported executor type {executor_str}")
+                    return instance
+                except ImportError:
+                    logger.warning("Could not import executor %s", executor_str)
+                except ValueError as e:
+                    logger.warning(str(e))
+        return PipelineTask.resolve_event_name(task.event).get_executor_class()
+
+    @staticmethod
+    def _get_task_executor_config(task: "PipelineTask") -> ExecutorInitializerConfig:
+        if task.options:
+            executor_config = task.options.executor_config
+            if executor_config is not None:
+                try:
+                    if not isinstance(executor_config, dict):
+                        raise TypeError(
+                            f"Unsupported executor config type {executor_config}"
+                        )
+                    return ExecutorInitializerConfig(**executor_config)
+                except Exception as e:
+                    logger.warning(
+                        "Could not parse executor config %s",
+                        executor_config,
+                        exc_info=e,
+                    )
+
+        event_klass = PipelineTask.resolve_event_name(task.event)
+        if event_klass.executor_config is None:
+            return ExecutorInitializerConfig()
+        return ExecutorInitializerConfig(**event_klass.executor_config)
 
     def _gather_executors_for_parallel_executions(
         self,
@@ -152,7 +231,7 @@ class EventExecutionContext(ObjectIdentityMixin):
 
         for task in self.task_profiles:
             event, context, event_call_args = self._get_executor_context_and_event(task)
-            executor = event.get_executor_class()
+            executor = self._get_task_executor_klass(task)
 
             self._configure_event(event, task)
 
@@ -347,7 +426,8 @@ class EventExecutionContext(ObjectIdentityMixin):
         """
 
         event_klass = task_profile.get_event_klass()
-        if not issubclass(event_klass.get_executor_class(), Executor):
+        executor_klass = self._get_task_executor_klass(task_profile)
+        if not issubclass(executor_klass, Executor):
             raise ImproperlyConfigured(f"Event executor must inherit {Executor}")
 
         logger.info(f"Executing event '{task_profile.event}'")
@@ -361,6 +441,10 @@ class EventExecutionContext(ObjectIdentityMixin):
 
         event_init_arguments["execution_context"] = self
         event_init_arguments["task_id"] = task_profile.id
+
+        # Let's pass the options given in the pointy script to the event
+        if task_profile.options:
+            event_init_arguments["options"] = task_profile.options
 
         if task_profile.is_parallel_execution_node:
             parent = task_profile.get_parallel_execution_parent_node()
@@ -377,7 +461,6 @@ class EventExecutionContext(ObjectIdentityMixin):
                 event_init_arguments["previous_result"] = EMPTY
 
         event = event_klass(**event_init_arguments)
-        executor_klass = event.get_executor_class()
 
         context = event.get_executor_context()
         context = get_function_call_args(executor_klass.__init__, context)
@@ -415,6 +498,17 @@ class EventExecutionContext(ObjectIdentityMixin):
         # For parallel execution, we use the evaluator of the last task in the chain
         # i.e for A||B||C, we will use the evaluator of 'C'
         task_profile = self._get_last_task_profile_in_chain()
+        if task_profile.options:
+            evaluator_str = task_profile.options.execution_evaluation_state
+            if evaluator_str:
+                evaluator = getattr(EventExecutionEvaluationState, evaluator_str, None)
+                if evaluator:
+                    return evaluator
+                else:
+                    logger.warning(
+                        "Could not find an evaluator for '%s' failing back to event configured evaluator",
+                        evaluator_str,
+                    )
         return task_profile.get_event_klass().execution_evaluation_state
 
     def dispatch(self):
@@ -685,6 +779,9 @@ class PipelineTask(ObjectIdentityMixin):
 
         self.extra_config: ExtraPipelineTaskConfig = ExtraPipelineTaskConfig()
 
+        # options specified in pointy scripts for tasks are kept here
+        self.options: typing.Optional[Options] = None
+
         # attributes for when a task is created from a descriptor
         self._descriptor: typing.Optional[int] = None
         self._descriptor_pipe: typing.Optional[PipeType] = None
@@ -916,7 +1013,10 @@ class PipelineTask(ObjectIdentityMixin):
             else:
                 return left_node or right_node
         elif isinstance(ast, parser.TaskName):
-            return cls(event=ast.value)
+            instance = cls(event=ast.value)
+            if ast.options:
+                instance.options = Options.from_assigment_expression_group(ast.options)
+            return instance
         elif isinstance(ast, parser.ConditionalBinOP):
             left_node = cls._parse_ast(ast.left)
             right_node = cls._parse_ast(ast.right)

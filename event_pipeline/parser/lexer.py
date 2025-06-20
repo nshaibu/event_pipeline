@@ -10,22 +10,22 @@ class PointyLexer(object):
     directives = ("recursive-depth",)
 
     tokens = (
-        "SEPERATOR",
+        "SEPARATOR",
         "POINTER",
         "PPOINTER",
         "PARALLEL",
         "RETRY",
         "ASSIGN",
-        # "TASKNAME",
         "IDENTIFIER",
         "COMMENT",
         "LPAREN",
         "RPAREN",
         "LBRACKET",
         "RBRACKET",
-        "NUMBER",
         "DIRECTIVE",
-        "VALUE",
+        "STRING_LITERAL",
+        "INT",
+        "FLOAT",
     )
 
     t_ignore = " \t"
@@ -33,20 +33,30 @@ class PointyLexer(object):
     t_RPAREN = r"\)"
     t_LBRACKET = r"\["
     t_RBRACKET = r"\]"
-    # t_TASKNAME = r"[a-zA-Z_][a-zA-Z0-9_]*"
-    t_IDENTIFIER = r"[a-zA-Z_][a-zA-Z0-9_]+"
+    t_IDENTIFIER = r"[a-zA-Z_][a-zA-Z0-9_]*"
     t_POINTER = r"\-\>"
     t_PPOINTER = r"\|\-\>"
     t_RETRY = r"\*"
     t_PARALLEL = r"\|\|"
     t_ASSIGN = r"\="
-    t_SEPERATOR = r","
-    t_VALUE = r"[a-zA-Z0-9_\.\-]+"
+    t_SEPARATOR = r","
     t_ignore_COMMENT = r"\#.*"
 
-    def t_NUMBER(self, t):
-        r"\d+"
+    def t_FLOAT(self, t):
+        r"[+-]?([0-9]+\.[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?"
+        t.value = float(t.value)
+        return t
+
+    def t_INT(self, t):
+        r"[+-]?[0-9]+"
         t.value = int(t.value)
+        return t
+
+    def t_STRING_LITERAL(self, t):
+        r'"([^"\\]|\\[ntr"\'\\])*"'  # Matches double-quoted string with escape sequences
+        t.value = bytes(t.value[1:-1], "utf-8").decode(
+            "unicode_escape"
+        )  # Unescape the string
         return t
 
     def t_DIRECTIVE(self, t):

@@ -1,4 +1,6 @@
+import ast
 import typing
+from pydantic_mini.typing import NoneType
 
 
 class Expression:
@@ -17,19 +19,60 @@ class GroupExpression:
 
 
 class AssignmentExpression(Expression):
+
     def __init__(self, variable: typing.Any, value: typing.Any):
         super().__init__("ASSIGNMENT")
         self.variable = variable
         self.value = value
+        self.data_type: typing.Type = self.determine_value_type(self.value)
+
+    def __str__(self):
+        return f"{self.variable} = {self.value} ({self.data_type})"
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.variable} = {self.value} ({self.data_type}))"
+
+    @staticmethod
+    def determine_value_type(value: typing.Any) -> type:
+        if value is None:
+            return NoneType
+        elif isinstance(value, int):
+            return int
+        elif isinstance(value, float):
+            return float
+        elif isinstance(value, str):
+            try:
+                value = ast.literal_eval(value)
+                return type(value)
+            except (ValueError, TypeError):
+                return str
 
 
 class AssignmentExpressionGroup(GroupExpression):
 
-    def __init__(self, expr0: Expression, expr1: Expression):
+    def __init__(
+        self, expr0: typing.Optional[Expression], expr1: typing.Optional[Expression]
+    ):
         super().__init__()
+        self._assignment_groups: typing.List[AssignmentExpression] = []
 
-    def set_value(self, value: typing.Any, initial_value: typing.Any):
-        pass
+        self.set_value(expr0)
+        self.set_value(expr1)
+
+    def set_value(
+        self,
+        value: typing.Any,
+    ):
+        if value is None:
+            return
+        if isinstance(value, AssignmentExpression):
+            self._assignment_groups.append(value)
+        elif isinstance(value, AssignmentExpressionGroup):
+            for expr in value.assignment_groups():
+                self._assignment_groups.append(expr)
+
+    def assignment_groups(self) -> typing.List[AssignmentExpression]:
+        return self._assignment_groups
 
 
 class BinOp(Expression):
@@ -118,7 +161,7 @@ class ConditionalBinOP(Expression):
 class TaskName(object):
     def __init__(self, value: str, assign_group: AssignmentExpressionGroup = None):
         self.value = value
-        self.assign_group = assign_group
+        self.options = assign_group
 
     def __repr__(self):
         return f"Task({self.value})"
