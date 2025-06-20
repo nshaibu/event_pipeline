@@ -17,35 +17,50 @@ Rule 6     expression -> factor RETRY task
 Rule 7     expression -> task RETRY factor
 Rule 8     expression -> term
 Rule 9     term -> task
-Rule 10    descriptor -> NUMBER
-Rule 11    factor -> NUMBER
-Rule 12    task -> TASKNAME
-Rule 13    task_group -> expression SEPERATOR expression
-Rule 14    task_group -> task_group SEPERATOR expression
-Rule 15    task -> task LPAREN task_group RPAREN
+Rule 10    descriptor -> INT
+Rule 11    factor -> INT
+Rule 12    factor -> FLOAT
+Rule 13    task -> IDENTIFIER
+Rule 14    task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+Rule 15    task_group -> expression SEPARATOR expression
+Rule 16    task_group -> task_group SEPARATOR expression
+Rule 17    task -> task LPAREN task_group RPAREN
+Rule 18    assignment_expression -> IDENTIFIER ASSIGN STRING_LITERAL
+Rule 19    assignment_expression -> IDENTIFIER ASSIGN INT
+Rule 20    assignment_expression -> IDENTIFIER ASSIGN FLOAT
+Rule 21    assigment_expression_group -> assignment_expression
+Rule 22    assigment_expression_group -> assignment_expression SEPARATOR assignment_expression
+Rule 23    assigment_expression_group -> assigment_expression_group SEPARATOR assignment_expression
 
 Terminals, with rules where they appear
 
+ASSIGN               : 18 19 20
 COMMENT              : 
 DIRECTIVE            : 
-LPAREN               : 15
-NUMBER               : 10 11
+FLOAT                : 12 20
+IDENTIFIER           : 13 14 18 19 20
+INT                  : 10 11 19
+LBRACKET             : 14
+LPAREN               : 17
 PARALLEL             : 3
 POINTER              : 1 4
 PPOINTER             : 2 5
+RBRACKET             : 14
 RETRY                : 6 7
-RPAREN               : 15
-SEPERATOR            : 13 14
-TASKNAME             : 12
+RPAREN               : 17
+SEPARATOR            : 15 16 22 23
+STRING_LITERAL       : 18
 error                : 
 
 Nonterminals, with rules where they appear
 
+assigment_expression_group : 14 23
+assignment_expression : 21 22 22 23
 descriptor           : 4 5
-expression           : 1 1 2 2 3 3 4 5 13 13 14 0
+expression           : 1 1 2 2 3 3 4 5 15 15 16 0
 factor               : 6 7
-task                 : 6 7 9 15
-task_group           : 14 15
+task                 : 6 7 9 17
+task_group           : 16 17
 term                 : 8
 
 Parsing method: LALR
@@ -61,14 +76,17 @@ state 0
     (6) expression -> . factor RETRY task
     (7) expression -> . task RETRY factor
     (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
 
     expression                     shift and go to state 1
     descriptor                     shift and go to state 2
@@ -83,9 +101,9 @@ state 1
     (2) expression -> expression . PPOINTER expression
     (3) expression -> expression . PARALLEL expression
 
-    POINTER         shift and go to state 8
-    PPOINTER        shift and go to state 9
-    PARALLEL        shift and go to state 10
+    POINTER         shift and go to state 9
+    PPOINTER        shift and go to state 10
+    PARALLEL        shift and go to state 11
 
 
 state 2
@@ -93,30 +111,30 @@ state 2
     (4) expression -> descriptor . POINTER expression
     (5) expression -> descriptor . PPOINTER expression
 
-    POINTER         shift and go to state 11
-    PPOINTER        shift and go to state 12
+    POINTER         shift and go to state 12
+    PPOINTER        shift and go to state 13
 
 
 state 3
 
     (6) expression -> factor . RETRY task
 
-    RETRY           shift and go to state 13
+    RETRY           shift and go to state 14
 
 
 state 4
 
     (7) expression -> task . RETRY factor
-    (15) task -> task . LPAREN task_group RPAREN
+    (17) task -> task . LPAREN task_group RPAREN
     (9) term -> task .
 
-    RETRY           shift and go to state 14
-    LPAREN          shift and go to state 15
+    RETRY           shift and go to state 15
+    LPAREN          shift and go to state 16
     POINTER         reduce using rule 9 (term -> task .)
     PPOINTER        reduce using rule 9 (term -> task .)
     PARALLEL        reduce using rule 9 (term -> task .)
     $end            reduce using rule 9 (term -> task .)
-    SEPERATOR       reduce using rule 9 (term -> task .)
+    SEPARATOR       reduce using rule 9 (term -> task .)
     RPAREN          reduce using rule 9 (term -> task .)
 
 
@@ -128,35 +146,50 @@ state 5
     PPOINTER        reduce using rule 8 (expression -> term .)
     PARALLEL        reduce using rule 8 (expression -> term .)
     $end            reduce using rule 8 (expression -> term .)
-    SEPERATOR       reduce using rule 8 (expression -> term .)
+    SEPARATOR       reduce using rule 8 (expression -> term .)
     RPAREN          reduce using rule 8 (expression -> term .)
 
 
 state 6
 
-    (10) descriptor -> NUMBER .
-    (11) factor -> NUMBER .
+    (10) descriptor -> INT .
+    (11) factor -> INT .
 
-    POINTER         reduce using rule 10 (descriptor -> NUMBER .)
-    PPOINTER        reduce using rule 10 (descriptor -> NUMBER .)
-    RETRY           reduce using rule 11 (factor -> NUMBER .)
+    POINTER         reduce using rule 10 (descriptor -> INT .)
+    PPOINTER        reduce using rule 10 (descriptor -> INT .)
+    RETRY           reduce using rule 11 (factor -> INT .)
 
 
 state 7
 
-    (12) task -> TASKNAME .
+    (12) factor -> FLOAT .
 
-    RETRY           reduce using rule 12 (task -> TASKNAME .)
-    LPAREN          reduce using rule 12 (task -> TASKNAME .)
-    POINTER         reduce using rule 12 (task -> TASKNAME .)
-    PPOINTER        reduce using rule 12 (task -> TASKNAME .)
-    PARALLEL        reduce using rule 12 (task -> TASKNAME .)
-    $end            reduce using rule 12 (task -> TASKNAME .)
-    SEPERATOR       reduce using rule 12 (task -> TASKNAME .)
-    RPAREN          reduce using rule 12 (task -> TASKNAME .)
+    RETRY           reduce using rule 12 (factor -> FLOAT .)
+    POINTER         reduce using rule 12 (factor -> FLOAT .)
+    PPOINTER        reduce using rule 12 (factor -> FLOAT .)
+    PARALLEL        reduce using rule 12 (factor -> FLOAT .)
+    $end            reduce using rule 12 (factor -> FLOAT .)
+    SEPARATOR       reduce using rule 12 (factor -> FLOAT .)
+    RPAREN          reduce using rule 12 (factor -> FLOAT .)
 
 
 state 8
+
+    (13) task -> IDENTIFIER .
+    (14) task -> IDENTIFIER . LBRACKET assigment_expression_group RBRACKET
+
+    RETRY           reduce using rule 13 (task -> IDENTIFIER .)
+    LPAREN          reduce using rule 13 (task -> IDENTIFIER .)
+    POINTER         reduce using rule 13 (task -> IDENTIFIER .)
+    PPOINTER        reduce using rule 13 (task -> IDENTIFIER .)
+    PARALLEL        reduce using rule 13 (task -> IDENTIFIER .)
+    $end            reduce using rule 13 (task -> IDENTIFIER .)
+    SEPARATOR       reduce using rule 13 (task -> IDENTIFIER .)
+    RPAREN          reduce using rule 13 (task -> IDENTIFIER .)
+    LBRACKET        shift and go to state 17
+
+
+state 9
 
     (1) expression -> expression POINTER . expression
     (1) expression -> . expression POINTER expression
@@ -167,22 +200,25 @@ state 8
     (6) expression -> . factor RETRY task
     (7) expression -> . task RETRY factor
     (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
 
-    expression                     shift and go to state 16
+    expression                     shift and go to state 18
     descriptor                     shift and go to state 2
     factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
-state 9
+state 10
 
     (2) expression -> expression PPOINTER . expression
     (1) expression -> . expression POINTER expression
@@ -193,22 +229,25 @@ state 9
     (6) expression -> . factor RETRY task
     (7) expression -> . task RETRY factor
     (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
 
-    expression                     shift and go to state 17
+    expression                     shift and go to state 19
     descriptor                     shift and go to state 2
     factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
-state 10
+state 11
 
     (3) expression -> expression PARALLEL . expression
     (1) expression -> . expression POINTER expression
@@ -219,22 +258,25 @@ state 10
     (6) expression -> . factor RETRY task
     (7) expression -> . task RETRY factor
     (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
 
-    expression                     shift and go to state 18
+    expression                     shift and go to state 20
     descriptor                     shift and go to state 2
     factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
-state 11
+state 12
 
     (4) expression -> descriptor POINTER . expression
     (1) expression -> . expression POINTER expression
@@ -245,22 +287,25 @@ state 11
     (6) expression -> . factor RETRY task
     (7) expression -> . task RETRY factor
     (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
 
     descriptor                     shift and go to state 2
-    expression                     shift and go to state 19
+    expression                     shift and go to state 21
     factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
-state 12
+state 13
 
     (5) expression -> descriptor PPOINTER . expression
     (1) expression -> . expression POINTER expression
@@ -271,45 +316,51 @@ state 12
     (6) expression -> . factor RETRY task
     (7) expression -> . task RETRY factor
     (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
 
     descriptor                     shift and go to state 2
-    expression                     shift and go to state 20
+    expression                     shift and go to state 22
     factor                         shift and go to state 3
     task                           shift and go to state 4
     term                           shift and go to state 5
 
-state 13
-
-    (6) expression -> factor RETRY . task
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
-
-    TASKNAME        shift and go to state 7
-
-    task                           shift and go to state 21
-
 state 14
 
-    (7) expression -> task RETRY . factor
-    (11) factor -> . NUMBER
+    (6) expression -> factor RETRY . task
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
 
-    NUMBER          shift and go to state 23
+    IDENTIFIER      shift and go to state 8
 
-    factor                         shift and go to state 22
+    task                           shift and go to state 23
 
 state 15
 
-    (15) task -> task LPAREN . task_group RPAREN
-    (13) task_group -> . expression SEPERATOR expression
-    (14) task_group -> . task_group SEPERATOR expression
+    (7) expression -> task RETRY . factor
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+
+    INT             shift and go to state 25
+    FLOAT           shift and go to state 7
+
+    factor                         shift and go to state 24
+
+state 16
+
+    (17) task -> task LPAREN . task_group RPAREN
+    (15) task_group -> . expression SEPARATOR expression
+    (16) task_group -> . task_group SEPARATOR expression
     (1) expression -> . expression POINTER expression
     (2) expression -> . expression PPOINTER expression
     (3) expression -> . expression PARALLEL expression
@@ -318,23 +369,41 @@ state 15
     (6) expression -> . factor RETRY task
     (7) expression -> . task RETRY factor
     (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
     (9) term -> . task
 
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
 
     task                           shift and go to state 4
-    task_group                     shift and go to state 24
-    expression                     shift and go to state 25
+    task_group                     shift and go to state 26
+    expression                     shift and go to state 27
     descriptor                     shift and go to state 2
     factor                         shift and go to state 3
     term                           shift and go to state 5
 
-state 16
+state 17
+
+    (14) task -> IDENTIFIER LBRACKET . assigment_expression_group RBRACKET
+    (21) assigment_expression_group -> . assignment_expression
+    (22) assigment_expression_group -> . assignment_expression SEPARATOR assignment_expression
+    (23) assigment_expression_group -> . assigment_expression_group SEPARATOR assignment_expression
+    (18) assignment_expression -> . IDENTIFIER ASSIGN STRING_LITERAL
+    (19) assignment_expression -> . IDENTIFIER ASSIGN INT
+    (20) assignment_expression -> . IDENTIFIER ASSIGN FLOAT
+
+    IDENTIFIER      shift and go to state 28
+
+    assigment_expression_group     shift and go to state 29
+    assignment_expression          shift and go to state 30
+
+state 18
 
     (1) expression -> expression POINTER expression .
     (1) expression -> expression . POINTER expression
@@ -345,15 +414,15 @@ state 16
     PPOINTER        reduce using rule 1 (expression -> expression POINTER expression .)
     PARALLEL        reduce using rule 1 (expression -> expression POINTER expression .)
     $end            reduce using rule 1 (expression -> expression POINTER expression .)
-    SEPERATOR       reduce using rule 1 (expression -> expression POINTER expression .)
+    SEPARATOR       reduce using rule 1 (expression -> expression POINTER expression .)
     RPAREN          reduce using rule 1 (expression -> expression POINTER expression .)
 
-  ! POINTER         [ shift and go to state 8 ]
-  ! PPOINTER        [ shift and go to state 9 ]
-  ! PARALLEL        [ shift and go to state 10 ]
+  ! POINTER         [ shift and go to state 9 ]
+  ! PPOINTER        [ shift and go to state 10 ]
+  ! PARALLEL        [ shift and go to state 11 ]
 
 
-state 17
+state 19
 
     (2) expression -> expression PPOINTER expression .
     (1) expression -> expression . POINTER expression
@@ -364,15 +433,15 @@ state 17
     PPOINTER        reduce using rule 2 (expression -> expression PPOINTER expression .)
     PARALLEL        reduce using rule 2 (expression -> expression PPOINTER expression .)
     $end            reduce using rule 2 (expression -> expression PPOINTER expression .)
-    SEPERATOR       reduce using rule 2 (expression -> expression PPOINTER expression .)
+    SEPARATOR       reduce using rule 2 (expression -> expression PPOINTER expression .)
     RPAREN          reduce using rule 2 (expression -> expression PPOINTER expression .)
 
-  ! POINTER         [ shift and go to state 8 ]
-  ! PPOINTER        [ shift and go to state 9 ]
-  ! PARALLEL        [ shift and go to state 10 ]
+  ! POINTER         [ shift and go to state 9 ]
+  ! PPOINTER        [ shift and go to state 10 ]
+  ! PARALLEL        [ shift and go to state 11 ]
 
 
-state 18
+state 20
 
     (3) expression -> expression PARALLEL expression .
     (1) expression -> expression . POINTER expression
@@ -383,15 +452,15 @@ state 18
     PPOINTER        reduce using rule 3 (expression -> expression PARALLEL expression .)
     PARALLEL        reduce using rule 3 (expression -> expression PARALLEL expression .)
     $end            reduce using rule 3 (expression -> expression PARALLEL expression .)
-    SEPERATOR       reduce using rule 3 (expression -> expression PARALLEL expression .)
+    SEPARATOR       reduce using rule 3 (expression -> expression PARALLEL expression .)
     RPAREN          reduce using rule 3 (expression -> expression PARALLEL expression .)
 
-  ! POINTER         [ shift and go to state 8 ]
-  ! PPOINTER        [ shift and go to state 9 ]
-  ! PARALLEL        [ shift and go to state 10 ]
+  ! POINTER         [ shift and go to state 9 ]
+  ! PPOINTER        [ shift and go to state 10 ]
+  ! PARALLEL        [ shift and go to state 11 ]
 
 
-state 19
+state 21
 
     (4) expression -> descriptor POINTER expression .
     (1) expression -> expression . POINTER expression
@@ -402,15 +471,15 @@ state 19
     PPOINTER        reduce using rule 4 (expression -> descriptor POINTER expression .)
     PARALLEL        reduce using rule 4 (expression -> descriptor POINTER expression .)
     $end            reduce using rule 4 (expression -> descriptor POINTER expression .)
-    SEPERATOR       reduce using rule 4 (expression -> descriptor POINTER expression .)
+    SEPARATOR       reduce using rule 4 (expression -> descriptor POINTER expression .)
     RPAREN          reduce using rule 4 (expression -> descriptor POINTER expression .)
 
-  ! POINTER         [ shift and go to state 8 ]
-  ! PPOINTER        [ shift and go to state 9 ]
-  ! PARALLEL        [ shift and go to state 10 ]
+  ! POINTER         [ shift and go to state 9 ]
+  ! PPOINTER        [ shift and go to state 10 ]
+  ! PARALLEL        [ shift and go to state 11 ]
 
 
-state 20
+state 22
 
     (5) expression -> descriptor PPOINTER expression .
     (1) expression -> expression . POINTER expression
@@ -421,29 +490,29 @@ state 20
     PPOINTER        reduce using rule 5 (expression -> descriptor PPOINTER expression .)
     PARALLEL        reduce using rule 5 (expression -> descriptor PPOINTER expression .)
     $end            reduce using rule 5 (expression -> descriptor PPOINTER expression .)
-    SEPERATOR       reduce using rule 5 (expression -> descriptor PPOINTER expression .)
+    SEPARATOR       reduce using rule 5 (expression -> descriptor PPOINTER expression .)
     RPAREN          reduce using rule 5 (expression -> descriptor PPOINTER expression .)
 
-  ! POINTER         [ shift and go to state 8 ]
-  ! PPOINTER        [ shift and go to state 9 ]
-  ! PARALLEL        [ shift and go to state 10 ]
+  ! POINTER         [ shift and go to state 9 ]
+  ! PPOINTER        [ shift and go to state 10 ]
+  ! PARALLEL        [ shift and go to state 11 ]
 
 
-state 21
+state 23
 
     (6) expression -> factor RETRY task .
-    (15) task -> task . LPAREN task_group RPAREN
+    (17) task -> task . LPAREN task_group RPAREN
 
     POINTER         reduce using rule 6 (expression -> factor RETRY task .)
     PPOINTER        reduce using rule 6 (expression -> factor RETRY task .)
     PARALLEL        reduce using rule 6 (expression -> factor RETRY task .)
     $end            reduce using rule 6 (expression -> factor RETRY task .)
-    SEPERATOR       reduce using rule 6 (expression -> factor RETRY task .)
+    SEPARATOR       reduce using rule 6 (expression -> factor RETRY task .)
     RPAREN          reduce using rule 6 (expression -> factor RETRY task .)
-    LPAREN          shift and go to state 15
+    LPAREN          shift and go to state 16
 
 
-state 22
+state 24
 
     (7) expression -> task RETRY factor .
 
@@ -451,134 +520,261 @@ state 22
     PPOINTER        reduce using rule 7 (expression -> task RETRY factor .)
     PARALLEL        reduce using rule 7 (expression -> task RETRY factor .)
     $end            reduce using rule 7 (expression -> task RETRY factor .)
-    SEPERATOR       reduce using rule 7 (expression -> task RETRY factor .)
+    SEPARATOR       reduce using rule 7 (expression -> task RETRY factor .)
     RPAREN          reduce using rule 7 (expression -> task RETRY factor .)
-
-
-state 23
-
-    (11) factor -> NUMBER .
-
-    POINTER         reduce using rule 11 (factor -> NUMBER .)
-    PPOINTER        reduce using rule 11 (factor -> NUMBER .)
-    PARALLEL        reduce using rule 11 (factor -> NUMBER .)
-    $end            reduce using rule 11 (factor -> NUMBER .)
-    SEPERATOR       reduce using rule 11 (factor -> NUMBER .)
-    RPAREN          reduce using rule 11 (factor -> NUMBER .)
-
-
-state 24
-
-    (15) task -> task LPAREN task_group . RPAREN
-    (14) task_group -> task_group . SEPERATOR expression
-
-    RPAREN          shift and go to state 26
-    SEPERATOR       shift and go to state 27
 
 
 state 25
 
-    (13) task_group -> expression . SEPERATOR expression
-    (1) expression -> expression . POINTER expression
-    (2) expression -> expression . PPOINTER expression
-    (3) expression -> expression . PARALLEL expression
+    (11) factor -> INT .
 
-    SEPERATOR       shift and go to state 28
-    POINTER         shift and go to state 8
-    PPOINTER        shift and go to state 9
-    PARALLEL        shift and go to state 10
+    POINTER         reduce using rule 11 (factor -> INT .)
+    PPOINTER        reduce using rule 11 (factor -> INT .)
+    PARALLEL        reduce using rule 11 (factor -> INT .)
+    $end            reduce using rule 11 (factor -> INT .)
+    SEPARATOR       reduce using rule 11 (factor -> INT .)
+    RPAREN          reduce using rule 11 (factor -> INT .)
 
 
 state 26
 
-    (15) task -> task LPAREN task_group RPAREN .
+    (17) task -> task LPAREN task_group . RPAREN
+    (16) task_group -> task_group . SEPARATOR expression
 
-    RETRY           reduce using rule 15 (task -> task LPAREN task_group RPAREN .)
-    LPAREN          reduce using rule 15 (task -> task LPAREN task_group RPAREN .)
-    POINTER         reduce using rule 15 (task -> task LPAREN task_group RPAREN .)
-    PPOINTER        reduce using rule 15 (task -> task LPAREN task_group RPAREN .)
-    PARALLEL        reduce using rule 15 (task -> task LPAREN task_group RPAREN .)
-    $end            reduce using rule 15 (task -> task LPAREN task_group RPAREN .)
-    SEPERATOR       reduce using rule 15 (task -> task LPAREN task_group RPAREN .)
-    RPAREN          reduce using rule 15 (task -> task LPAREN task_group RPAREN .)
+    RPAREN          shift and go to state 31
+    SEPARATOR       shift and go to state 32
 
 
 state 27
 
-    (14) task_group -> task_group SEPERATOR . expression
-    (1) expression -> . expression POINTER expression
-    (2) expression -> . expression PPOINTER expression
-    (3) expression -> . expression PARALLEL expression
-    (4) expression -> . descriptor POINTER expression
-    (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . factor RETRY task
-    (7) expression -> . task RETRY factor
-    (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
-    (9) term -> . task
-
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
-
-    expression                     shift and go to state 29
-    descriptor                     shift and go to state 2
-    factor                         shift and go to state 3
-    task                           shift and go to state 4
-    term                           shift and go to state 5
-
-state 28
-
-    (13) task_group -> expression SEPERATOR . expression
-    (1) expression -> . expression POINTER expression
-    (2) expression -> . expression PPOINTER expression
-    (3) expression -> . expression PARALLEL expression
-    (4) expression -> . descriptor POINTER expression
-    (5) expression -> . descriptor PPOINTER expression
-    (6) expression -> . factor RETRY task
-    (7) expression -> . task RETRY factor
-    (8) expression -> . term
-    (10) descriptor -> . NUMBER
-    (11) factor -> . NUMBER
-    (12) task -> . TASKNAME
-    (15) task -> . task LPAREN task_group RPAREN
-    (9) term -> . task
-
-    NUMBER          shift and go to state 6
-    TASKNAME        shift and go to state 7
-
-    expression                     shift and go to state 30
-    descriptor                     shift and go to state 2
-    factor                         shift and go to state 3
-    task                           shift and go to state 4
-    term                           shift and go to state 5
-
-state 29
-
-    (14) task_group -> task_group SEPERATOR expression .
+    (15) task_group -> expression . SEPARATOR expression
     (1) expression -> expression . POINTER expression
     (2) expression -> expression . PPOINTER expression
     (3) expression -> expression . PARALLEL expression
 
-    RPAREN          reduce using rule 14 (task_group -> task_group SEPERATOR expression .)
-    SEPERATOR       reduce using rule 14 (task_group -> task_group SEPERATOR expression .)
-    POINTER         shift and go to state 8
-    PPOINTER        shift and go to state 9
-    PARALLEL        shift and go to state 10
+    SEPARATOR       shift and go to state 33
+    POINTER         shift and go to state 9
+    PPOINTER        shift and go to state 10
+    PARALLEL        shift and go to state 11
+
+
+state 28
+
+    (18) assignment_expression -> IDENTIFIER . ASSIGN STRING_LITERAL
+    (19) assignment_expression -> IDENTIFIER . ASSIGN INT
+    (20) assignment_expression -> IDENTIFIER . ASSIGN FLOAT
+
+    ASSIGN          shift and go to state 34
+
+
+state 29
+
+    (14) task -> IDENTIFIER LBRACKET assigment_expression_group . RBRACKET
+    (23) assigment_expression_group -> assigment_expression_group . SEPARATOR assignment_expression
+
+    RBRACKET        shift and go to state 35
+    SEPARATOR       shift and go to state 36
 
 
 state 30
 
-    (13) task_group -> expression SEPERATOR expression .
+    (21) assigment_expression_group -> assignment_expression .
+    (22) assigment_expression_group -> assignment_expression . SEPARATOR assignment_expression
+
+  ! shift/reduce conflict for SEPARATOR resolved as shift
+    RBRACKET        reduce using rule 21 (assigment_expression_group -> assignment_expression .)
+    SEPARATOR       shift and go to state 37
+
+  ! SEPARATOR       [ reduce using rule 21 (assigment_expression_group -> assignment_expression .) ]
+
+
+state 31
+
+    (17) task -> task LPAREN task_group RPAREN .
+
+    RETRY           reduce using rule 17 (task -> task LPAREN task_group RPAREN .)
+    LPAREN          reduce using rule 17 (task -> task LPAREN task_group RPAREN .)
+    POINTER         reduce using rule 17 (task -> task LPAREN task_group RPAREN .)
+    PPOINTER        reduce using rule 17 (task -> task LPAREN task_group RPAREN .)
+    PARALLEL        reduce using rule 17 (task -> task LPAREN task_group RPAREN .)
+    $end            reduce using rule 17 (task -> task LPAREN task_group RPAREN .)
+    SEPARATOR       reduce using rule 17 (task -> task LPAREN task_group RPAREN .)
+    RPAREN          reduce using rule 17 (task -> task LPAREN task_group RPAREN .)
+
+
+state 32
+
+    (16) task_group -> task_group SEPARATOR . expression
+    (1) expression -> . expression POINTER expression
+    (2) expression -> . expression PPOINTER expression
+    (3) expression -> . expression PARALLEL expression
+    (4) expression -> . descriptor POINTER expression
+    (5) expression -> . descriptor PPOINTER expression
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
+    (8) expression -> . term
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
+    (9) term -> . task
+
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
+
+    expression                     shift and go to state 38
+    descriptor                     shift and go to state 2
+    factor                         shift and go to state 3
+    task                           shift and go to state 4
+    term                           shift and go to state 5
+
+state 33
+
+    (15) task_group -> expression SEPARATOR . expression
+    (1) expression -> . expression POINTER expression
+    (2) expression -> . expression PPOINTER expression
+    (3) expression -> . expression PARALLEL expression
+    (4) expression -> . descriptor POINTER expression
+    (5) expression -> . descriptor PPOINTER expression
+    (6) expression -> . factor RETRY task
+    (7) expression -> . task RETRY factor
+    (8) expression -> . term
+    (10) descriptor -> . INT
+    (11) factor -> . INT
+    (12) factor -> . FLOAT
+    (13) task -> . IDENTIFIER
+    (14) task -> . IDENTIFIER LBRACKET assigment_expression_group RBRACKET
+    (17) task -> . task LPAREN task_group RPAREN
+    (9) term -> . task
+
+    INT             shift and go to state 6
+    FLOAT           shift and go to state 7
+    IDENTIFIER      shift and go to state 8
+
+    expression                     shift and go to state 39
+    descriptor                     shift and go to state 2
+    factor                         shift and go to state 3
+    task                           shift and go to state 4
+    term                           shift and go to state 5
+
+state 34
+
+    (18) assignment_expression -> IDENTIFIER ASSIGN . STRING_LITERAL
+    (19) assignment_expression -> IDENTIFIER ASSIGN . INT
+    (20) assignment_expression -> IDENTIFIER ASSIGN . FLOAT
+
+    STRING_LITERAL  shift and go to state 40
+    INT             shift and go to state 41
+    FLOAT           shift and go to state 42
+
+
+state 35
+
+    (14) task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .
+
+    RETRY           reduce using rule 14 (task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .)
+    LPAREN          reduce using rule 14 (task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .)
+    POINTER         reduce using rule 14 (task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .)
+    PPOINTER        reduce using rule 14 (task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .)
+    PARALLEL        reduce using rule 14 (task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .)
+    $end            reduce using rule 14 (task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .)
+    SEPARATOR       reduce using rule 14 (task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .)
+    RPAREN          reduce using rule 14 (task -> IDENTIFIER LBRACKET assigment_expression_group RBRACKET .)
+
+
+state 36
+
+    (23) assigment_expression_group -> assigment_expression_group SEPARATOR . assignment_expression
+    (18) assignment_expression -> . IDENTIFIER ASSIGN STRING_LITERAL
+    (19) assignment_expression -> . IDENTIFIER ASSIGN INT
+    (20) assignment_expression -> . IDENTIFIER ASSIGN FLOAT
+
+    IDENTIFIER      shift and go to state 28
+
+    assignment_expression          shift and go to state 43
+
+state 37
+
+    (22) assigment_expression_group -> assignment_expression SEPARATOR . assignment_expression
+    (18) assignment_expression -> . IDENTIFIER ASSIGN STRING_LITERAL
+    (19) assignment_expression -> . IDENTIFIER ASSIGN INT
+    (20) assignment_expression -> . IDENTIFIER ASSIGN FLOAT
+
+    IDENTIFIER      shift and go to state 28
+
+    assignment_expression          shift and go to state 44
+
+state 38
+
+    (16) task_group -> task_group SEPARATOR expression .
     (1) expression -> expression . POINTER expression
     (2) expression -> expression . PPOINTER expression
     (3) expression -> expression . PARALLEL expression
 
-    RPAREN          reduce using rule 13 (task_group -> expression SEPERATOR expression .)
-    SEPERATOR       reduce using rule 13 (task_group -> expression SEPERATOR expression .)
-    POINTER         shift and go to state 8
-    PPOINTER        shift and go to state 9
-    PARALLEL        shift and go to state 10
+    RPAREN          reduce using rule 16 (task_group -> task_group SEPARATOR expression .)
+    SEPARATOR       reduce using rule 16 (task_group -> task_group SEPARATOR expression .)
+    POINTER         shift and go to state 9
+    PPOINTER        shift and go to state 10
+    PARALLEL        shift and go to state 11
 
+
+state 39
+
+    (15) task_group -> expression SEPARATOR expression .
+    (1) expression -> expression . POINTER expression
+    (2) expression -> expression . PPOINTER expression
+    (3) expression -> expression . PARALLEL expression
+
+    RPAREN          reduce using rule 15 (task_group -> expression SEPARATOR expression .)
+    SEPARATOR       reduce using rule 15 (task_group -> expression SEPARATOR expression .)
+    POINTER         shift and go to state 9
+    PPOINTER        shift and go to state 10
+    PARALLEL        shift and go to state 11
+
+
+state 40
+
+    (18) assignment_expression -> IDENTIFIER ASSIGN STRING_LITERAL .
+
+    SEPARATOR       reduce using rule 18 (assignment_expression -> IDENTIFIER ASSIGN STRING_LITERAL .)
+    RBRACKET        reduce using rule 18 (assignment_expression -> IDENTIFIER ASSIGN STRING_LITERAL .)
+
+
+state 41
+
+    (19) assignment_expression -> IDENTIFIER ASSIGN INT .
+
+    SEPARATOR       reduce using rule 19 (assignment_expression -> IDENTIFIER ASSIGN INT .)
+    RBRACKET        reduce using rule 19 (assignment_expression -> IDENTIFIER ASSIGN INT .)
+
+
+state 42
+
+    (20) assignment_expression -> IDENTIFIER ASSIGN FLOAT .
+
+    SEPARATOR       reduce using rule 20 (assignment_expression -> IDENTIFIER ASSIGN FLOAT .)
+    RBRACKET        reduce using rule 20 (assignment_expression -> IDENTIFIER ASSIGN FLOAT .)
+
+
+state 43
+
+    (23) assigment_expression_group -> assigment_expression_group SEPARATOR assignment_expression .
+
+    RBRACKET        reduce using rule 23 (assigment_expression_group -> assigment_expression_group SEPARATOR assignment_expression .)
+    SEPARATOR       reduce using rule 23 (assigment_expression_group -> assigment_expression_group SEPARATOR assignment_expression .)
+
+
+state 44
+
+    (22) assigment_expression_group -> assignment_expression SEPARATOR assignment_expression .
+
+    RBRACKET        reduce using rule 22 (assigment_expression_group -> assignment_expression SEPARATOR assignment_expression .)
+    SEPARATOR       reduce using rule 22 (assigment_expression_group -> assignment_expression SEPARATOR assignment_expression .)
+
+WARNING: 
+WARNING: Conflicts:
+WARNING: 
+WARNING: shift/reduce conflict for SEPARATOR in state 30 resolved as shift
