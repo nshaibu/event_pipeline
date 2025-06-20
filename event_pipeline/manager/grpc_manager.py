@@ -30,9 +30,12 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
 
         except Exception as e:
             logger.error(
-                f"Error executing task {request.task_id}, name: {request.name}: {str(e)}"
+                f"Error executing task {request.task_id}, name: {request.name}: {str(e)}", exc_info=e
             )
-            return task_pb2.TaskResponse(success=False, error=str(e))
+            serialized_result = TaskMessage.serialize_object(e)
+            return task_pb2.TaskResponse(
+                success=False, error=str(e), result=serialized_result
+            )
 
     def ExecuteStream(self, request, context):
         """Execute a task and stream status updates."""
@@ -65,8 +68,13 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
             )
 
         except Exception as e:
-            logger.error(f"Error in streaming task {request.task_id}: {str(e)}")
-            yield task_pb2.TaskStatus(status=task_pb2.TaskStatus.FAILED, message=str(e))
+            logger.error(f"Error in streaming task {request.task_id}: {str(e)}", exc_info=e)
+            serialized_result = TaskMessage.serialize_object(e)
+            yield task_pb2.TaskStatus(
+                status=task_pb2.TaskStatus.FAILED,
+                message=str(e),
+                result=serialized_result,
+            )
 
 
 class GRPCManager(BaseManager):

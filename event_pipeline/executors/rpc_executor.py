@@ -9,6 +9,15 @@ from event_pipeline.executors.message import TaskMessage
 
 logger = logging.getLogger(__name__)
 
+if typing.TYPE_CHECKING:
+    from event_pipeline.base import EventBase
+
+
+def get_event_name(event: typing.Callable | object) -> str:
+    if hasattr(event, "__name__"):
+        return event.__name__
+    return event.__class__.__name__
+
 
 class XMLRPCExecutor(Executor):
     """
@@ -91,11 +100,15 @@ class XMLRPCExecutor(Executor):
 
             # Make RPC call
             try:
-                result = self._proxy.execute(fn.__name__, task_message.serialize())
+                response = self._proxy.execute(
+                    get_event_name(fn), task_message.serialize()
+                )
+
+                result, _ = TaskMessage.deserialize(response)
 
                 # Handle error result
-                if isinstance(result, dict) and result.get("error"):
-                    future.set_exception(Exception(result["error"]))
+                if isinstance(result, Exception):
+                    future.set_exception(result)
                 else:
                     future.set_result(result)
 

@@ -1,12 +1,12 @@
-import types
 import typing
 import logging
 import threading
 from xmlrpc.server import SimpleXMLRPCServer
-from xmlrpc.server import SimpleXMLRPCRequestHandler
+from xmlrpc.client import Binary
 from .base import BaseManager
 from event_pipeline.utils import create_server_ssl_context
 from event_pipeline.executors.message import TaskMessage
+from event_pipeline.utils import send_data_over_socket
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class XMLRPCManager(BaseManager):
             logger.error(f"Error starting RPC server: {e}")
             raise
 
-    def execute(self, name: str, message: bytes) -> typing.Any:
+    def execute(self, name: str, message: Binary) -> typing.Any:
         """
         Execute a function received via RPC.
 
@@ -91,11 +91,12 @@ class XMLRPCManager(BaseManager):
 
             # Execute function
             result = task_message.fn(*task_message.args, **task_message.kwargs)
-            return result
 
         except Exception as e:
             logger.error(f"Error executing {name}: {e}", exc_info=e)
-            return {"error": str(e)}
+            result = e
+
+        return TaskMessage.serialize_object(result)
 
     def shutdown(self) -> None:
         """Shutdown the RPC server"""
