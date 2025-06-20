@@ -183,27 +183,20 @@ class EventExecutionContext(ObjectIdentityMixin):
         return PipelineTask.resolve_event_name(task.event).get_executor_class()
 
     @staticmethod
-    def _get_task_executor_config(task: "PipelineTask") -> ExecutorInitializerConfig:
+    def _get_task_executor_config(
+        task: "PipelineTask", event: EventBase
+    ) -> typing.Dict[str, typing.Any]:
+        executor_config = None
         if task.options:
             executor_config = task.options.executor_config
             if executor_config is not None:
-                try:
-                    if not isinstance(executor_config, dict):
-                        raise TypeError(
-                            f"Unsupported executor config type {executor_config}"
-                        )
-                    return ExecutorInitializerConfig(**executor_config)
-                except Exception as e:
+                if not isinstance(executor_config, dict):
                     logger.warning(
-                        "Could not parse executor config %s",
+                        "Unsupported executor config type '%s'",
                         executor_config,
-                        exc_info=e,
                     )
 
-        event_klass = PipelineTask.resolve_event_name(task.event)
-        if event_klass.executor_config is None:
-            return ExecutorInitializerConfig()
-        return ExecutorInitializerConfig(**event_klass.executor_config)
+        return event.get_executor_context(params=executor_config)
 
     def _gather_executors_for_parallel_executions(
         self,
@@ -428,7 +421,9 @@ class EventExecutionContext(ObjectIdentityMixin):
         event_klass = task_profile.get_event_klass()
         executor_klass = self._get_task_executor_klass(task_profile)
         if not issubclass(executor_klass, Executor):
-            raise ImproperlyConfigured(f"Event executor must inherit {Executor}")
+            raise ImproperlyConfigured(
+                f"Event executors must implement the 'concurrent.futures.Executor' interface"
+            )
 
         logger.info(f"Executing event '{task_profile.event}'")
 
@@ -462,7 +457,7 @@ class EventExecutionContext(ObjectIdentityMixin):
 
         event = event_klass(**event_init_arguments)
 
-        context = event.get_executor_context()
+        context = self._get_task_executor_config(task=task_profile, event=event)
         context = get_function_call_args(executor_klass.__init__, context)
 
         return event, context, event_call_arguments

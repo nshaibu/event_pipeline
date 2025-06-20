@@ -239,7 +239,9 @@ class _ExecutorInitializerMixin(object):
             or self.get_executor_class() == RemoteExecutor
         )
 
-    def get_executor_context(self) -> typing.Dict[str, typing.Any]:
+    def get_executor_context(
+        self, params: typing.Optional[typing.Dict[str, typing.Any]] = None
+    ) -> typing.Dict[str, typing.Any]:
         """
         Retrieves the execution context for the event's executor.
 
@@ -257,6 +259,8 @@ class _ExecutorInitializerMixin(object):
         """
         executor = self.get_executor_class()
         context = dict()
+        if params and isinstance(params, dict):
+            context.update(params)
         if self.is_multiprocessing_executor():
             context["mp_context"] = mp.get_context("spawn")
         elif hasattr(executor, "get_context"):
