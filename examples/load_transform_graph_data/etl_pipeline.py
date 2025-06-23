@@ -6,6 +6,14 @@ from .events import LoadData, ProcessData, GraphData
 
 
 class UserPostETLPipeline(Pipeline):
+    """
+    A pipeline for loading data, processing it, and visualizing it.
+
+    Attributes:
+        url (str): The URL of the data to load.
+
+    """
+
     url = InputDataField(
         data_type=str,
         required=True,
@@ -15,8 +23,3 @@ class UserPostETLPipeline(Pipeline):
     class Meta:
         pointy = "LoadData |-> ProcessData |-> GraphData"
         # file = "eventpipelines/userspost_ptr.pty"  # Path to the pointy file, if u choose to execute with it
-
-
-@listener(pipeline_execution_start, sender=UserPostETLPipeline)
-def simple_listener(**kwargs):
-    print(kwargs)

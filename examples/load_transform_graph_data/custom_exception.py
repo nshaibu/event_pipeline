@@ -19,3 +19,10 @@ class InternalServerErrorException(ApiException):
 
     def __init__(self, message=None):
         super().__init__(500, message or "Internal Server Error")
+
+
+class NotFoundException(ApiException):
+    """Exception for HTTP 404 Not Found errors."""
+
+    def __init__(self, message=None):
+        super().__init__(404, message or "Not Found")
