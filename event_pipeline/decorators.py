@@ -1,7 +1,4 @@
 import typing
-import asyncio
-import warnings
-from functools import wraps
 from concurrent.futures import Executor
 from .base import EventBase, RetryPolicy, ExecutorInitializerConfig
 from .executors.default_executor import DefaultExecutor
@@ -32,13 +29,9 @@ def event(
 
     Example:
         @event(retry_policy=RetryPolicy(max_attempts=5))
-        def process_data(data: dict) -> str:
+        def process_data(data: dict) -> typing.Tuple[bool, typing.Any]:
             # Process the data
-            return "processed"
-
-        # Usage
-        event_instance = process_data(DefaultExecutor())
-        result = await event_instance.execute({"key": "value"})
+            return True, "processed"
     """
 
     def decorator(func: F) -> typing.Type[EventBase]:
@@ -46,13 +39,11 @@ def event(
         executor_class = executor or DefaultExecutor
         _retry_policy = retry_policy or RetryPolicy
         _executor_config = executor_config or ExecutorInitializerConfig()
-        # import pdb;pdb.set_trace()
 
         class GeneratedEvent(EventBase):
             """Dynamically generated event class."""
             executor = executor_class
             executor_config = _executor_config
-
             retry_policy = _retry_policy
 
             def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
