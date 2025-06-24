@@ -2,6 +2,7 @@ Created by PLY version 3.11 (http://www.dabeaz.com/ply)
 
 Unused terminals:
 
+    BOOLEAN
     COMMENT
     DIRECTIVE
 
@@ -35,6 +36,7 @@ Rule 23    assigment_expression_group -> assigment_expression_group SEPARATOR as
 Terminals, with rules where they appear
 
 ASSIGN               : 18 19 20
+BOOLEAN              : 
 COMMENT              : 
 DIRECTIVE            : 
 FLOAT                : 12 20

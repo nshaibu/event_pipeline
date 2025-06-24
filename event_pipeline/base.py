@@ -2,8 +2,11 @@ import abc
 import typing
 import logging
 import time
+import weakref
 import multiprocessing as mp
 from enum import Enum
+from functools import lru_cache
+from collections import deque
 from dataclasses import dataclass, field
 from concurrent.futures import Executor, ProcessPoolExecutor
 from .result import EventResult, ResultSet
@@ -402,6 +405,24 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
     )
 
+    # Class-level registry to cache discovered subclasses
+    _subclass_registry: typing.Dict[typing.Type, typing.Set[typing.Type]] = {}
+
+    # WeakSet to automatically clean up when classes are garbage collected
+    _all_event_classes: 'weakref.WeakSet[typing.Type[EventBase]]' = weakref.WeakSet()
+
+    def __init_subclass__(cls, **kwargs):
+        """Automatically register subclasses when they're defined"""
+        super().__init_subclass__(**kwargs)
+
+        # Register this class in the global registry
+        EventBase._all_event_classes.add(cls)
+
+        # Clear the cache for affected parent classes
+        for parent in cls.__mro__[1:]:  # Skip self
+            if parent in EventBase._subclass_registry:
+                del EventBase._subclass_registry[parent]
+
     def __init__(
         self,
         execution_context: "EventExecutionContext",
@@ -615,11 +636,63 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
         return self.event_result(True, execution_result)
 
+    # @classmethod
+    # def get_event_klasses(cls):
+    #     for subclass in cls.__subclasses__():
+    #         yield from subclass.get_event_klasses()
+    #         yield subclass
+
     @classmethod
-    def get_event_klasses(cls):
-        for subclass in cls.__subclasses__():
-            yield from subclass.get_event_klasses()
-            yield subclass
+    @lru_cache(maxsize=128)
+    def get_event_klasses(cls) -> frozenset:
+        """
+        Optimized version using breadth-first search with caching.
+        Returns frozenset for immutability and better caching.
+        """
+        if cls in cls._subclass_registry:
+            return frozenset(cls._subclass_registry[cls])
+
+        # Use BFS instead of DFS to avoid deep recursion
+        discovered = set()
+        queue = deque([cls])
+        visited = set()
+
+        while queue:
+            current_class = queue.popleft()
+
+            if current_class in visited:
+                continue
+            visited.add(current_class)
+
+            # Get direct subclasses
+            for subclass in current_class.__subclasses__():
+                if subclass not in discovered:
+                    discovered.add(subclass)
+                    queue.append(subclass)
+
+        # Cache the result
+        cls._subclass_registry[cls] = discovered
+        return frozenset(discovered)
+
+    @classmethod
+    def get_all_event_classes(cls) -> typing.Set[typing.Type['EventBase']]:
+        """
+        Alternative approach: return all registered event classes.
+        This is O(1) but returns ALL event classes, not just subclasses.
+        """
+        return set(cls._all_event_classes)
+
+    @classmethod
+    def get_direct_subclasses(cls) -> typing.Set[typing.Type['EventBase']]:
+        """Get only direct subclasses (one level down)"""
+        return set(cls.__subclasses__())
+
+    @classmethod
+    def clear_class_cache(cls):
+        """Clear the cached subclass registry"""
+        cls._subclass_registry.clear()
+        # Clear LRU cache
+        cls.get_event_klasses.cache_clear()
 
     def __call__(self, *args, **kwargs):
         self._call_args = get_function_call_args(self.__class__.__call__, locals())

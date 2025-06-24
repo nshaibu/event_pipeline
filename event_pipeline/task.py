@@ -13,7 +13,6 @@ from .base import (
     EventBase,
     EventExecutionEvaluationState,
     EvaluationContext,
-    ExecutorInitializerConfig,
 )
 from . import parser
 from .constants import EMPTY
@@ -60,6 +59,10 @@ class Options(BaseModel):
     executor_config: MiniAnnotated[dict, Attrib(default_factory=dict)]
     extras: MiniAnnotated[dict, Attrib(default_factory=dict)]
     execution_evaluation_state: typing.Optional[str]
+    stop_on_exception: typing.Optional[bool]
+    stop_on_success: typing.Optional[bool]
+    stop_on_error: typing.Optional[bool]
+    run_bypass_event_checks: typing.Optional[bool]
 
     @classmethod
     def from_assigment_expression_group(
@@ -71,6 +74,10 @@ class Options(BaseModel):
             "executor_config",
             "extras",
             "execution_evaluation_state",
+            "stop_on_exception",
+            "stop_on_success",
+            "stop_on_error",
+            "run_bypass_event_checks",
         ]
         assignment_dict = {}
         for assignment in assigment_expression_group.assignment_groups():

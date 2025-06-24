@@ -59,6 +59,8 @@ class TestEventBase(unittest.TestCase):
         task1 = PipelineTask(event=self.func_with_no_args.__name__)
         task2 = PipelineTask(event=self.func_with_args.__name__)
 
+        import pdb;pdb.set_trace()
+
         self.assertTrue(
             issubclass(
                 task1.resolve_event_name(self.func_with_no_args.__name__), EventBase

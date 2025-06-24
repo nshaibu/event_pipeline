@@ -9,6 +9,11 @@ logger = logging.getLogger(__name__)
 class PointyLexer(object):
     directives = ("recursive-depth",)
 
+    reserved = {
+        'true': 'BOOLEAN',
+        'false': 'BOOLEAN'
+    }
+
     tokens = (
         "SEPARATOR",
         "POINTER",
@@ -26,6 +31,7 @@ class PointyLexer(object):
         "STRING_LITERAL",
         "INT",
         "FLOAT",
+        "BOOLEAN"
     )
 
     t_ignore = " \t"
