@@ -154,7 +154,7 @@ def event(
         executor_class = executor or DefaultExecutor
         _retry_policy = retry_policy or RetryPolicy
         _executor_config = executor_config or ExecutorInitializerConfig()
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
 
         class GeneratedEvent(EventBase):
             """Dynamically generated event class."""

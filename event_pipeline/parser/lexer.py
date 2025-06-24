@@ -65,6 +65,11 @@ class PointyLexer(object):
         )  # Unescape the string
         return t
 
+    def t_BOOLEAN(self, t):
+        r"(true|false)"
+        t.value = (t.value == "true")
+        return t
+
     def t_DIRECTIVE(self, t):
         r"\@[a-zA-Z0-9-]+:{1}[a-zA-Z0-9]+"
         value = str(t.value).lstrip("@")

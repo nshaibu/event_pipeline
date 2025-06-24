@@ -9,6 +9,8 @@ from functools import lru_cache
 from collections import deque
 from dataclasses import dataclass, field
 from concurrent.futures import Executor, ProcessPoolExecutor
+
+from test_mechanism import EventBase
 from .result import EventResult, ResultSet
 from .constants import EMPTY, MAX_RETRIES, MAX_BACKOFF, MAX_BACKOFF_FACTOR
 from .executors.default_executor import DefaultExecutor
@@ -409,7 +411,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     _subclass_registry: typing.Dict[typing.Type, typing.Set[typing.Type]] = {}
 
     # WeakSet to automatically clean up when classes are garbage collected
-    _all_event_classes: 'weakref.WeakSet[typing.Type[EventBase]]' = weakref.WeakSet()
+    _all_event_classes: "weakref.WeakSet[typing.Type[EventBase]]" = weakref.WeakSet()
 
     def __init_subclass__(cls, **kwargs):
         """Automatically register subclasses when they're defined"""
@@ -524,6 +526,19 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             result=res,
             reason=reason,
         )
+
+    @classmethod
+    def register_event(cls, event_klass: typing.Type[EventBase]):
+        if not issubclass(event_klass, EventBase):
+            raise ValueError("event_klass must be a subclass of EventBase")
+
+        # Register this class in the global registry
+        EventBase._all_event_classes.add(cls)
+
+        # Clear the cache for affected parent classes
+        for parent in cls.__mro__[1:]:  # Skip self
+            if parent in EventBase._subclass_registry:
+                del EventBase._subclass_registry[parent]
 
     def can_bypass_current_event(self) -> typing.Tuple[bool, typing.Any]:
         """
@@ -675,15 +690,15 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         return frozenset(discovered)
 
     @classmethod
-    def get_all_event_classes(cls) -> typing.Set[typing.Type['EventBase']]:
+    def get_all_event_classes(cls) -> typing.Set[typing.Type["EventBase"]]:
         """
-        Alternative approach: return all registered event classes.
+        return all registered event classes.
         This is O(1) but returns ALL event classes, not just subclasses.
         """
         return set(cls._all_event_classes)
 
     @classmethod
-    def get_direct_subclasses(cls) -> typing.Set[typing.Type['EventBase']]:
+    def get_direct_subclasses(cls) -> typing.Set[typing.Type["EventBase"]]:
         """Get only direct subclasses (one level down)"""
         return set(cls.__subclasses__())
 

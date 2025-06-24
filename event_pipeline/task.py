@@ -918,7 +918,7 @@ class PipelineTask(ObjectIdentityMixin):
 
     @staticmethod
     def get_event_klasses():
-        yield from EventBase.get_event_klasses()
+        yield from EventBase.get_all_event_classes()
 
     @classmethod
     def build_pipeline_from_execution_code(cls, code: str) -> "PipelineTask":

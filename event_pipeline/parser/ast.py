@@ -36,6 +36,8 @@ class AssignmentExpression(Expression):
     def determine_value_type(value: typing.Any) -> type:
         if value is None:
             return NoneType
+        elif isinstance(value, bool):
+            return bool
         elif isinstance(value, int):
             return int
         elif isinstance(value, float):
