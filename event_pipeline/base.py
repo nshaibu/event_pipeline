@@ -651,12 +651,6 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
         return self.event_result(True, execution_result)
 
-    # @classmethod
-    # def get_event_klasses(cls):
-    #     for subclass in cls.__subclasses__():
-    #         yield from subclass.get_event_klasses()
-    #         yield subclass
-
     @classmethod
     @lru_cache(maxsize=128)
     def get_event_klasses(cls) -> frozenset:

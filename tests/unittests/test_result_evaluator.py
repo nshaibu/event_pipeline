@@ -3,10 +3,8 @@ import unittest
 from unittest.mock import Mock
 from typing import List
 
-# Import the classes from the main module
-# In a real project, this would be: from your_module import *
-from event_evaluation import (
-    TaskResult, EventEvaluationResult, TaskEvaluationStrategy,
+from event_pipeline.result_evaluators import (
+    EventResult, EventEvaluationResult, ExecutionResultEvaluationStrategyBase,
     AllTasksMustSucceedStrategy, AnyTaskMustSucceedStrategy,
     MajorityTasksMustSucceedStrategy, MinimumSuccessThresholdStrategy,
     PercentageSuccessThresholdStrategy, NoFailuresAllowedStrategy,
@@ -19,7 +17,7 @@ class TestTaskResult(unittest.TestCase):
 
     def test_task_result_creation(self):
         """Test basic TaskResult creation."""
-        result = TaskResult(task_id="test_1", success=True, data="test_data")
+        result = EventResult(task_id="test_1", success=True, data="test_data")
         self.assertEqual(result.task_id, "test_1")
         self.assertTrue(result.success)
         self.assertEqual(result.data, "test_data")
@@ -29,7 +27,7 @@ class TestTaskResult(unittest.TestCase):
     def test_task_result_with_error(self):
         """Test TaskResult with error information."""
         error = Exception("Test error")
-        result = TaskResult(task_id="test_2", success=False, error=error)
+        result = EventResult(task_id="test_2", success=False, error=error)
         self.assertEqual(result.task_id, "test_2")
         self.assertFalse(result.success)
         self.assertEqual(result.error, error)
@@ -41,11 +39,11 @@ class TestEventEvaluationResult(unittest.TestCase):
     def setUp(self):
         """Set up test data."""
         self.task_results = [
-            TaskResult("task_1", True),
-            TaskResult("task_2", False),
-            TaskResult("task_3", True),
-            TaskResult("task_4", True),
-            TaskResult("task_5", False),
+            EventResult("task_1", True),
+            EventResult("task_2", False),
+            EventResult("task_3", True),
+            EventResult("task_4", True),
+            EventResult("task_5", False),
         ]
 
         self.result = EventEvaluationResult(
@@ -97,26 +95,26 @@ class TestAllTasksMustSucceedStrategy(unittest.TestCase):
     def test_all_tasks_succeed(self):
         """Test when all tasks succeed."""
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", True)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", True)
         ]
         self.assertTrue(self.strategy.evaluate(results))
 
     def test_some_tasks_fail(self):
         """Test when some tasks fail."""
         results = [
-            TaskResult("1", True),
-            TaskResult("2", False),
-            TaskResult("3", True)
+            EventResult("1", True),
+            EventResult("2", False),
+            EventResult("3", True)
         ]
         self.assertFalse(self.strategy.evaluate(results))
 
     def test_all_tasks_fail(self):
         """Test when all tasks fail."""
         results = [
-            TaskResult("1", False),
-            TaskResult("2", False)
+            EventResult("1", False),
+            EventResult("2", False)
         ]
         self.assertFalse(self.strategy.evaluate(results))
 
@@ -137,21 +135,21 @@ class TestAnyTaskMustSucceedStrategy(unittest.TestCase):
 
     def test_all_tasks_succeed(self):
         """Test when all tasks succeed."""
-        results = [TaskResult("1", True), TaskResult("2", True)]
+        results = [EventResult("1", True), EventResult("2", True)]
         self.assertTrue(self.strategy.evaluate(results))
 
     def test_some_tasks_succeed(self):
         """Test when some tasks succeed."""
         results = [
-            TaskResult("1", True),
-            TaskResult("2", False),
-            TaskResult("3", False)
+            EventResult("1", True),
+            EventResult("2", False),
+            EventResult("3", False)
         ]
         self.assertTrue(self.strategy.evaluate(results))
 
     def test_all_tasks_fail(self):
         """Test when all tasks fail."""
-        results = [TaskResult("1", False), TaskResult("2", False)]
+        results = [EventResult("1", False), EventResult("2", False)]
         self.assertFalse(self.strategy.evaluate(results))
 
     def test_empty_task_list(self):
@@ -160,12 +158,12 @@ class TestAnyTaskMustSucceedStrategy(unittest.TestCase):
 
     def test_single_success(self):
         """Test with single successful task."""
-        results = [TaskResult("1", True)]
+        results = [EventResult("1", True)]
         self.assertTrue(self.strategy.evaluate(results))
 
     def test_single_failure(self):
         """Test with single failed task."""
-        results = [TaskResult("1", False)]
+        results = [EventResult("1", False)]
         self.assertFalse(self.strategy.evaluate(results))
 
 
@@ -176,11 +174,11 @@ class TestMajorityTasksMustSucceedStrategy(unittest.TestCase):
         """Test when clear majority succeeds."""
         strategy = MajorityTasksMustSucceedStrategy()
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", True),
-            TaskResult("4", False),
-            TaskResult("5", False)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", True),
+            EventResult("4", False),
+            EventResult("5", False)
         ]  # 3 out of 5 succeed (60%)
         self.assertTrue(strategy.evaluate(results))
 
@@ -188,11 +186,11 @@ class TestMajorityTasksMustSucceedStrategy(unittest.TestCase):
         """Test when clear majority fails."""
         strategy = MajorityTasksMustSucceedStrategy()
         results = [
-            TaskResult("1", True),
-            TaskResult("2", False),
-            TaskResult("3", False),
-            TaskResult("4", False),
-            TaskResult("5", False)
+            EventResult("1", True),
+            EventResult("2", False),
+            EventResult("3", False),
+            EventResult("4", False),
+            EventResult("5", False)
         ]  # 1 out of 5 succeed (20%)
         self.assertFalse(strategy.evaluate(results))
 
@@ -200,10 +198,10 @@ class TestMajorityTasksMustSucceedStrategy(unittest.TestCase):
         """Test 50/50 split with tie_breaker=True."""
         strategy = MajorityTasksMustSucceedStrategy(tie_breaker=True)
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", False),
-            TaskResult("4", False)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", False),
+            EventResult("4", False)
         ]  # 2 out of 4 succeed (50%)
         self.assertTrue(strategy.evaluate(results))
 
@@ -211,10 +209,10 @@ class TestMajorityTasksMustSucceedStrategy(unittest.TestCase):
         """Test 50/50 split with tie_breaker=False."""
         strategy = MajorityTasksMustSucceedStrategy(tie_breaker=False)
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", False),
-            TaskResult("4", False)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", False),
+            EventResult("4", False)
         ]  # 2 out of 4 succeed (50%)
         self.assertFalse(strategy.evaluate(results))
 
@@ -226,13 +224,13 @@ class TestMajorityTasksMustSucceedStrategy(unittest.TestCase):
     def test_single_task_success(self):
         """Test with single successful task."""
         strategy = MajorityTasksMustSucceedStrategy()
-        results = [TaskResult("1", True)]
+        results = [EventResult("1", True)]
         self.assertTrue(strategy.evaluate(results))
 
     def test_single_task_failure(self):
         """Test with single failed task."""
         strategy = MajorityTasksMustSucceedStrategy()
-        results = [TaskResult("1", False)]
+        results = [EventResult("1", False)]
         self.assertFalse(strategy.evaluate(results))
 
 
@@ -243,9 +241,9 @@ class TestMinimumSuccessThresholdStrategy(unittest.TestCase):
         """Test when threshold is met."""
         strategy = MinimumSuccessThresholdStrategy(2)
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", False)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", False)
         ]  # 2 successes, threshold is 2
         self.assertTrue(strategy.evaluate(results))
 
@@ -253,9 +251,9 @@ class TestMinimumSuccessThresholdStrategy(unittest.TestCase):
         """Test when threshold is exceeded."""
         strategy = MinimumSuccessThresholdStrategy(2)
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", True)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", True)
         ]  # 3 successes, threshold is 2
         self.assertTrue(strategy.evaluate(results))
 
@@ -263,9 +261,9 @@ class TestMinimumSuccessThresholdStrategy(unittest.TestCase):
         """Test when threshold is not met."""
         strategy = MinimumSuccessThresholdStrategy(3)
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", False)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", False)
         ]  # 2 successes, threshold is 3
         self.assertFalse(strategy.evaluate(results))
 
@@ -277,7 +275,7 @@ class TestMinimumSuccessThresholdStrategy(unittest.TestCase):
     def test_zero_threshold_with_tasks(self):
         """Test zero threshold with tasks."""
         strategy = MinimumSuccessThresholdStrategy(0)
-        results = [TaskResult("1", False), TaskResult("2", False)]
+        results = [EventResult("1", False), EventResult("2", False)]
         self.assertTrue(strategy.evaluate(results))
 
     def test_invalid_threshold(self):
@@ -298,11 +296,11 @@ class TestPercentageSuccessThresholdStrategy(unittest.TestCase):
         """Test when percentage threshold is met."""
         strategy = PercentageSuccessThresholdStrategy(60.0)
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", True),
-            TaskResult("4", False),
-            TaskResult("5", False)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", True),
+            EventResult("4", False),
+            EventResult("5", False)
         ]  # 3 out of 5 = 60%
         self.assertTrue(strategy.evaluate(results))
 
@@ -310,10 +308,10 @@ class TestPercentageSuccessThresholdStrategy(unittest.TestCase):
         """Test when percentage threshold is exceeded."""
         strategy = PercentageSuccessThresholdStrategy(50.0)
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", True),
-            TaskResult("4", False)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", True),
+            EventResult("4", False)
         ]  # 3 out of 4 = 75%
         self.assertTrue(strategy.evaluate(results))
 
@@ -321,10 +319,10 @@ class TestPercentageSuccessThresholdStrategy(unittest.TestCase):
         """Test when percentage threshold is not met."""
         strategy = PercentageSuccessThresholdStrategy(80.0)
         results = [
-            TaskResult("1", True),
-            TaskResult("2", True),
-            TaskResult("3", False),
-            TaskResult("4", False)
+            EventResult("1", True),
+            EventResult("2", True),
+            EventResult("3", False),
+            EventResult("4", False)
         ]  # 2 out of 4 = 50%
         self.assertFalse(strategy.evaluate(results))
 
@@ -343,11 +341,11 @@ class TestPercentageSuccessThresholdStrategy(unittest.TestCase):
         strategy = PercentageSuccessThresholdStrategy(100.0)
 
         # All succeed
-        all_success = [TaskResult("1", True), TaskResult("2", True)]
+        all_success = [EventResult("1", True), EventResult("2", True)]
         self.assertTrue(strategy.evaluate(all_success))
 
         # Some fail
-        some_fail = [TaskResult("1", True), TaskResult("2", False)]
+        some_fail = [EventResult("1", True), EventResult("2", False)]
         self.assertFalse(strategy.evaluate(some_fail))
 
     def test_invalid_percentage_values(self):
@@ -372,17 +370,17 @@ class TestNoFailuresAllowedStrategy(unittest.TestCase):
 
     def test_no_failures(self):
         """Test when no tasks fail."""
-        results = [TaskResult("1", True), TaskResult("2", True)]
+        results = [EventResult("1", True), EventResult("2", True)]
         self.assertTrue(self.strategy.evaluate(results))
 
     def test_some_failures(self):
         """Test when some tasks fail."""
-        results = [TaskResult("1", True), TaskResult("2", False)]
+        results = [EventResult("1", True), EventResult("2", False)]
         self.assertFalse(self.strategy.evaluate(results))
 
     def test_all_failures(self):
         """Test when all tasks fail."""
-        results = [TaskResult("1", False), TaskResult("2", False)]
+        results = [EventResult("1", False), EventResult("2", False)]
         self.assertFalse(self.strategy.evaluate(results))
 
     def test_empty_task_list(self):
@@ -420,9 +418,9 @@ class TestEventEvaluator(unittest.TestCase):
         self.evaluator = EventEvaluator(self.strategy)
 
         self.task_results = [
-            TaskResult("task_1", True, data="result1"),
-            TaskResult("task_2", False, error=Exception("Error")),
-            TaskResult("task_3", True, data="result3")
+            EventResult("task_1", True, data="result1"),
+            EventResult("task_2", False, error=Exception("Error")),
+            EventResult("task_3", True, data="result3")
         ]
 
     def test_evaluate_success(self):
@@ -508,9 +506,9 @@ class TestIntegrationScenarios(unittest.TestCase):
         # 96 successful tasks, 4 failed tasks
         task_results = []
         for i in range(96):
-            task_results.append(TaskResult(f"file_{i}", True, data=f"processed_{i}"))
+            task_results.append(EventResult(f"file_{i}", True, data=f"processed_{i}"))
         for i in range(96, 100):
-            task_results.append(TaskResult(f"file_{i}", False, error=Exception(f"Failed to process file_{i}")))
+            task_results.append(EventResult(f"file_{i}", False, error=Exception(f"Failed to process file_{i}")))
 
         result = evaluator.evaluate(task_results)
 
@@ -524,10 +522,10 @@ class TestIntegrationScenarios(unittest.TestCase):
 
         # All systems operational
         all_success = [
-            TaskResult("database", True),
-            TaskResult("cache", True),
-            TaskResult("api_gateway", True),
-            TaskResult("auth_service", True)
+            EventResult("database", True),
+            EventResult("cache", True),
+            EventResult("api_gateway", True),
+            EventResult("auth_service", True)
         ]
 
         result = evaluator.evaluate(all_success)
@@ -536,10 +534,10 @@ class TestIntegrationScenarios(unittest.TestCase):
 
         # One system fails
         one_failure = [
-            TaskResult("database", True),
-            TaskResult("cache", False, error=Exception("Cache connection failed")),
-            TaskResult("api_gateway", True),
-            TaskResult("auth_service", True)
+            EventResult("database", True),
+            EventResult("cache", False, error=Exception("Cache connection failed")),
+            EventResult("api_gateway", True),
+            EventResult("auth_service", True)
         ]
 
         result = evaluator.evaluate(one_failure)
@@ -552,10 +550,10 @@ class TestIntegrationScenarios(unittest.TestCase):
 
         # Multiple data sources, some may fail
         pipeline_results = [
-            TaskResult("primary_db", False, error=Exception("Connection timeout")),
-            TaskResult("backup_db", True, data="backup_data"),
-            TaskResult("cache_layer", False, error=Exception("Cache miss")),
-            TaskResult("external_api", False, error=Exception("API rate limit"))
+            EventResult("primary_db", False, error=Exception("Connection timeout")),
+            EventResult("backup_db", True, data="backup_data"),
+            EventResult("cache_layer", False, error=Exception("Cache miss")),
+            EventResult("external_api", False, error=Exception("API rate limit"))
         ]
 
         result = evaluator.evaluate(pipeline_results)
@@ -570,13 +568,13 @@ class TestIntegrationScenarios(unittest.TestCase):
 
         # 7 nodes in a distributed system
         computation_results = [
-            TaskResult("node_1", True, data="result_A"),
-            TaskResult("node_2", True, data="result_A"),
-            TaskResult("node_3", True, data="result_A"),
-            TaskResult("node_4", True, data="result_A"),
-            TaskResult("node_5", False, error=Exception("Network partition")),
-            TaskResult("node_6", False, error=Exception("Hardware failure")),
-            TaskResult("node_7", True, data="result_A")
+            EventResult("node_1", True, data="result_A"),
+            EventResult("node_2", True, data="result_A"),
+            EventResult("node_3", True, data="result_A"),
+            EventResult("node_4", True, data="result_A"),
+            EventResult("node_5", False, error=Exception("Network partition")),
+            EventResult("node_6", False, error=Exception("Hardware failure")),
+            EventResult("node_7", True, data="result_A")
         ]
 
         result = evaluator.evaluate(computation_results)
@@ -587,11 +585,11 @@ class TestIntegrationScenarios(unittest.TestCase):
     def test_strategy_comparison(self):
         """Test the same task results with different strategies."""
         task_results = [
-            TaskResult("1", True),
-            TaskResult("2", False),
-            TaskResult("3", True),
-            TaskResult("4", False),
-            TaskResult("5", True)
+            EventResult("1", True),
+            EventResult("2", False),
+            EventResult("3", True),
+            EventResult("4", False),
+            EventResult("5", True)
         ]  # 3 out of 5 succeed (60%)
 
         # Test all strategies
@@ -622,7 +620,7 @@ class TestEdgeCases(unittest.TestCase):
         large_task_list = []
         for i in range(10000):
             success = i % 3 != 0  # ~66.7% success rate
-            large_task_list.append(TaskResult(f"task_{i}", success))
+            large_task_list.append(EventResult(f"task_{i}", success))
 
         evaluator = EventEvaluatorFactory.percentage_evaluator(60.0)
         result = evaluator.evaluate(large_task_list)
@@ -634,8 +632,8 @@ class TestEdgeCases(unittest.TestCase):
     def test_custom_strategy_implementation(self):
         """Test implementing a custom strategy."""
 
-        class AlwaysSucceedStrategy(TaskEvaluationStrategy):
-            def evaluate(self, task_results: List[TaskResult]) -> bool:
+        class AlwaysSucceedStrategy(ExecutionResultEvaluationStrategyBase):
+            def evaluate(self, task_results: List[EventResult]) -> bool:
                 return True
 
             def get_strategy_name(self) -> str:
@@ -645,16 +643,9 @@ class TestEdgeCases(unittest.TestCase):
         evaluator = EventEvaluator(custom_strategy)
 
         # Even with all failures, should succeed
-        all_failures = [TaskResult("1", False), TaskResult("2", False)]
+        all_failures = [EventResult("1", False), EventResult("2", False)]
         result = evaluator.evaluate(all_failures)
 
         self.assertTrue(result.success)
         self.assertEqual(result.strategy_used, "Always Succeed")
 
-
-if __name__ == "__main__":
-    # Run all tests
-    unittest.main(verbosity=2)
-
-    # Alternative: Run with pytest for better output
-    # pytest.main([__file__, "-v", "--tb=short"])

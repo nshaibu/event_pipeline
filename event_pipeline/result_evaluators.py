@@ -1,7 +1,31 @@
 import typing
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from .result import EventResult
+
+
+@dataclass
+class EventEvaluationResult:
+    """Complete result of event evaluation with detailed information."""
+    success: bool
+    total_tasks: int
+    successful_tasks: int
+    failed_tasks: int
+    strategy_used: str
+    task_results: typing.List[EventResult]
+
+    @property
+    def success_rate(self) -> float:
+        """Returns the success rate as a percentage."""
+        if self.total_tasks == 0:
+            return 0.0
+        return (self.successful_tasks / self.total_tasks) * 100
+
+    @property
+    def has_partial_success(self) -> bool:
+        """Returns True if some but not all tasks succeeded."""
+        return 0 < self.successful_tasks < self.total_tasks
 
 
 class ExecutionResultEvaluationStrategyBase(ABC):
@@ -127,3 +151,91 @@ class NoFailuresAllowedStrategy(ExecutionResultEvaluationStrategyBase):
 
     def get_strategy_name(self) -> str:
         return "No Failures Allowed"
+
+
+class CommonStrategies:
+    """Collection of commonly used evaluation strategies."""
+
+    ALL_MUST_SUCCEED = AllTasksMustSucceedStrategy()
+    ANY_MUST_SUCCEED = AnyTaskMustSucceedStrategy()
+    MAJORITY_MUST_SUCCEED = MajorityTasksMustSucceedStrategy()
+    NO_FAILURES_ALLOWED = NoFailuresAllowedStrategy()
+
+    @staticmethod
+    def at_least_n_succeed(n: int) -> MinimumSuccessThresholdStrategy:
+        return MinimumSuccessThresholdStrategy(n)
+
+    @staticmethod
+    def at_least_percent_succeed(percentage: float) -> PercentageSuccessThresholdStrategy:
+        return PercentageSuccessThresholdStrategy(percentage)
+
+
+class EventEvaluator:
+    """Main class for evaluating event outcomes based on task results."""
+
+    def __init__(self, strategy: ExecutionResultEvaluationStrategyBase):
+        """
+        Args:
+            strategy: The evaluation strategy to use
+        """
+        self.strategy = strategy
+
+    def evaluate(self, task_results: typing.List[EventResult]) -> EventEvaluationResult:
+        """
+        Evaluate the event outcome based on task results.
+
+        Args:
+            task_results: List of individual task results
+
+        Returns:
+            EventEvaluationResult: Detailed evaluation result
+        """
+        successful_tasks = sum(1 for result in task_results if result.success)
+        failed_tasks = len(task_results) - successful_tasks
+
+        success = self.strategy.evaluate(task_results)
+
+        return EventEvaluationResult(
+            success=success,
+            total_tasks=len(task_results),
+            successful_tasks=successful_tasks,
+            failed_tasks=failed_tasks,
+            strategy_used=self.strategy.get_strategy_name(),
+            task_results=task_results
+        )
+
+    def change_strategy(self, new_strategy: ExecutionResultEvaluationStrategyBase) -> None:
+        """Change the evaluation strategy."""
+        self.strategy = new_strategy
+
+
+# Usage examples and factory functions
+class EventEvaluatorFactory:
+    """Factory for creating common evaluator configurations."""
+
+    @staticmethod
+    def strict_evaluator() -> EventEvaluator:
+        """All tasks must succeed."""
+        return EventEvaluator(CommonStrategies.ALL_MUST_SUCCEED)
+
+    @staticmethod
+    def lenient_evaluator() -> EventEvaluator:
+        """Any task success counts as event success."""
+        return EventEvaluator(CommonStrategies.ANY_MUST_SUCCEED)
+
+    @staticmethod
+    def balanced_evaluator() -> EventEvaluator:
+        """Majority of tasks must succeed."""
+        return EventEvaluator(CommonStrategies.MAJORITY_MUST_SUCCEED)
+
+    @staticmethod
+    def threshold_evaluator(minimum_successes: int) -> EventEvaluator:
+        """At least N tasks must succeed."""
+        return EventEvaluator(CommonStrategies.at_least_n_succeed(minimum_successes))
+
+    @staticmethod
+    def percentage_evaluator(success_percentage: float) -> EventEvaluator:
+        """At least X% of tasks must succeed."""
+        return EventEvaluator(CommonStrategies.at_least_percent_succeed(success_percentage))
+
+
