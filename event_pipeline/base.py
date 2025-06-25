@@ -9,8 +9,6 @@ from functools import lru_cache
 from collections import deque
 from dataclasses import dataclass, field
 from concurrent.futures import Executor, ProcessPoolExecutor
-
-from test_mechanism import EventBase
 from .result import EventResult, ResultSet
 from .constants import EMPTY, MAX_RETRIES, MAX_BACKOFF, MAX_BACKOFF_FACTOR
 from .executors.default_executor import DefaultExecutor
@@ -528,7 +526,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         )
 
     @classmethod
-    def register_event(cls, event_klass: typing.Type[EventBase]):
+    def register_event(cls, event_klass: typing.Type["EventBase"]):
         if not issubclass(event_klass, EventBase):
             raise ValueError("event_klass must be a subclass of EventBase")
 

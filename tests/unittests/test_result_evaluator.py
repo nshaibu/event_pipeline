@@ -242,12 +242,12 @@ class TestAnyTaskMustSucceedStrategy(unittest.TestCase):
 
     def test_single_success(self):
         """Test with single successful task."""
-        results = [EventResult("1", True)]
+        results = [EventResult(task_id="1", error=False, content="test data", event_name="test_event")]
         self.assertTrue(self.strategy.evaluate(results))
 
     def test_single_failure(self):
         """Test with single failed task."""
-        results = [EventResult("1", False)]
+        results = [EventResult(task_id="1", error=True, content="test data", event_name="test_event")]
         self.assertFalse(self.strategy.evaluate(results))
 
 
@@ -765,13 +765,13 @@ class TestIntegrationScenarios(unittest.TestCase):
 
         # 7 nodes in a distributed system
         computation_results = [
-            EventResult("node_1", True, data="result_A"),
-            EventResult("node_2", True, data="result_A"),
-            EventResult("node_3", True, data="result_A"),
-            EventResult("node_4", True, data="result_A"),
-            EventResult("node_5", False, error=Exception("Network partition")),
-            EventResult("node_6", False, error=Exception("Hardware failure")),
-            EventResult("node_7", True, data="result_A"),
+            EventResult(task_id="node_1", error=False, content="result_A", event_name="test_event"),
+            EventResult(task_id="node_2", error=False, content="result_A", event_name="test_event"),
+            EventResult(task_id="node_3", error=False, content="result_A", event_name="test_event"),
+            EventResult(task_id="node_4", error=False, content="result_A", event_name="test_event"),
+            EventResult(task_id="node_5", error=True, content=Exception("Network partition"), event_name="test_event"),
+            EventResult(task_id="node_6", error=True, content=Exception("Hardware failure"), event_name="test_event"),
+            EventResult(task_id="node_7", error=False, content="result_A", event_name="test_event"),
         ]
 
         result = evaluator.evaluate(computation_results)
@@ -782,11 +782,11 @@ class TestIntegrationScenarios(unittest.TestCase):
     def test_strategy_comparison(self):
         """Test the same task results with different strategies."""
         task_results = [
-            EventResult("1", True),
-            EventResult("2", False),
-            EventResult("3", True),
-            EventResult("4", False),
-            EventResult("5", True),
+            EventResult(task_id="1", error=False, content="test data", event_name="test_event"),
+            EventResult(task_id="2", error=True, content="test data", event_name="test_event"),
+            EventResult(task_id="3", error=False, content="test data", event_name="test_event"),
+            EventResult(task_id="4", error=True, content="test data", event_name="test_event"),
+            EventResult(task_id="5", error=False, content="test data", event_name="test_event"),
         ]  # 3 out of 5 succeed (60%)
 
         # Test all strategies
