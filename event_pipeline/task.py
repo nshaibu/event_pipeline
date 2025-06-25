@@ -41,6 +41,7 @@ from .signal.signals import (
 )
 from .mixins import ObjectIdentityMixin
 from .import_utils import import_string
+from .result_evaluators import EventEvaluator, EventEvaluationResult
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +325,19 @@ class EventExecutionContext(ObjectIdentityMixin):
                 self.execution_result, self._errors, context=EvaluationContext.SUCCESS
             )
 
+    def evaluate_execution_results(self):
+        with self.conditional_variable:
+            if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
+                return EventEvaluationResult(
+                    success=False,
+                    total_tasks=len(self.task_profiles),
+                    failed_tasks=len(self.task_profiles),
+                    successful_tasks=0,
+                    strategy_used="TaskAbortedOnError",
+                )
+            evaluator = self._get_task_execution_result_evaluation_strategy()
+            return evaluator.evaluate(self.execution_result)
+
     def _submit_event_to_executor(
         self, executor: Executor, event_config: typing.Dict[str, typing.Any]
     ) -> Future:
@@ -512,6 +526,15 @@ class EventExecutionContext(ObjectIdentityMixin):
                         evaluator_str,
                     )
         return task_profile.get_event_klass().execution_evaluation_state
+
+    def _get_task_execution_result_evaluation_strategy(self) -> EventEvaluator:
+        # For parallel execution, we use the evaluator of the last task in the chain
+        # i.e for A||B||C, we will use the evaluator of 'C'
+        task_profile = self._get_last_task_profile_in_chain()
+        if task_profile.options:
+            # TODO: process strategy from the options configured
+            pass
+        return task_profile.get_event_klass().evaluator()
 
     def dispatch(self):
         """
@@ -1193,7 +1216,7 @@ class PipelineTask(ObjectIdentityMixin):
                     task=list(parallel_tasks) if parallel_tasks else task,
                 )
 
-                with AcquireReleaseLock(lock=previous_context.conditional_variable):
+                with previous_context.conditional_variable:
                     execution_context.previous_context = previous_context
                     previous_context.next_context = execution_context
 

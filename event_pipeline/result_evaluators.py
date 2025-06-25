@@ -4,17 +4,34 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from .result import EventResult
 
+__all__ = [
+    "EventEvaluationResult",
+    "AllTasksMustSucceedStrategy",
+    "NoFailuresAllowedStrategy",
+    "AnyTaskMustSucceedStrategy",
+    "MajorityTasksMustSucceedStrategy",
+    "MinimumSuccessThresholdStrategy",
+    "PercentageSuccessThresholdStrategy",
+    "ResultEvaluationStrategies",
+    "EventEvaluator",
+    "ExecutionResultEvaluationStrategyBase",
+]
+
+
+if typing.TYPE_CHECKING:
+    from .result import ResultSet
+
+
+T = typing.TypeVar("T", typing.List[EventResult], "ResultSet")
+
 
 @dataclass
 class EventEvaluationResult:
-    """Complete result of event evaluation with detailed information."""
-
     success: bool
     total_tasks: int
     successful_tasks: int
     failed_tasks: int
     strategy_used: str
-    task_results: typing.List[EventResult]
 
     @property
     def success_rate(self) -> float:
@@ -30,10 +47,9 @@ class EventEvaluationResult:
 
 
 class ExecutionResultEvaluationStrategyBase(ABC):
-    """Abstract base class for task evaluation strategies."""
 
     @abstractmethod
-    def evaluate(self, task_results: typing.List[EventResult]) -> bool:
+    def evaluate(self, task_results: T) -> bool:
         """
         Evaluate whether the event should be considered successful.
 
@@ -54,7 +70,7 @@ class ExecutionResultEvaluationStrategyBase(ABC):
 class AllTasksMustSucceedStrategy(ExecutionResultEvaluationStrategyBase):
     """Event succeeds only if ALL tasks succeed."""
 
-    def evaluate(self, task_results: typing.List[EventResult]) -> bool:
+    def evaluate(self, task_results: T) -> bool:
         if not task_results:
             return False  # No tasks means no success
         return all(result.success for result in task_results)
@@ -66,7 +82,7 @@ class AllTasksMustSucceedStrategy(ExecutionResultEvaluationStrategyBase):
 class AnyTaskMustSucceedStrategy(ExecutionResultEvaluationStrategyBase):
     """Event succeeds if ANY task succeeds."""
 
-    def evaluate(self, task_results: typing.List[EventResult]) -> bool:
+    def evaluate(self, task_results: T) -> bool:
         if not task_results:
             return False  # No tasks means no success
         return any(result.success for result in task_results)
@@ -85,7 +101,7 @@ class MajorityTasksMustSucceedStrategy(ExecutionResultEvaluationStrategyBase):
         """
         self.tie_breaker = tie_breaker
 
-    def evaluate(self, task_results: typing.List[EventResult]) -> bool:
+    def evaluate(self, task_results: T) -> bool:
         if not task_results:
             return False
 
@@ -112,7 +128,7 @@ class MinimumSuccessThresholdStrategy(ExecutionResultEvaluationStrategyBase):
             raise ValueError("minimum_successes must be non-negative")
         self.minimum_successes = minimum_successes
 
-    def evaluate(self, task_results: typing.List[EventResult]) -> bool:
+    def evaluate(self, task_results: T) -> bool:
         if not task_results and self.minimum_successes == 0:
             return True
 
@@ -131,7 +147,7 @@ class PercentageSuccessThresholdStrategy(ExecutionResultEvaluationStrategyBase):
             raise ValueError("success_percentage must be between 0 and 100")
         self.success_percentage = success_percentage
 
-    def evaluate(self, task_results: typing.List[EventResult]) -> bool:
+    def evaluate(self, task_results: T) -> bool:
         if not task_results:
             return self.success_percentage == 0
 
@@ -146,7 +162,7 @@ class PercentageSuccessThresholdStrategy(ExecutionResultEvaluationStrategyBase):
 class NoFailuresAllowedStrategy(ExecutionResultEvaluationStrategyBase):
     """Event succeeds if NO tasks fail (but allows empty task list)."""
 
-    def evaluate(self, task_results: typing.List[EventResult]) -> bool:
+    def evaluate(self, task_results: T) -> bool:
         # Empty list is considered success (no failures)
         return all(result.success for result in task_results)
 
@@ -155,8 +171,6 @@ class NoFailuresAllowedStrategy(ExecutionResultEvaluationStrategyBase):
 
 
 class ResultEvaluationStrategies:
-    """Collection of commonly used evaluation strategies."""
-
     ALL_MUST_SUCCEED = AllTasksMustSucceedStrategy()
     ANY_MUST_SUCCEED = AnyTaskMustSucceedStrategy()
     MAJORITY_MUST_SUCCEED = MajorityTasksMustSucceedStrategy()
@@ -174,22 +188,20 @@ class ResultEvaluationStrategies:
 
 
 class EventEvaluator:
-    """Main class for evaluating event outcomes based on task results."""
 
     def __init__(self, strategy: ExecutionResultEvaluationStrategyBase):
         """
+        Main class for evaluating event outcomes based on task results.
         Args:
             strategy: The evaluation strategy to use
         """
         self.strategy = strategy
 
-    def evaluate(self, task_results: typing.List[EventResult]) -> EventEvaluationResult:
+    def evaluate(self, task_results: T) -> EventEvaluationResult:
         """
         Evaluate the event outcome based on task results.
-
         Args:
             task_results: List of individual task results
-
         Returns:
             EventEvaluationResult: Detailed evaluation result
         """
@@ -204,7 +216,6 @@ class EventEvaluator:
             successful_tasks=successful_tasks,
             failed_tasks=failed_tasks,
             strategy_used=self.strategy.get_strategy_name(),
-            task_results=task_results,
         )
 
     def change_strategy(
@@ -212,37 +223,3 @@ class EventEvaluator:
     ) -> None:
         """Change the evaluation strategy."""
         self.strategy = new_strategy
-
-
-# Usage examples and factory functions
-class EventEvaluatorFactory:
-    """Factory for creating common evaluator configurations."""
-
-    @staticmethod
-    def strict_evaluator() -> EventEvaluator:
-        """All tasks must succeed."""
-        return EventEvaluator(ResultEvaluationStrategies.ALL_MUST_SUCCEED)
-
-    @staticmethod
-    def lenient_evaluator() -> EventEvaluator:
-        """Any task success counts as event success."""
-        return EventEvaluator(ResultEvaluationStrategies.ANY_MUST_SUCCEED)
-
-    @staticmethod
-    def balanced_evaluator() -> EventEvaluator:
-        """Majority of tasks must succeed."""
-        return EventEvaluator(ResultEvaluationStrategies.MAJORITY_MUST_SUCCEED)
-
-    @staticmethod
-    def threshold_evaluator(minimum_successes: int) -> EventEvaluator:
-        """At least N tasks must succeed."""
-        return EventEvaluator(
-            ResultEvaluationStrategies.at_least_n_succeed(minimum_successes)
-        )
-
-    @staticmethod
-    def percentage_evaluator(success_percentage: float) -> EventEvaluator:
-        """At least X% of tasks must succeed."""
-        return EventEvaluator(
-            ResultEvaluationStrategies.at_least_percent_succeed(success_percentage)
-        )

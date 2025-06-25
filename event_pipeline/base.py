@@ -15,13 +15,23 @@ from .executors.default_executor import DefaultExecutor
 from .executors.remote_executor import RemoteExecutor
 from .utils import get_function_call_args
 from .conf import ConfigLoader
-from .exceptions import StopProcessingError, MaxRetryError, SwitchTask
+from .exceptions import (
+    StopProcessingError,
+    MaxRetryError,
+    SwitchTask,
+    ImproperlyConfigured,
+)
 from .signal.signals import (
     event_execution_retry,
     event_execution_retry_done,
     event_init,
 )
 
+from .result_evaluators import (
+    ExecutionResultEvaluationStrategyBase,
+    ResultEvaluationStrategies,
+    EventEvaluator,
+)
 
 __all__ = [
     "EventBase",
@@ -405,6 +415,10 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
     )
 
+    result_evaluation_strategy: ExecutionResultEvaluationStrategyBase = (
+        ResultEvaluationStrategies.ALL_MUST_SUCCEED
+    )
+
     # Class-level registry to cache discovered subclasses
     _subclass_registry: typing.Dict[typing.Type, typing.Set[typing.Type]] = {}
 
@@ -537,6 +551,22 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         for parent in cls.__mro__[1:]:  # Skip self
             if parent in EventBase._subclass_registry:
                 del EventBase._subclass_registry[parent]
+
+    @classmethod
+    def evaluator(cls) -> EventEvaluator:
+        """
+        Get the event evaluator for the current task.
+        :return: Evaluator for the current task.
+        """
+        if cls.result_evaluation_strategy is None:
+            raise ImproperlyConfigured("No result evaluation strategy specified")
+        if not isinstance(
+            cls.result_evaluation_strategy, ExecutionResultEvaluationStrategyBase
+        ):
+            raise ImproperlyConfigured(
+                f"'{cls.__name__}' is not a valid result evaluation strategy"
+            )
+        return EventEvaluator(cls.result_evaluation_strategy)
 
     def can_bypass_current_event(self) -> typing.Tuple[bool, typing.Any]:
         """

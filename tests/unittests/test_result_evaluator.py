@@ -15,7 +15,6 @@ from event_pipeline.result_evaluators import (
     NoFailuresAllowedStrategy,
     ResultEvaluationStrategies,
     EventEvaluator,
-    EventEvaluatorFactory,
 )
 
 
@@ -88,7 +87,6 @@ class TestEventEvaluationResult(unittest.TestCase):
             successful_tasks=3,
             failed_tasks=2,
             strategy_used="Test Strategy",
-            task_results=self.task_results,
         )
 
     def test_success_rate_calculation(self):
@@ -103,7 +101,6 @@ class TestEventEvaluationResult(unittest.TestCase):
             successful_tasks=0,
             failed_tasks=0,
             strategy_used="Test",
-            task_results=[],
         )
         self.assertEqual(empty_result.success_rate, 0.0)
 
@@ -118,7 +115,6 @@ class TestEventEvaluationResult(unittest.TestCase):
             successful_tasks=3,
             failed_tasks=0,
             strategy_used="Test",
-            task_results=[],
         )
         self.assertFalse(all_success.has_partial_success)
 
@@ -129,7 +125,6 @@ class TestEventEvaluationResult(unittest.TestCase):
             successful_tasks=0,
             failed_tasks=3,
             strategy_used="Test",
-            task_results=[],
         )
         self.assertFalse(all_failure.has_partial_success)
 
@@ -673,7 +668,6 @@ class TestEventEvaluator(unittest.TestCase):
         self.assertEqual(result.successful_tasks, 2)
         self.assertEqual(result.failed_tasks, 1)
         self.assertEqual(result.strategy_used, "Any Task Must Succeed")
-        self.assertEqual(len(result.task_results), 3)
 
     def test_evaluate_failure(self):
         """Test evaluation that results in failure."""
@@ -704,71 +698,71 @@ class TestEventEvaluator(unittest.TestCase):
         self.assertNotEqual(self.evaluator.strategy, original_strategy)
 
 
-class TestEventEvaluatorFactory(unittest.TestCase):
-    """Test cases for EventEvaluatorFactory."""
-
-    def test_strict_evaluator(self):
-        """Test strict evaluator creation."""
-        evaluator = EventEvaluatorFactory.strict_evaluator()
-        self.assertIsInstance(evaluator.strategy, AllTasksMustSucceedStrategy)
-
-    def test_lenient_evaluator(self):
-        """Test lenient evaluator creation."""
-        evaluator = EventEvaluatorFactory.lenient_evaluator()
-        self.assertIsInstance(evaluator.strategy, AnyTaskMustSucceedStrategy)
-
-    def test_balanced_evaluator(self):
-        """Test balanced evaluator creation."""
-        evaluator = EventEvaluatorFactory.balanced_evaluator()
-        self.assertIsInstance(evaluator.strategy, MajorityTasksMustSucceedStrategy)
-
-    def test_threshold_evaluator(self):
-        """Test threshold evaluator creation."""
-        evaluator = EventEvaluatorFactory.threshold_evaluator(5)
-        self.assertIsInstance(evaluator.strategy, MinimumSuccessThresholdStrategy)
-        self.assertEqual(evaluator.strategy.minimum_successes, 5)
-
-    def test_percentage_evaluator(self):
-        """Test percentage evaluator creation."""
-        evaluator = EventEvaluatorFactory.percentage_evaluator(80.0)
-        self.assertIsInstance(evaluator.strategy, PercentageSuccessThresholdStrategy)
-        self.assertEqual(evaluator.strategy.success_percentage, 80.0)
+# class TestEventEvaluatorFactory(unittest.TestCase):
+#     """Test cases for EventEvaluatorFactory."""
+#
+#     def test_strict_evaluator(self):
+#         """Test strict evaluator creation."""
+#         evaluator = EventEvaluatorFactory.strict_evaluator()
+#         self.assertIsInstance(evaluator.strategy, AllTasksMustSucceedStrategy)
+#
+#     def test_lenient_evaluator(self):
+#         """Test lenient evaluator creation."""
+#         evaluator = EventEvaluatorFactory.lenient_evaluator()
+#         self.assertIsInstance(evaluator.strategy, AnyTaskMustSucceedStrategy)
+#
+#     def test_balanced_evaluator(self):
+#         """Test balanced evaluator creation."""
+#         evaluator = EventEvaluatorFactory.balanced_evaluator()
+#         self.assertIsInstance(evaluator.strategy, MajorityTasksMustSucceedStrategy)
+#
+#     def test_threshold_evaluator(self):
+#         """Test threshold evaluator creation."""
+#         evaluator = EventEvaluatorFactory.threshold_evaluator(5)
+#         self.assertIsInstance(evaluator.strategy, MinimumSuccessThresholdStrategy)
+#         self.assertEqual(evaluator.strategy.minimum_successes, 5)
+#
+#     def test_percentage_evaluator(self):
+#         """Test percentage evaluator creation."""
+#         evaluator = EventEvaluatorFactory.percentage_evaluator(80.0)
+#         self.assertIsInstance(evaluator.strategy, PercentageSuccessThresholdStrategy)
+#         self.assertEqual(evaluator.strategy.success_percentage, 80.0)
 
 
 class TestIntegrationScenarios(unittest.TestCase):
     """Integration test cases covering real-world scenarios."""
 
-    def test_batch_processing_scenario(self):
-        """Test a batch processing scenario where most tasks must succeed."""
-        # Simulate processing 100 files where at least 95% must succeed
-        evaluator = EventEvaluatorFactory.percentage_evaluator(95.0)
-
-        # 96 successful tasks, 4 failed tasks
-        task_results = []
-        for i in range(96):
-            task_results.append(
-                EventResult(
-                    task_id=f"file_{i}",
-                    error=False,
-                    content=f"processed_{id}",
-                    event_name=f"test_{i}_event",
-                )
-            )
-        for i in range(96, 100):
-            task_results.append(
-                EventResult(
-                    task_id=f"file_{i}",
-                    error=True,
-                    content=Exception(f"Failed to process file_{i}"),
-                    event_name="task",
-                )
-            )
-
-        result = evaluator.evaluate(task_results)
-
-        self.assertTrue(result.success)
-        self.assertEqual(result.success_rate, 96.0)
-        self.assertTrue(result.has_partial_success)
+    # def test_batch_processing_scenario(self):
+    #     """Test a batch processing scenario where most tasks must succeed."""
+    #     # Simulate processing 100 files where at least 95% must succeed
+    #     evaluator = EventEvaluatorFactory.percentage_evaluator(95.0)
+    #
+    #     # 96 successful tasks, 4 failed tasks
+    #     task_results = []
+    #     for i in range(96):
+    #         task_results.append(
+    #             EventResult(
+    #                 task_id=f"file_{i}",
+    #                 error=False,
+    #                 content=f"processed_{id}",
+    #                 event_name=f"test_{i}_event",
+    #             )
+    #         )
+    #     for i in range(96, 100):
+    #         task_results.append(
+    #             EventResult(
+    #                 task_id=f"file_{i}",
+    #                 error=True,
+    #                 content=Exception(f"Failed to process file_{i}"),
+    #                 event_name="task",
+    #             )
+    #         )
+    #
+    #     result = evaluator.evaluate(task_results)
+    #
+    #     self.assertTrue(result.success)
+    #     self.assertEqual(result.success_rate, 96.0)
+    #     self.assertTrue(result.has_partial_success)
 
     def test_critical_system_scenario(self):
         """Test a critical system where no failures are allowed."""
@@ -838,165 +832,165 @@ class TestIntegrationScenarios(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.success_rate, 75.0)
 
-    def test_data_pipeline_scenario(self):
-        """Test a data pipeline where at least one source must succeed."""
-        evaluator = EventEvaluatorFactory.lenient_evaluator()
+    # def test_data_pipeline_scenario(self):
+    #     """Test a data pipeline where at least one source must succeed."""
+    #     evaluator = EventEvaluatorFactory.lenient_evaluator()
+    #
+    #     # Multiple data sources, some may fail
+    #     pipeline_results = [
+    #         EventResult(
+    #             task_id="primary_db",
+    #             error=True,
+    #             content=Exception("Connection timeout"),
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="backup_db",
+    #             error=False,
+    #             content="backup_data",
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="cache_layer",
+    #             error=True,
+    #             content=Exception("Cache miss"),
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="external_api",
+    #             error=True,
+    #             content=Exception("API rate limit"),
+    #             event_name="test_event",
+    #         ),
+    #     ]
+    #
+    #     result = evaluator.evaluate(pipeline_results)
+    #
+    #     self.assertTrue(result.success)  # At least backup_db succeeded
+    #     self.assertEqual(result.successful_tasks, 1)
+    #     self.assertEqual(result.failed_tasks, 3)
 
-        # Multiple data sources, some may fail
-        pipeline_results = [
-            EventResult(
-                task_id="primary_db",
-                error=True,
-                content=Exception("Connection timeout"),
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="backup_db",
-                error=False,
-                content="backup_data",
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="cache_layer",
-                error=True,
-                content=Exception("Cache miss"),
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="external_api",
-                error=True,
-                content=Exception("API rate limit"),
-                event_name="test_event",
-            ),
-        ]
+    # def test_distributed_computation_scenario(self):
+    #     """Test distributed computation where majority consensus is needed."""
+    #     evaluator = EventEvaluatorFactory.balanced_evaluator()
+    #
+    #     # 7 nodes in a distributed system
+    #     computation_results = [
+    #         EventResult(
+    #             task_id="node_1",
+    #             error=False,
+    #             content="result_A",
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="node_2",
+    #             error=False,
+    #             content="result_A",
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="node_3",
+    #             error=False,
+    #             content="result_A",
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="node_4",
+    #             error=False,
+    #             content="result_A",
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="node_5",
+    #             error=True,
+    #             content=Exception("Network partition"),
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="node_6",
+    #             error=True,
+    #             content=Exception("Hardware failure"),
+    #             event_name="test_event",
+    #         ),
+    #         EventResult(
+    #             task_id="node_7",
+    #             error=False,
+    #             content="result_A",
+    #             event_name="test_event",
+    #         ),
+    #     ]
+    #
+    #     result = evaluator.evaluate(computation_results)
+    #
+    #     self.assertTrue(result.success)  # 5 out of 7 succeeded (majority)
+    #     self.assertGreater(result.success_rate, 50.0)
 
-        result = evaluator.evaluate(pipeline_results)
-
-        self.assertTrue(result.success)  # At least backup_db succeeded
-        self.assertEqual(result.successful_tasks, 1)
-        self.assertEqual(result.failed_tasks, 3)
-
-    def test_distributed_computation_scenario(self):
-        """Test distributed computation where majority consensus is needed."""
-        evaluator = EventEvaluatorFactory.balanced_evaluator()
-
-        # 7 nodes in a distributed system
-        computation_results = [
-            EventResult(
-                task_id="node_1",
-                error=False,
-                content="result_A",
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="node_2",
-                error=False,
-                content="result_A",
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="node_3",
-                error=False,
-                content="result_A",
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="node_4",
-                error=False,
-                content="result_A",
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="node_5",
-                error=True,
-                content=Exception("Network partition"),
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="node_6",
-                error=True,
-                content=Exception("Hardware failure"),
-                event_name="test_event",
-            ),
-            EventResult(
-                task_id="node_7",
-                error=False,
-                content="result_A",
-                event_name="test_event",
-            ),
-        ]
-
-        result = evaluator.evaluate(computation_results)
-
-        self.assertTrue(result.success)  # 5 out of 7 succeeded (majority)
-        self.assertGreater(result.success_rate, 50.0)
-
-    def test_strategy_comparison(self):
-        """Test the same task results with different strategies."""
-        task_results = [
-            EventResult(
-                task_id="1", error=False, content="test data", event_name="test_event"
-            ),
-            EventResult(
-                task_id="2", error=True, content="test data", event_name="test_event"
-            ),
-            EventResult(
-                task_id="3", error=False, content="test data", event_name="test_event"
-            ),
-            EventResult(
-                task_id="4", error=True, content="test data", event_name="test_event"
-            ),
-            EventResult(
-                task_id="5", error=False, content="test data", event_name="test_event"
-            ),
-        ]  # 3 out of 5 succeed (60%)
-
-        # Test all strategies
-        strategies_and_expected = [
-            (EventEvaluatorFactory.strict_evaluator(), False),  # All must succeed
-            (EventEvaluatorFactory.lenient_evaluator(), True),  # Any must succeed
-            (EventEvaluatorFactory.balanced_evaluator(), True),  # Majority (3/5 > 50%)
-            (EventEvaluatorFactory.threshold_evaluator(2), True),  # At least 2
-            (EventEvaluatorFactory.threshold_evaluator(4), False),  # At least 4
-            (EventEvaluatorFactory.percentage_evaluator(50.0), True),  # At least 50%
-            (EventEvaluatorFactory.percentage_evaluator(70.0), False),  # At least 70%
-        ]
-
-        for evaluator, expected_success in strategies_and_expected:
-            result = evaluator.evaluate(task_results)
-            self.assertEqual(
-                result.success,
-                expected_success,
-                f"Strategy '{result.strategy_used}' should return {expected_success}",
-            )
-            self.assertEqual(result.success_rate, 60.0)
+    # def test_strategy_comparison(self):
+    #     """Test the same task results with different strategies."""
+    #     task_results = [
+    #         EventResult(
+    #             task_id="1", error=False, content="test data", event_name="test_event"
+    #         ),
+    #         EventResult(
+    #             task_id="2", error=True, content="test data", event_name="test_event"
+    #         ),
+    #         EventResult(
+    #             task_id="3", error=False, content="test data", event_name="test_event"
+    #         ),
+    #         EventResult(
+    #             task_id="4", error=True, content="test data", event_name="test_event"
+    #         ),
+    #         EventResult(
+    #             task_id="5", error=False, content="test data", event_name="test_event"
+    #         ),
+    #     ]  # 3 out of 5 succeed (60%)
+    #
+    #     # Test all strategies
+    #     strategies_and_expected = [
+    #         (EventEvaluatorFactory.strict_evaluator(), False),  # All must succeed
+    #         (EventEvaluatorFactory.lenient_evaluator(), True),  # Any must succeed
+    #         (EventEvaluatorFactory.balanced_evaluator(), True),  # Majority (3/5 > 50%)
+    #         (EventEvaluatorFactory.threshold_evaluator(2), True),  # At least 2
+    #         (EventEvaluatorFactory.threshold_evaluator(4), False),  # At least 4
+    #         (EventEvaluatorFactory.percentage_evaluator(50.0), True),  # At least 50%
+    #         (EventEvaluatorFactory.percentage_evaluator(70.0), False),  # At least 70%
+    #     ]
+    #
+    #     for evaluator, expected_success in strategies_and_expected:
+    #         result = evaluator.evaluate(task_results)
+    #         self.assertEqual(
+    #             result.success,
+    #             expected_success,
+    #             f"Strategy '{result.strategy_used}' should return {expected_success}",
+    #         )
+    #         self.assertEqual(result.success_rate, 60.0)
 
 
 # Performance and edge case tests
 class TestEdgeCases(unittest.TestCase):
     """Test edge cases and error conditions."""
 
-    def test_large_number_of_tasks(self):
-        """Test with a large number of tasks."""
-        # Create 10,000 tasks
-        large_task_list = []
-        for i in range(10000):
-            error = i % 3 == 0  # ~66.7% success rate
-            large_task_list.append(
-                EventResult(
-                    task_id=f"task_{i}",
-                    error=error,
-                    content="test data {}".format(i),
-                    event_name=f"task_{i}",
-                )
-            )
-
-        evaluator = EventEvaluatorFactory.percentage_evaluator(60.0)
-        result = evaluator.evaluate(large_task_list)
-
-        self.assertTrue(result.success)
-        self.assertEqual(result.total_tasks, 10000)
-        self.assertAlmostEqual(result.success_rate, 66.7, delta=0.1)
+    # def test_large_number_of_tasks(self):
+    #     """Test with a large number of tasks."""
+    #     # Create 10,000 tasks
+    #     large_task_list = []
+    #     for i in range(10000):
+    #         error = i % 3 == 0  # ~66.7% success rate
+    #         large_task_list.append(
+    #             EventResult(
+    #                 task_id=f"task_{i}",
+    #                 error=error,
+    #                 content="test data {}".format(i),
+    #                 event_name=f"task_{i}",
+    #             )
+    #         )
+    #
+    #     evaluator = EventEvaluatorFactory.percentage_evaluator(60.0)
+    #     result = evaluator.evaluate(large_task_list)
+    #
+    #     self.assertTrue(result.success)
+    #     self.assertEqual(result.total_tasks, 10000)
+    #     self.assertAlmostEqual(result.success_rate, 66.7, delta=0.1)
 
     def test_custom_strategy_implementation(self):
         """Test implementing a custom strategy."""
