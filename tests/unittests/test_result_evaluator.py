@@ -30,8 +30,8 @@ class TestTaskResult(unittest.TestCase):
         self.assertEqual(result.task_id, "test_1")
         self.assertTrue(result.success)
         self.assertEqual(result.content, "test_data")
-        self.assertIsNone(result.error)
-        self.assertIsNone(result.creation_time)
+        self.assertFalse(result.error)
+        self.assertIsNotNone(result.creation_time)
 
     def test_task_result_with_error(self):
         """Test TaskResult with error information."""
@@ -41,7 +41,7 @@ class TestTaskResult(unittest.TestCase):
         )
         self.assertEqual(result.task_id, "test_2")
         self.assertFalse(result.success)
-        self.assertEqual(result.error, error)
+        self.assertEqual(result.content, error)
 
 
 class TestEventEvaluationResult(unittest.TestCase):
@@ -242,12 +242,20 @@ class TestAnyTaskMustSucceedStrategy(unittest.TestCase):
 
     def test_single_success(self):
         """Test with single successful task."""
-        results = [EventResult(task_id="1", error=False, content="test data", event_name="test_event")]
+        results = [
+            EventResult(
+                task_id="1", error=False, content="test data", event_name="test_event"
+            )
+        ]
         self.assertTrue(self.strategy.evaluate(results))
 
     def test_single_failure(self):
         """Test with single failed task."""
-        results = [EventResult(task_id="1", error=True, content="test data", event_name="test_event")]
+        results = [
+            EventResult(
+                task_id="1", error=True, content="test data", event_name="test_event"
+            )
+        ]
         self.assertFalse(self.strategy.evaluate(results))
 
 
@@ -264,9 +272,15 @@ class TestMajorityTasksMustSucceedStrategy(unittest.TestCase):
             EventResult(
                 task_id="2", error=False, content="test data", event_name="test_event"
             ),
-            EventResult("3", error=False, content="test data", event_name="test_event"),
-            EventResult("4", error=True, content="test data", event_name="test_event"),
-            EventResult("5", error=True, content="test data", event_name="test_event"),
+            EventResult(
+                task_id="3", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="4", error=True, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="5", error=True, content="test data", event_name="test_event"
+            ),
         ]  # 3 out of 5 succeed (60%)
         self.assertTrue(strategy.evaluate(results))
 
@@ -465,10 +479,18 @@ class TestPercentageSuccessThresholdStrategy(unittest.TestCase):
         """Test when percentage threshold is exceeded."""
         strategy = PercentageSuccessThresholdStrategy(50.0)
         results = [
-            EventResult("1", True),
-            EventResult("2", True),
-            EventResult("3", True),
-            EventResult("4", False),
+            EventResult(
+                task_id="1", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="2", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="3", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="4", error=True, content="test data", event_name="test_event"
+            ),
         ]  # 3 out of 4 = 75%
         self.assertTrue(strategy.evaluate(results))
 
@@ -476,10 +498,18 @@ class TestPercentageSuccessThresholdStrategy(unittest.TestCase):
         """Test when percentage threshold is not met."""
         strategy = PercentageSuccessThresholdStrategy(80.0)
         results = [
-            EventResult("1", True),
-            EventResult("2", True),
-            EventResult("3", False),
-            EventResult("4", False),
+            EventResult(
+                task_id="1", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="2", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="3", error=True, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="4", error=True, content="test data", event_name="test_event"
+            ),
         ]  # 2 out of 4 = 50%
         self.assertFalse(strategy.evaluate(results))
 
@@ -498,11 +528,25 @@ class TestPercentageSuccessThresholdStrategy(unittest.TestCase):
         strategy = PercentageSuccessThresholdStrategy(100.0)
 
         # All succeed
-        all_success = [EventResult("1", True), EventResult("2", True)]
+        all_success = [
+            EventResult(
+                task_id="1", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="2", error=False, content="test data", event_name="test_event"
+            ),
+        ]
         self.assertTrue(strategy.evaluate(all_success))
 
         # Some fail
-        some_fail = [EventResult("1", True), EventResult("2", False)]
+        some_fail = [
+            EventResult(
+                task_id="1", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="2", error=True, content="test data", event_name="test_event"
+            ),
+        ]
         self.assertFalse(strategy.evaluate(some_fail))
 
     def test_invalid_percentage_values(self):
@@ -527,17 +571,38 @@ class TestNoFailuresAllowedStrategy(unittest.TestCase):
 
     def test_no_failures(self):
         """Test when no tasks fail."""
-        results = [EventResult("1", True), EventResult("2", True)]
+        results = [
+            EventResult(
+                task_id="1", error=False, content="Hello world", event_name="test_event"
+            ),
+            EventResult(
+                task_id="2", error=False, content="Hello world", event_name="test_event"
+            ),
+        ]
         self.assertTrue(self.strategy.evaluate(results))
 
     def test_some_failures(self):
         """Test when some tasks fail."""
-        results = [EventResult("1", True), EventResult("2", False)]
+        results = [
+            EventResult(
+                task_id="1", error=False, content="Test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="2", error=True, content="Test Data", event_name="test_event"
+            ),
+        ]
         self.assertFalse(self.strategy.evaluate(results))
 
     def test_all_failures(self):
         """Test when all tasks fail."""
-        results = [EventResult("1", False), EventResult("2", False)]
+        results = [
+            EventResult(
+                task_id="1", error=True, content="Test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="2", error=True, content="Test data", event_name="test_event"
+            ),
+        ]
         self.assertFalse(self.strategy.evaluate(results))
 
     def test_empty_task_list(self):
@@ -584,9 +649,18 @@ class TestEventEvaluator(unittest.TestCase):
         self.evaluator = EventEvaluator(self.strategy)
 
         self.task_results = [
-            EventResult("task_1", True, data="result1"),
-            EventResult("task_2", False, error=Exception("Error")),
-            EventResult("task_3", True, data="result3"),
+            EventResult(
+                task_id="task_1", error=False, content="result1", event_name="test_evnt"
+            ),
+            EventResult(
+                task_id="task_2",
+                error=True,
+                content=Exception("Error"),
+                event_name="test_evnt",
+            ),
+            EventResult(
+                task_id="task_3", error=False, content="result3", event_name="test_evnt"
+            ),
         ]
 
     def test_evaluate_success(self):
@@ -683,7 +757,10 @@ class TestIntegrationScenarios(unittest.TestCase):
         for i in range(96, 100):
             task_results.append(
                 EventResult(
-                    f"file_{i}", False, error=Exception(f"Failed to process file_{i}")
+                    task_id=f"file_{i}",
+                    error=True,
+                    content=Exception(f"Failed to process file_{i}"),
+                    event_name="task",
                 )
             )
 
@@ -731,10 +808,30 @@ class TestIntegrationScenarios(unittest.TestCase):
 
         # One system fails
         one_failure = [
-            EventResult("database", True),
-            EventResult("cache", False, error=Exception("Cache connection failed")),
-            EventResult("api_gateway", True),
-            EventResult("auth_service", True),
+            EventResult(
+                task_id="database",
+                error=False,
+                content="test data",
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="cache",
+                error=True,
+                content=Exception("Cache connection failed"),
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="api_gateway",
+                error=False,
+                content="test data",
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="auth_service",
+                error=False,
+                content="test data",
+                event_name="test_event",
+            ),
         ]
 
         result = evaluator.evaluate(one_failure)
@@ -747,10 +844,30 @@ class TestIntegrationScenarios(unittest.TestCase):
 
         # Multiple data sources, some may fail
         pipeline_results = [
-            EventResult("primary_db", False, error=Exception("Connection timeout")),
-            EventResult("backup_db", True, data="backup_data"),
-            EventResult("cache_layer", False, error=Exception("Cache miss")),
-            EventResult("external_api", False, error=Exception("API rate limit")),
+            EventResult(
+                task_id="primary_db",
+                error=True,
+                content=Exception("Connection timeout"),
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="backup_db",
+                error=False,
+                content="backup_data",
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="cache_layer",
+                error=True,
+                content=Exception("Cache miss"),
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="external_api",
+                error=True,
+                content=Exception("API rate limit"),
+                event_name="test_event",
+            ),
         ]
 
         result = evaluator.evaluate(pipeline_results)
@@ -765,13 +882,48 @@ class TestIntegrationScenarios(unittest.TestCase):
 
         # 7 nodes in a distributed system
         computation_results = [
-            EventResult(task_id="node_1", error=False, content="result_A", event_name="test_event"),
-            EventResult(task_id="node_2", error=False, content="result_A", event_name="test_event"),
-            EventResult(task_id="node_3", error=False, content="result_A", event_name="test_event"),
-            EventResult(task_id="node_4", error=False, content="result_A", event_name="test_event"),
-            EventResult(task_id="node_5", error=True, content=Exception("Network partition"), event_name="test_event"),
-            EventResult(task_id="node_6", error=True, content=Exception("Hardware failure"), event_name="test_event"),
-            EventResult(task_id="node_7", error=False, content="result_A", event_name="test_event"),
+            EventResult(
+                task_id="node_1",
+                error=False,
+                content="result_A",
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="node_2",
+                error=False,
+                content="result_A",
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="node_3",
+                error=False,
+                content="result_A",
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="node_4",
+                error=False,
+                content="result_A",
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="node_5",
+                error=True,
+                content=Exception("Network partition"),
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="node_6",
+                error=True,
+                content=Exception("Hardware failure"),
+                event_name="test_event",
+            ),
+            EventResult(
+                task_id="node_7",
+                error=False,
+                content="result_A",
+                event_name="test_event",
+            ),
         ]
 
         result = evaluator.evaluate(computation_results)
@@ -782,11 +934,21 @@ class TestIntegrationScenarios(unittest.TestCase):
     def test_strategy_comparison(self):
         """Test the same task results with different strategies."""
         task_results = [
-            EventResult(task_id="1", error=False, content="test data", event_name="test_event"),
-            EventResult(task_id="2", error=True, content="test data", event_name="test_event"),
-            EventResult(task_id="3", error=False, content="test data", event_name="test_event"),
-            EventResult(task_id="4", error=True, content="test data", event_name="test_event"),
-            EventResult(task_id="5", error=False, content="test data", event_name="test_event"),
+            EventResult(
+                task_id="1", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="2", error=True, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="3", error=False, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="4", error=True, content="test data", event_name="test_event"
+            ),
+            EventResult(
+                task_id="5", error=False, content="test data", event_name="test_event"
+            ),
         ]  # 3 out of 5 succeed (60%)
 
         # Test all strategies
