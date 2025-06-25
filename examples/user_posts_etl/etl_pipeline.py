@@ -24,6 +24,3 @@ class UserPostETLPipeline(Pipeline):
         pointy = "LoadData |-> ProcessData |-> GraphData"
         # Path to the pointy file, if u choose to execute with it
         # file = "eventpipelines/userspost_ptr.pty"
-
-
-
