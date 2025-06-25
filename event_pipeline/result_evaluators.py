@@ -8,6 +8,7 @@ from .result import EventResult
 @dataclass
 class EventEvaluationResult:
     """Complete result of event evaluation with detailed information."""
+
     success: bool
     total_tasks: int
     successful_tasks: int
@@ -153,7 +154,7 @@ class NoFailuresAllowedStrategy(ExecutionResultEvaluationStrategyBase):
         return "No Failures Allowed"
 
 
-class CommonStrategies:
+class ResultEvaluationStrategies:
     """Collection of commonly used evaluation strategies."""
 
     ALL_MUST_SUCCEED = AllTasksMustSucceedStrategy()
@@ -166,7 +167,9 @@ class CommonStrategies:
         return MinimumSuccessThresholdStrategy(n)
 
     @staticmethod
-    def at_least_percent_succeed(percentage: float) -> PercentageSuccessThresholdStrategy:
+    def at_least_percent_succeed(
+        percentage: float,
+    ) -> PercentageSuccessThresholdStrategy:
         return PercentageSuccessThresholdStrategy(percentage)
 
 
@@ -201,10 +204,12 @@ class EventEvaluator:
             successful_tasks=successful_tasks,
             failed_tasks=failed_tasks,
             strategy_used=self.strategy.get_strategy_name(),
-            task_results=task_results
+            task_results=task_results,
         )
 
-    def change_strategy(self, new_strategy: ExecutionResultEvaluationStrategyBase) -> None:
+    def change_strategy(
+        self, new_strategy: ExecutionResultEvaluationStrategyBase
+    ) -> None:
         """Change the evaluation strategy."""
         self.strategy = new_strategy
 
@@ -216,26 +221,28 @@ class EventEvaluatorFactory:
     @staticmethod
     def strict_evaluator() -> EventEvaluator:
         """All tasks must succeed."""
-        return EventEvaluator(CommonStrategies.ALL_MUST_SUCCEED)
+        return EventEvaluator(ResultEvaluationStrategies.ALL_MUST_SUCCEED)
 
     @staticmethod
     def lenient_evaluator() -> EventEvaluator:
         """Any task success counts as event success."""
-        return EventEvaluator(CommonStrategies.ANY_MUST_SUCCEED)
+        return EventEvaluator(ResultEvaluationStrategies.ANY_MUST_SUCCEED)
 
     @staticmethod
     def balanced_evaluator() -> EventEvaluator:
         """Majority of tasks must succeed."""
-        return EventEvaluator(CommonStrategies.MAJORITY_MUST_SUCCEED)
+        return EventEvaluator(ResultEvaluationStrategies.MAJORITY_MUST_SUCCEED)
 
     @staticmethod
     def threshold_evaluator(minimum_successes: int) -> EventEvaluator:
         """At least N tasks must succeed."""
-        return EventEvaluator(CommonStrategies.at_least_n_succeed(minimum_successes))
+        return EventEvaluator(
+            ResultEvaluationStrategies.at_least_n_succeed(minimum_successes)
+        )
 
     @staticmethod
     def percentage_evaluator(success_percentage: float) -> EventEvaluator:
         """At least X% of tasks must succeed."""
-        return EventEvaluator(CommonStrategies.at_least_percent_succeed(success_percentage))
-
-
+        return EventEvaluator(
+            ResultEvaluationStrategies.at_least_percent_succeed(success_percentage)
+        )

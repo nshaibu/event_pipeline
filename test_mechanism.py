@@ -11,7 +11,7 @@ class EventBase:
     _subclass_registry: Dict[Type, Set[Type]] = {}
 
     # WeakSet to automatically clean up when classes are garbage collected
-    _all_event_classes: 'weakref.WeakSet[Type[EventBase]]' = weakref.WeakSet()
+    _all_event_classes: "weakref.WeakSet[Type[EventBase]]" = weakref.WeakSet()
 
     def __init_subclass__(cls, **kwargs):
         """Automatically register subclasses when they're defined"""
@@ -58,7 +58,7 @@ class EventBase:
         return frozenset(discovered)
 
     @classmethod
-    def get_all_event_classes(cls) -> Set[Type['EventBase']]:
+    def get_all_event_classes(cls) -> Set[Type["EventBase"]]:
         """
         Alternative approach: return all registered event classes.
         This is O(1) but returns ALL event classes, not just subclasses.
@@ -66,7 +66,7 @@ class EventBase:
         return set(cls._all_event_classes)
 
     @classmethod
-    def get_direct_subclasses(cls) -> Set[Type['EventBase']]:
+    def get_direct_subclasses(cls) -> Set[Type["EventBase"]]:
         """Get only direct subclasses (one level down)"""
         return set(cls.__subclasses__())
 
@@ -140,7 +140,7 @@ class ImprovedEventBase:
         event_registry.register(cls)
 
     @classmethod
-    def get_event_klasses(cls) -> Set[Type['ImprovedEventBase']]:
+    def get_event_klasses(cls) -> Set[Type["ImprovedEventBase"]]:
         """Get all subclasses using the centralized registry"""
         return event_registry.get_subclasses(cls)
 
@@ -158,7 +158,7 @@ class LazyEventBase:
         LazyEventBase._cache_valid.clear()
 
     @classmethod
-    def get_event_klasses(cls) -> Set[Type['LazyEventBase']]:
+    def get_event_klasses(cls) -> Set[Type["LazyEventBase"]]:
         """Lazy-loaded subclass discovery with invalidation"""
 
         # Check if cache is valid
@@ -179,8 +179,12 @@ class LazyEventBase:
     def _get_all_classes(cls):
         """Get all classes in the module/package - implement based on your needs"""
         import gc
-        return [obj for obj in gc.get_objects()
-                if isinstance(obj, type) and issubclass(obj, LazyEventBase)]
+
+        return [
+            obj
+            for obj in gc.get_objects()
+            if isinstance(obj, type) and issubclass(obj, LazyEventBase)
+        ]
 
 
 # Performance comparison utility
@@ -190,15 +194,20 @@ def benchmark_approaches():
     from typing import Type
 
     # Create a deep hierarchy for testing
-    class Level0(EventBase): pass
+    class Level0(EventBase):
+        pass
 
-    class Level1(Level0): pass
+    class Level1(Level0):
+        pass
 
-    class Level2(Level1): pass
+    class Level2(Level1):
+        pass
 
-    class Level3(Level2): pass
+    class Level3(Level2):
+        pass
 
-    class Level4(Level3): pass
+    class Level4(Level3):
+        pass
 
     def time_approach(func, iterations=1000):
         start = time.perf_counter()

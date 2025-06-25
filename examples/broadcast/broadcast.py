@@ -6,4 +6,4 @@ class BroadcastPipeline(Pipeline):
     name = InputDataField(data_type=str)
 
     class Meta:
-        pointy = 'GeneratorEvent * 4 |-> ParallelAEvent || ParallelBEvent || ParallelCEvent |-> PrinterEvent'
+        pointy = "GeneratorEvent * 4 |-> ParallelAEvent || ParallelBEvent || ParallelCEvent |-> PrinterEvent"

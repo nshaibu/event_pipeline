@@ -7,6 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class TaskResult:
     """Represents the result of a single task execution."""
+
     task_id: str
     success: bool
     data: Optional[Any] = None
@@ -17,6 +18,7 @@ class TaskResult:
 @dataclass
 class EventEvaluationResult:
     """Complete result of event evaluation with detailed information."""
+
     success: bool
     total_tasks: int
     successful_tasks: int
@@ -176,7 +178,9 @@ class CommonStrategies:
         return MinimumSuccessThresholdStrategy(n)
 
     @staticmethod
-    def at_least_percent_succeed(percentage: float) -> PercentageSuccessThresholdStrategy:
+    def at_least_percent_succeed(
+        percentage: float,
+    ) -> PercentageSuccessThresholdStrategy:
         return PercentageSuccessThresholdStrategy(percentage)
 
 
@@ -211,7 +215,7 @@ class EventEvaluator:
             successful_tasks=successful_tasks,
             failed_tasks=failed_tasks,
             strategy_used=self.strategy.get_strategy_name(),
-            task_results=task_results
+            task_results=task_results,
         )
 
     def change_strategy(self, new_strategy: TaskEvaluationStrategy) -> None:
@@ -246,7 +250,9 @@ class EventEvaluatorFactory:
     @staticmethod
     def percentage_evaluator(success_percentage: float) -> EventEvaluator:
         """At least X% of tasks must succeed."""
-        return EventEvaluator(CommonStrategies.at_least_percent_succeed(success_percentage))
+        return EventEvaluator(
+            CommonStrategies.at_least_percent_succeed(success_percentage)
+        )
 
 
 # Example usage and testing

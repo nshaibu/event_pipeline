@@ -5,15 +5,15 @@ from .executors.default_executor import DefaultExecutor
 
 
 # Type definitions
-F = typing.TypeVar('F', bound=typing.Callable[..., typing.Any])
-T = typing.TypeVar('T')
+F = typing.TypeVar("F", bound=typing.Callable[..., typing.Any])
+T = typing.TypeVar("T")
 
 
 def event(
-        name: typing.Optional[str] = None,
-        executor: typing.Optional[typing.Type[Executor]] = None,
-        retry_policy: typing.Optional[RetryPolicy] = None,
-        executor_config: typing.Optional[ExecutorInitializerConfig] = None
+    name: typing.Optional[str] = None,
+    executor: typing.Optional[typing.Type[Executor]] = None,
+    retry_policy: typing.Optional[RetryPolicy] = None,
+    executor_config: typing.Optional[ExecutorInitializerConfig] = None,
 ) -> typing.Callable[[F], typing.Type[EventBase]]:
     """
     Decorator to create an Event class from a function.
@@ -42,6 +42,7 @@ def event(
 
         class GeneratedEvent(EventBase):
             """Dynamically generated event class."""
+
             executor = executor_class
             executor_config = _executor_config
             retry_policy = _retry_policy

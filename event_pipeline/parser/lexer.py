@@ -9,10 +9,7 @@ logger = logging.getLogger(__name__)
 class PointyLexer(object):
     directives = ("recursive-depth",)
 
-    reserved = {
-        'true': 'BOOLEAN',
-        'false': 'BOOLEAN'
-    }
+    reserved = {"true": "BOOLEAN", "false": "BOOLEAN"}
 
     tokens = (
         "SEPARATOR",
@@ -31,7 +28,7 @@ class PointyLexer(object):
         "STRING_LITERAL",
         "INT",
         "FLOAT",
-        "BOOLEAN"
+        "BOOLEAN",
     )
 
     t_ignore = " \t"
@@ -67,7 +64,7 @@ class PointyLexer(object):
 
     def t_BOOLEAN(self, t):
         r"(true|false)"
-        t.value = (t.value == "true")
+        t.value = t.value == "true"
         return t
 
     def t_DIRECTIVE(self, t):
