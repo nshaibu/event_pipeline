@@ -39,6 +39,10 @@ class EventResult(BackendIntegrationMixin, BaseModel):
     def __hash__(self):
         return hash(self.id)
 
+    @property
+    def success(self):
+        return not self.error
+
     def get_state(self) -> typing.Dict[str, typing.Any]:
         state = self.__dict__.copy()
         init_params: typing.Optional[typing.Dict[str, typing.Any]] = state.pop(

@@ -6,8 +6,8 @@ from event_pipeline.task import (
     PipelineTask,
     PipeType,
     EventExecutionContext,
-    EvaluationContext,
-    EventExecutionEvaluationState,
+    # EvaluationContext,
+    # EventExecutionEvaluationState,
 )
 
 
@@ -128,33 +128,33 @@ class EventExecutionContextTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         class AB(EventBase):
-            execution_evaluation_state = (
-                EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
-            )
+            # execution_evaluation_state = (
+            #     EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
+            # )
 
             def process(self, *args, **kwargs):
                 return True, "hello world"
 
         class BC(EventBase):
-            execution_evaluation_state = (
-                EventExecutionEvaluationState.FAILURE_FOR_PARTIAL_ERROR
-            )
+            # execution_evaluation_state = (
+            #     EventExecutionEvaluationState.FAILURE_FOR_PARTIAL_ERROR
+            # )
 
             def process(self, name):
                 return True, name
 
         class CD(EventBase):
-            execution_evaluation_state = (
-                EventExecutionEvaluationState.SUCCESS_FOR_PARTIAL_SUCCESS
-            )
+            # execution_evaluation_state = (
+            #     EventExecutionEvaluationState.SUCCESS_FOR_PARTIAL_SUCCESS
+            # )
 
             def process(self, *args, **kwargs):
                 return True, self.previous_result
 
         class Sink(EventBase):
-            execution_evaluation_state = (
-                EventExecutionEvaluationState.FAILURE_FOR_ALL_EVENTS_FAILURE
-            )
+            # execution_evaluation_state = (
+            #     EventExecutionEvaluationState.FAILURE_FOR_ALL_EVENTS_FAILURE
+            # )
 
             def process(self, *args, **kwargs):
                 return True, "Sink"
