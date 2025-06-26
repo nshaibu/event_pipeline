@@ -36,9 +36,7 @@ from .result_evaluators import (
 __all__ = [
     "EventBase",
     "RetryPolicy",
-    "EvaluationContext",
-    "ExecutorInitializerConfig",
-    "EventExecutionEvaluationState",
+    "ExecutorInitializerConfig"
 ]
 
 
@@ -285,99 +283,6 @@ class _ExecutorInitializerMixin(object):
         return context
 
 
-class EvaluationContext(Enum):
-    SUCCESS = "success"
-    FAILURE = "failure"
-
-
-class EventExecutionEvaluationState(Enum):
-    # The event is considered successful only if all the tasks within the event succeeded.If any task fails,
-    # the evaluation should be marked as a failure. This state ensures that the event is only successful
-    # if every task in the execution succeeds. If even one task fails, the overall evaluation will be a failure.
-    SUCCESS_ON_ALL_EVENTS_SUCCESS = "Success (All Tasks Succeeded)"
-
-    # The event is considered a failure if any of the tasks fail. Even if some tasks
-    # succeed, a failure in any one task results in the event being considered a failure.  In this state,
-    # as soon as one task fails, the event is considered a failure, regardless of how many tasks succeed
-    FAILURE_FOR_PARTIAL_ERROR = "Failure (Any Task Failed)"
-
-    # This state treats the event as successful if any task succeeds. Even if other tasks fail, as long as one succeeds,
-    # the event will be considered successful. This can be used in cases where partial success is enough to consider
-    # the event as successful.
-    SUCCESS_FOR_PARTIAL_SUCCESS = "Success (At least one Task Succeeded)"
-
-    # This state ensures the event is only considered a failure if every task fails. If any task succeeds, the event
-    # is marked as successful. This can be helpful in scenarios where the overall success is determined by the
-    # presence of at least one successful task.
-    FAILURE_FOR_ALL_EVENTS_FAILURE = "Failure (All Tasks Failed)"
-
-    def _evaluate(self, result: ResultSet, errors: typing.List[Exception]) -> bool:
-        has_success = len(result) > 0
-        has_error = len(errors) > 0
-
-        if self == self.SUCCESS_ON_ALL_EVENTS_SUCCESS:
-            return not has_error and has_success
-        elif self == self.SUCCESS_FOR_PARTIAL_SUCCESS:
-            return has_success
-        elif self == self.FAILURE_FOR_PARTIAL_ERROR:
-            return has_error
-        else:
-            return not has_success and has_error
-
-    def context_evaluation(
-        self,
-        result: ResultSet,
-        errors: typing.List[Exception],
-        context: EvaluationContext = EvaluationContext.SUCCESS,
-    ) -> bool:
-        """
-        Evaluates the event's outcome based on both the task results and the provided context.
-
-        This method combines the evaluation of the event (via the `evaluate` method) with
-        an additional context (success or failure) to return the final outcome. Depending on
-        the context, the method applies different rules to determine whether the event should
-        be considered a success or failure.
-
-        Parameters:
-            result (ResultSet): A list of successful event results.
-            errors (typing.List[Exception]): A list of errors or exceptions encountered during event execution.
-            context (EvaluationContext, optional): The context under which the evaluation should be made.
-                                                   Defaults to `EvaluationContext.SUCCESS`.
-
-        Returns:
-            bool: The final evaluation result of the event. Returns `True` if the event meets
-                  the success or failure criteria defined by the current state and context.
-                  Returns `False` otherwise.
-
-        Logic:
-            - If the context is `EvaluationContext.SUCCESS`:
-                - If the state is either `SUCCESS_ON_ALL_EVENTS_SUCCESS` or `SUCCESS_FOR_PARTIAL_SUCCESS`,
-                  the event is successful if the `evaluate` method returns `True`.
-                - Otherwise, the event is considered a failure if `evaluate` returns `False`.
-            - If the context is not `EvaluationContext.SUCCESS` (i.e., failure-related contexts):
-                - If the state is either `FAILURE_FOR_ALL_EVENTS_FAILURE` or `FAILURE_FOR_PARTIAL_ERROR`,
-                  the event is successful if the `evaluate` method returns `True`.
-                - Otherwise, the event is considered a failure if `evaluate` returns `False`.
-        """
-
-        status = self._evaluate(result, errors)
-
-        if context == EvaluationContext.SUCCESS:
-            if self in [
-                self.SUCCESS_ON_ALL_EVENTS_SUCCESS,
-                self.SUCCESS_FOR_PARTIAL_SUCCESS,
-            ]:
-                return status
-            return not status
-
-        if self in [
-            self.FAILURE_FOR_ALL_EVENTS_FAILURE,
-            self.FAILURE_FOR_PARTIAL_ERROR,
-        ]:
-            return status
-        return not status
-
-
 class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     """
     Abstract base class for event in the pipeline system.
@@ -390,31 +295,28 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                                     Defaults to DefaultExecutor.
         executor_config (ExecutorInitializerConfig): Configuration settings for the executor.
                                                     Defaults to None.
-        execution_evaluation_state: (EventExecutionEvaluationState): Focuses purely on the result of the evaluation
-                                    process—whether the event was successful or failed, depending on the tasks.
+         result_evaluation_strategy(ExecutionResultEvaluationStrategyBase): The strategy to use in evaluating the
+                                    results of the execution of this event in the pipeline. This will inform
+                                    the pipeline as to the next execution path to take.
 
-    Result Evaluation States:
-        SUCCESS_ON_ALL_EVENTS_SUCCESS: The event is considered successful only if all the tasks within the event
+    Result Evaluation Strategies:
+        ALL_MUST_SUCCEED/AllTasksMustSucceedStrategy: The event is considered successful only if all the tasks within the event
                                         succeeded. If any task fails, the evaluation should be marked as a failure.
 
-        FAILURE_FOR_PARTIAL_ERROR: The event is considered a failure if any of the tasks fail. Even if some tasks
+        NO_FAILURES_ALLOWED/NoFailuresAllowedStrategy: The event is considered a failure if any of the tasks fail. Even if some tasks
                                     succeed, a failure in any one task results in the event being considered a failure.
 
-        SUCCESS_FOR_PARTIAL_SUCCESS: The event is considered successful if at least one of the tasks succeeded.
+        ANY_MUST_SUCCEED/AnyTaskMustSucceedStrategy: The event is considered successful if at least one of the tasks succeeded.
                                     This means that if any task succeeds, the event will be considered successful,
                                     even if others fail.
 
-        FAILURE_FOR_ALL_EVENTS_FAILURE: The event is considered a failure only if all the tasks fail. If any task
-                                        succeeds, the event is considered a success.
+        MAJORITY_MUST_SUCCEED: Event succeeds if majority of tasks succeed
 
     Subclasses must implement the `process` method to define the logic for
     processing pipeline data.
     """
 
-    execution_evaluation_state: EventExecutionEvaluationState = (
-        EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
-    )
-
+    # how we want the execution results of this event to be evaluated by the pipeline
     result_evaluation_strategy: ExecutionResultEvaluationStrategyBase = (
         ResultEvaluationStrategies.ALL_MUST_SUCCEED
     )

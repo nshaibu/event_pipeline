@@ -11,8 +11,8 @@ from enum import Enum, unique
 from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from .base import (
     EventBase,
-    EventExecutionEvaluationState,
-    EvaluationContext,
+    # EventExecutionEvaluationState,
+    # EvaluationContext,
 )
 from . import parser
 from .constants import EMPTY
@@ -66,7 +66,7 @@ class Options(BaseModel):
     run_bypass_event_checks: typing.Optional[bool]
 
     @classmethod
-    def from_assigment_expression_group(
+    def from_assignment_expression_group(
         cls, assigment_expression_group: "AssignmentExpressionGroup"
     ) -> "Options":
         fields = [
@@ -307,23 +307,23 @@ class EventExecutionContext(ObjectIdentityMixin):
     def __hash__(self):
         return hash(self.id)
 
-    def execution_failed(self):
-        with self.conditional_variable:
-            if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
-                return True
-            evaluator = self._get_execution_state_evaluator()
-            return evaluator.context_evaluation(
-                self.execution_result, self._errors, context=EvaluationContext.FAILURE
-            )
+    # def execution_failed(self):
+    #     with self.conditional_variable:
+    #         if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
+    #             return True
+    #         evaluator = self._get_execution_state_evaluator()
+    #         return evaluator.context_evaluation(
+    #             self.execution_result, self._errors, context=EvaluationContext.FAILURE
+    #         )
 
-    def execution_success(self):
-        with self.conditional_variable:
-            if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
-                return False
-            evaluator = self._get_execution_state_evaluator()
-            return evaluator.context_evaluation(
-                self.execution_result, self._errors, context=EvaluationContext.SUCCESS
-            )
+    # def execution_success(self):
+    #     with self.conditional_variable:
+    #         if self.state in [ExecutionState.CANCELLED, ExecutionState.ABORTED]:
+    #             return False
+    #         evaluator = self._get_execution_state_evaluator()
+    #         return evaluator.context_evaluation(
+    #             self.execution_result, self._errors, context=EvaluationContext.SUCCESS
+    #         )
 
     def evaluate_execution_results(self):
         with self.conditional_variable:
@@ -483,7 +483,7 @@ class EventExecutionContext(ObjectIdentityMixin):
 
         return event, context, event_call_arguments
 
-    def _get_last_task_profile_in_chain(self) -> "PipelineTask":
+    def _get_last_task_profile_in_chain(self) -> typing.Union["PipelineTask", None]:
         """
         Retrieves the last task profile in the chain of task profiles.
 
@@ -502,6 +502,7 @@ class EventExecutionContext(ObjectIdentityMixin):
         """
         if len(self.task_profiles) == 1:
             return self.task_profiles[0]
+
         for task_profile in self.task_profiles:
             pointer_to_task = task_profile.get_pointer_type_to_this_event()
             if (
@@ -509,23 +510,7 @@ class EventExecutionContext(ObjectIdentityMixin):
                 and task_profile.on_success_pipe != PipeType.PARALLELISM
             ):
                 return task_profile
-
-    def _get_execution_state_evaluator(self) -> EventExecutionEvaluationState:
-        # For parallel execution, we use the evaluator of the last task in the chain
-        # i.e for A||B||C, we will use the evaluator of 'C'
-        task_profile = self._get_last_task_profile_in_chain()
-        if task_profile.options:
-            evaluator_str = task_profile.options.execution_evaluation_state
-            if evaluator_str:
-                evaluator = getattr(EventExecutionEvaluationState, evaluator_str, None)
-                if evaluator:
-                    return evaluator
-                else:
-                    logger.warning(
-                        "Could not find an evaluator for '%s' failing back to event configured evaluator",
-                        evaluator_str,
-                    )
-        return task_profile.get_event_klass().execution_evaluation_state
+        return None
 
     def _get_task_execution_result_evaluation_strategy(self) -> EventEvaluator:
         # For parallel execution, we use the evaluator of the last task in the chain
@@ -765,7 +750,7 @@ class PipeType(Enum):
             return "*"
 
     @classmethod
-    def get_pipe_type_enum(cls, pipe_str: str) -> "PipeType":
+    def get_pipe_type_enum(cls, pipe_str: str) -> typing.Optional["PipeType"]:
         if pipe_str == cls.PIPE_POINTER.token():
             return cls.PIPE_POINTER
         elif pipe_str == cls.PARALLELISM.token():
@@ -774,6 +759,7 @@ class PipeType(Enum):
             return cls.RETRY
         elif pipe_str == cls.POINTER.token():
             return cls.POINTER
+        return None
 
 
 class PipelineTask(ObjectIdentityMixin):
@@ -1040,7 +1026,7 @@ class PipelineTask(ObjectIdentityMixin):
         elif isinstance(ast, parser.TaskName):
             instance = cls(event=ast.value)
             if ast.options:
-                instance.options = Options.from_assigment_expression_group(ast.options)
+                instance.options = Options.from_assignment_expression_group(ast.options)
             return instance
         elif isinstance(ast, parser.ConditionalBinOP):
             left_node = cls._parse_ast(ast.left)
@@ -1251,8 +1237,11 @@ class PipelineTask(ObjectIdentityMixin):
                     sink_queue=sink_queue,
                 )
             else:
+                evaluation_res = execution_context.evaluate_execution_results()
                 if task.is_conditional:
-                    if execution_context.execution_failed():
+                    if (
+                        not evaluation_res.success
+                    ):  #  execution_context.execution_failed():
                         cls.execute_task(
                             task=task.on_failure_event,
                             previous_context=execution_context,
