@@ -5,7 +5,7 @@ _tabversion = "3.10"
 
 _lr_method = "LALR"
 
-_lr_signature = "leftRETRYPOINTERPPOINTERPARALLELASSIGN COMMENT DIRECTIVE FLOAT IDENTIFIER INT LBRACKET LPAREN PARALLEL POINTER PPOINTER RBRACKET RETRY RPAREN SEPARATOR STRING_LITERAL\n    expression :  expression POINTER expression\n                | expression PPOINTER expression\n                | expression PARALLEL expression\n                | descriptor POINTER expression\n                | descriptor PPOINTER expression\n                | factor RETRY task\n                | task RETRY factor\n    \n    expression : term\n    \n    term : task\n    \n    descriptor : INT\n    \n    factor : INT\n            | FLOAT\n    \n    task : IDENTIFIER\n        | IDENTIFIER LBRACKET assigment_expression_group RBRACKET\n    \n    task_group : expression SEPARATOR expression\n                | task_group SEPARATOR expression\n    \n    task :  task LPAREN task_group RPAREN\n    \n    assignment_expression : IDENTIFIER ASSIGN STRING_LITERAL\n                            | IDENTIFIER ASSIGN INT\n                            | IDENTIFIER ASSIGN FLOAT\n    \n    assigment_expression_group : assignment_expression\n                                | assignment_expression SEPARATOR assignment_expression\n                                | assigment_expression_group SEPARATOR assignment_expression\n    "
+_lr_signature = "leftRETRYPOINTERPPOINTERPARALLELASSIGN BOOLEAN COMMENT DIRECTIVE FLOAT IDENTIFIER INT LBRACKET LPAREN PARALLEL POINTER PPOINTER RBRACKET RETRY RPAREN SEPARATOR STRING_LITERAL\n    expression :  expression POINTER expression\n                | expression PPOINTER expression\n                | expression PARALLEL expression\n                | descriptor POINTER expression\n                | descriptor PPOINTER expression\n                | factor RETRY task\n                | task RETRY factor\n    \n    expression : term\n    \n    term : task\n    \n    descriptor : INT\n    \n    factor : INT\n            | FLOAT\n    \n    task : IDENTIFIER\n        | IDENTIFIER LBRACKET assigment_expression_group RBRACKET\n    \n    task_group : expression SEPARATOR expression\n                | task_group SEPARATOR expression\n    \n    task :  task LPAREN task_group RPAREN\n    \n    assignment_expression : IDENTIFIER ASSIGN STRING_LITERAL\n                            | IDENTIFIER ASSIGN INT\n                            | IDENTIFIER ASSIGN FLOAT\n                            | IDENTIFIER ASSIGN BOOLEAN\n    \n    assigment_expression_group : assignment_expression\n                                | assignment_expression SEPARATOR assignment_expression\n                                | assigment_expression_group SEPARATOR assignment_expression\n    "
 
 _lr_action_items = {
     "INT": (
@@ -329,6 +329,7 @@ _lr_action_items = {
             42,
             43,
             44,
+            45,
         ],
         [
             -9,
@@ -354,8 +355,9 @@ _lr_action_items = {
             -18,
             -19,
             -20,
+            -21,
+            -24,
             -23,
-            -22,
         ],
     ),
     "RPAREN": (
@@ -423,15 +425,17 @@ _lr_action_items = {
             42,
             43,
             44,
+            45,
         ],
         [
             35,
-            -21,
+            -22,
             -18,
             -19,
             -20,
+            -21,
+            -24,
             -23,
-            -22,
         ],
     ),
     "STRING_LITERAL": (
@@ -440,6 +444,14 @@ _lr_action_items = {
         ],
         [
             40,
+        ],
+    ),
+    "BOOLEAN": (
+        [
+            34,
+        ],
+        [
+            43,
         ],
     ),
 }
@@ -601,8 +613,8 @@ _lr_goto_items = {
         ],
         [
             30,
-            43,
             44,
+            45,
         ],
     ),
 }
@@ -735,12 +747,20 @@ _lr_productions = [
         114,
     ),
     (
+        "assignment_expression -> IDENTIFIER ASSIGN BOOLEAN",
+        "assignment_expression",
+        3,
+        "p_assignment_expression",
+        "grammar.py",
+        115,
+    ),
+    (
         "assigment_expression_group -> assignment_expression",
         "assigment_expression_group",
         1,
         "p_assignment_expression_group",
         "grammar.py",
-        121,
+        122,
     ),
     (
         "assigment_expression_group -> assignment_expression SEPARATOR assignment_expression",
@@ -748,7 +768,7 @@ _lr_productions = [
         3,
         "p_assignment_expression_group",
         "grammar.py",
-        122,
+        123,
     ),
     (
         "assigment_expression_group -> assigment_expression_group SEPARATOR assignment_expression",
@@ -756,6 +776,6 @@ _lr_productions = [
         3,
         "p_assignment_expression_group",
         "grammar.py",
-        123,
+        124,
     ),
 ]

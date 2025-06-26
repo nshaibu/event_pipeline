@@ -1,50 +1,67 @@
 import typing
-import warnings
-from functools import wraps
 from concurrent.futures import Executor
 from .base import EventBase, RetryPolicy, ExecutorInitializerConfig
 from .executors.default_executor import DefaultExecutor
 
 
+# Type definitions
+F = typing.TypeVar("F", bound=typing.Callable[..., typing.Any])
+T = typing.TypeVar("T")
+
+
 def event(
-    executor: typing.Type[Executor] = DefaultExecutor,
-    retry_policy: typing.Union[RetryPolicy, typing.Dict[str, typing.Any]] = None,
-    executor_config: typing.Union[
-        ExecutorInitializerConfig, typing.Dict[str, typing.Any]
-    ] = None,
-):
+    name: typing.Optional[str] = None,
+    executor: typing.Optional[typing.Type[Executor]] = None,
+    retry_policy: typing.Optional[RetryPolicy] = None,
+    executor_config: typing.Optional[ExecutorInitializerConfig] = None,
+) -> typing.Callable[[F], typing.Type[EventBase]]:
+    """
+    Decorator to create an Event class from a function.
 
-    def worker(func):
+    Args:
+        executor: Executor class to use (defaults to DefaultExecutor)
+        retry_policy: Retry configuration
+        executor_config: Executor configuration
+        name: Custom name for the event (defaults to function name)
 
-        @wraps(func)
-        def inner(self, *args, **kwargs):
-            event_ref = self
-            return func(*args, **kwargs)
+    Returns:
+        Event class that can be instantiated and executed
 
-        namespace = {
-            "__module__": func.__module__,
-            "executor": executor,
-            "retry_policy": retry_policy,
-            "executor_config": executor_config,
-            "execution_context": None,
-            "previous_result": None,
-            "stop_on_exception": False,
-            "process": inner,
-        }
+    Example:
+        @event(retry_policy=RetryPolicy(max_attempts=5))
+        def process_data(data: dict) -> typing.Tuple[bool, typing.Any]:
+            # Process the data
+            return True, "processed"
+    """
 
-        _event = type(func.__name__, (EventBase,), namespace)
-        globals()[func.__name__] = _event
+    def decorator(func: F) -> typing.Type[EventBase]:
+        event_name = name or func.__name__
+        executor_class = executor or DefaultExecutor
+        _retry_policy = retry_policy or RetryPolicy
+        _executor_config = executor_config or ExecutorInitializerConfig()
 
-        @wraps(func)
-        def task(*args, **kwargs):
-            warnings.warn(
-                "This is an event that must be executed by an executor", Warning
-            )
-            return func(*args, **kwargs)
+        class GeneratedEvent(EventBase):
+            """Dynamically generated event class."""
 
-        return task
+            executor = executor_class
+            executor_config = _executor_config
+            retry_policy = _retry_policy
 
-    return worker
+            def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
+                return func(self, *args, **kwargs)
+
+        # Set class name and module for better debugging
+        GeneratedEvent.__name__ = f"{event_name}"
+        GeneratedEvent.__qualname__ = f"{event_name}"
+        GeneratedEvent.__module__ = func.__module__
+
+        # Preserve original function metadata
+        GeneratedEvent._original_func = func
+        GeneratedEvent._event_name = event_name
+
+        return GeneratedEvent
+
+    return decorator
 
 
 def listener(signal, sender):

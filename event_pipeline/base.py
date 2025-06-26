@@ -2,8 +2,11 @@ import abc
 import typing
 import logging
 import time
+import weakref
 import multiprocessing as mp
 from enum import Enum
+from functools import lru_cache
+from collections import deque
 from dataclasses import dataclass, field
 from concurrent.futures import Executor, ProcessPoolExecutor
 from .result import EventResult, ResultSet
@@ -12,20 +15,28 @@ from .executors.default_executor import DefaultExecutor
 from .executors.remote_executor import RemoteExecutor
 from .utils import get_function_call_args
 from .conf import ConfigLoader
-from .exceptions import StopProcessingError, MaxRetryError, SwitchTask
+from .exceptions import (
+    StopProcessingError,
+    MaxRetryError,
+    SwitchTask,
+    ImproperlyConfigured,
+)
 from .signal.signals import (
     event_execution_retry,
     event_execution_retry_done,
     event_init,
 )
 
+from .result_evaluators import (
+    ExecutionResultEvaluationStrategyBase,
+    ResultEvaluationStrategies,
+    EventEvaluator,
+)
 
 __all__ = [
     "EventBase",
     "RetryPolicy",
-    "EvaluationContext",
-    "ExecutorInitializerConfig",
-    "EventExecutionEvaluationState",
+    "ExecutorInitializerConfig"
 ]
 
 
@@ -272,99 +283,6 @@ class _ExecutorInitializerMixin(object):
         return context
 
 
-class EvaluationContext(Enum):
-    SUCCESS = "success"
-    FAILURE = "failure"
-
-
-class EventExecutionEvaluationState(Enum):
-    # The event is considered successful only if all the tasks within the event succeeded.If any task fails,
-    # the evaluation should be marked as a failure. This state ensures that the event is only successful
-    # if every task in the execution succeeds. If even one task fails, the overall evaluation will be a failure.
-    SUCCESS_ON_ALL_EVENTS_SUCCESS = "Success (All Tasks Succeeded)"
-
-    # The event is considered a failure if any of the tasks fail. Even if some tasks
-    # succeed, a failure in any one task results in the event being considered a failure.  In this state,
-    # as soon as one task fails, the event is considered a failure, regardless of how many tasks succeed
-    FAILURE_FOR_PARTIAL_ERROR = "Failure (Any Task Failed)"
-
-    # This state treats the event as successful if any task succeeds. Even if other tasks fail, as long as one succeeds,
-    # the event will be considered successful. This can be used in cases where partial success is enough to consider
-    # the event as successful.
-    SUCCESS_FOR_PARTIAL_SUCCESS = "Success (At least one Task Succeeded)"
-
-    # This state ensures the event is only considered a failure if every task fails. If any task succeeds, the event
-    # is marked as successful. This can be helpful in scenarios where the overall success is determined by the
-    # presence of at least one successful task.
-    FAILURE_FOR_ALL_EVENTS_FAILURE = "Failure (All Tasks Failed)"
-
-    def _evaluate(self, result: ResultSet, errors: typing.List[Exception]) -> bool:
-        has_success = len(result) > 0
-        has_error = len(errors) > 0
-
-        if self == self.SUCCESS_ON_ALL_EVENTS_SUCCESS:
-            return not has_error and has_success
-        elif self == self.SUCCESS_FOR_PARTIAL_SUCCESS:
-            return has_success
-        elif self == self.FAILURE_FOR_PARTIAL_ERROR:
-            return has_error
-        else:
-            return not has_success and has_error
-
-    def context_evaluation(
-        self,
-        result: ResultSet,
-        errors: typing.List[Exception],
-        context: EvaluationContext = EvaluationContext.SUCCESS,
-    ) -> bool:
-        """
-        Evaluates the event's outcome based on both the task results and the provided context.
-
-        This method combines the evaluation of the event (via the `evaluate` method) with
-        an additional context (success or failure) to return the final outcome. Depending on
-        the context, the method applies different rules to determine whether the event should
-        be considered a success or failure.
-
-        Parameters:
-            result (ResultSet): A list of successful event results.
-            errors (typing.List[Exception]): A list of errors or exceptions encountered during event execution.
-            context (EvaluationContext, optional): The context under which the evaluation should be made.
-                                                   Defaults to `EvaluationContext.SUCCESS`.
-
-        Returns:
-            bool: The final evaluation result of the event. Returns `True` if the event meets
-                  the success or failure criteria defined by the current state and context.
-                  Returns `False` otherwise.
-
-        Logic:
-            - If the context is `EvaluationContext.SUCCESS`:
-                - If the state is either `SUCCESS_ON_ALL_EVENTS_SUCCESS` or `SUCCESS_FOR_PARTIAL_SUCCESS`,
-                  the event is successful if the `evaluate` method returns `True`.
-                - Otherwise, the event is considered a failure if `evaluate` returns `False`.
-            - If the context is not `EvaluationContext.SUCCESS` (i.e., failure-related contexts):
-                - If the state is either `FAILURE_FOR_ALL_EVENTS_FAILURE` or `FAILURE_FOR_PARTIAL_ERROR`,
-                  the event is successful if the `evaluate` method returns `True`.
-                - Otherwise, the event is considered a failure if `evaluate` returns `False`.
-        """
-
-        status = self._evaluate(result, errors)
-
-        if context == EvaluationContext.SUCCESS:
-            if self in [
-                self.SUCCESS_ON_ALL_EVENTS_SUCCESS,
-                self.SUCCESS_FOR_PARTIAL_SUCCESS,
-            ]:
-                return status
-            return not status
-
-        if self in [
-            self.FAILURE_FOR_ALL_EVENTS_FAILURE,
-            self.FAILURE_FOR_PARTIAL_ERROR,
-        ]:
-            return status
-        return not status
-
-
 class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     """
     Abstract base class for event in the pipeline system.
@@ -377,30 +295,49 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                                     Defaults to DefaultExecutor.
         executor_config (ExecutorInitializerConfig): Configuration settings for the executor.
                                                     Defaults to None.
-        execution_evaluation_state: (EventExecutionEvaluationState): Focuses purely on the result of the evaluation
-                                    process—whether the event was successful or failed, depending on the tasks.
+         result_evaluation_strategy(ExecutionResultEvaluationStrategyBase): The strategy to use in evaluating the
+                                    results of the execution of this event in the pipeline. This will inform
+                                    the pipeline as to the next execution path to take.
 
-    Result Evaluation States:
-        SUCCESS_ON_ALL_EVENTS_SUCCESS: The event is considered successful only if all the tasks within the event
+    Result Evaluation Strategies:
+        ALL_MUST_SUCCEED/AllTasksMustSucceedStrategy: The event is considered successful only if all the tasks within the event
                                         succeeded. If any task fails, the evaluation should be marked as a failure.
 
-        FAILURE_FOR_PARTIAL_ERROR: The event is considered a failure if any of the tasks fail. Even if some tasks
+        NO_FAILURES_ALLOWED/NoFailuresAllowedStrategy: The event is considered a failure if any of the tasks fail. Even if some tasks
                                     succeed, a failure in any one task results in the event being considered a failure.
 
-        SUCCESS_FOR_PARTIAL_SUCCESS: The event is considered successful if at least one of the tasks succeeded.
+        ANY_MUST_SUCCEED/AnyTaskMustSucceedStrategy: The event is considered successful if at least one of the tasks succeeded.
                                     This means that if any task succeeds, the event will be considered successful,
                                     even if others fail.
 
-        FAILURE_FOR_ALL_EVENTS_FAILURE: The event is considered a failure only if all the tasks fail. If any task
-                                        succeeds, the event is considered a success.
+        MAJORITY_MUST_SUCCEED: Event succeeds if majority of tasks succeed
 
     Subclasses must implement the `process` method to define the logic for
     processing pipeline data.
     """
 
-    execution_evaluation_state: EventExecutionEvaluationState = (
-        EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
+    # how we want the execution results of this event to be evaluated by the pipeline
+    result_evaluation_strategy: ExecutionResultEvaluationStrategyBase = (
+        ResultEvaluationStrategies.ALL_MUST_SUCCEED
     )
+
+    # Class-level registry to cache discovered subclasses
+    _subclass_registry: typing.Dict[typing.Type, typing.Set[typing.Type]] = {}
+
+    # WeakSet to automatically clean up when classes are garbage collected
+    _all_event_classes: "weakref.WeakSet[typing.Type[EventBase]]" = weakref.WeakSet()
+
+    def __init_subclass__(cls, **kwargs):
+        """Automatically register subclasses when they're defined"""
+        super().__init_subclass__(**kwargs)
+
+        # Register this class in the global registry
+        EventBase._all_event_classes.add(cls)
+
+        # Clear the cache for affected parent classes
+        for parent in cls.__mro__[1:]:  # Skip self
+            if parent in EventBase._subclass_registry:
+                del EventBase._subclass_registry[parent]
 
     def __init__(
         self,
@@ -503,6 +440,35 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             result=res,
             reason=reason,
         )
+
+    @classmethod
+    def register_event(cls, event_klass: typing.Type["EventBase"]):
+        if not issubclass(event_klass, EventBase):
+            raise ValueError("event_klass must be a subclass of EventBase")
+
+        # Register this class in the global registry
+        EventBase._all_event_classes.add(cls)
+
+        # Clear the cache for affected parent classes
+        for parent in cls.__mro__[1:]:  # Skip self
+            if parent in EventBase._subclass_registry:
+                del EventBase._subclass_registry[parent]
+
+    @classmethod
+    def evaluator(cls) -> EventEvaluator:
+        """
+        Get the event evaluator for the current task.
+        :return: Evaluator for the current task.
+        """
+        if cls.result_evaluation_strategy is None:
+            raise ImproperlyConfigured("No result evaluation strategy specified")
+        if not isinstance(
+            cls.result_evaluation_strategy, ExecutionResultEvaluationStrategyBase
+        ):
+            raise ImproperlyConfigured(
+                f"'{cls.__name__}' is not a valid result evaluation strategy"
+            )
+        return EventEvaluator(cls.result_evaluation_strategy)
 
     def can_bypass_current_event(self) -> typing.Tuple[bool, typing.Any]:
         """
@@ -616,10 +582,56 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         return self.event_result(True, execution_result)
 
     @classmethod
-    def get_event_klasses(cls):
-        for subclass in cls.__subclasses__():
-            yield from subclass.get_event_klasses()
-            yield subclass
+    @lru_cache(maxsize=128)
+    def get_event_klasses(cls) -> frozenset:
+        """
+        Optimized version using breadth-first search with caching.
+        Returns frozenset for immutability and better caching.
+        """
+        if cls in cls._subclass_registry:
+            return frozenset(cls._subclass_registry[cls])
+
+        # Use BFS instead of DFS to avoid deep recursion
+        discovered = set()
+        queue = deque([cls])
+        visited = set()
+
+        while queue:
+            current_class = queue.popleft()
+
+            if current_class in visited:
+                continue
+            visited.add(current_class)
+
+            # Get direct subclasses
+            for subclass in current_class.__subclasses__():
+                if subclass not in discovered:
+                    discovered.add(subclass)
+                    queue.append(subclass)
+
+        # Cache the result
+        cls._subclass_registry[cls] = discovered
+        return frozenset(discovered)
+
+    @classmethod
+    def get_all_event_classes(cls) -> typing.Set[typing.Type["EventBase"]]:
+        """
+        return all registered event classes.
+        This is O(1) but returns ALL event classes, not just subclasses.
+        """
+        return set(cls._all_event_classes)
+
+    @classmethod
+    def get_direct_subclasses(cls) -> typing.Set[typing.Type["EventBase"]]:
+        """Get only direct subclasses (one level down)"""
+        return set(cls.__subclasses__())
+
+    @classmethod
+    def clear_class_cache(cls):
+        """Clear the cached subclass registry"""
+        cls._subclass_registry.clear()
+        # Clear LRU cache
+        cls.get_event_klasses.cache_clear()
 
     def __call__(self, *args, **kwargs):
         self._call_args = get_function_call_args(self.__class__.__call__, locals())

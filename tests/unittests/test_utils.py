@@ -87,7 +87,7 @@ def test_build_event_arguments_from_pipeline():
             "stop_on_success": False,
             "stop_on_error": False,
             "run_bypass_event_checks": False,
-            "options": None
+            "options": None,
         },
         {"name": "nafiu", "school": "knust"},
     )

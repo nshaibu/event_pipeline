@@ -3,13 +3,15 @@ from event_pipeline.executors.remote_executor import RemoteExecutor
 
 
 class GeneratorEvent(EventBase):
-    executor = RemoteExecutor
-    executor_config = {
-        "host": "localhost",
-        "port": 8990,
-    }
+    # executor = RemoteExecutor
+    # executor_config = {
+    #     "host": "localhost",
+    #     "port": 8990,
+    # }
 
     def process(self, name: str):
+        self.stop_on_error = True
+        raise NotImplementedError
         return True, name
 
 

@@ -112,6 +112,7 @@ def p_assignment_expression(p):
     assignment_expression : IDENTIFIER ASSIGN STRING_LITERAL
                             | IDENTIFIER ASSIGN INT
                             | IDENTIFIER ASSIGN FLOAT
+                            | IDENTIFIER ASSIGN BOOLEAN
     """
     p[0] = AssignmentExpression(p[1], p[3])
 
@@ -126,27 +127,6 @@ def p_assignment_expression_group(p):
         p[0] = AssignmentExpressionGroup(p[1], None)
     else:
         p[0] = AssignmentExpressionGroup(p[1], p[3])
-
-
-# def p_error(p):
-#     if p is None:
-#         raise SyntaxError("Syntax error at the end of the input!")
-#     else:
-#         line = p.lineno if hasattr(p, "lineno") else "unknown line"
-#         column = p.lexpos if hasattr(p, "lexpos") else "unknown column"
-#         text = p.value if hasattr(p, "value") else "unknown token"
-#
-#         error_message = f"Syntax error in input at line {line}, Column {column}, Offending token: {text}"
-#
-#         if hasattr(p, "lexer") and p.lexer:
-#             _lexer = p.lexer
-#             _lexer.input(_lexer.lexdata)  # Reset lexer input to parse again
-#             for _ in range(line - 1):
-#                 next(_lexer)
-#             error_context = next(_lexer)
-#             error_message += f"\nError occurred near: {error_context.value.strip()}"
-#
-#         raise SyntaxError(error_message)
 
 
 def p_error(p):

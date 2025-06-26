@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+pointy_test.py
+executor_test.py
+manager_test.py
