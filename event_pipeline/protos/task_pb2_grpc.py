@@ -5,29 +5,31 @@ import warnings
 
 from . import task_pb2 as task__pb2
 
-GRPC_GENERATED_VERSION = '1.70.0'
+GRPC_GENERATED_VERSION = "1.70.0"
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
 try:
     from grpc._utilities import first_version_is_lower
-    _version_not_supported = first_version_is_lower(GRPC_VERSION, GRPC_GENERATED_VERSION)
+
+    _version_not_supported = first_version_is_lower(
+        GRPC_VERSION, GRPC_GENERATED_VERSION
+    )
 except ImportError:
     _version_not_supported = True
 
 if _version_not_supported:
     raise RuntimeError(
-        f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in task_pb2_grpc.py depends on'
-        + f' grpcio>={GRPC_GENERATED_VERSION}.'
-        + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
-        + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
+        f"The grpc package installed is at version {GRPC_VERSION},"
+        + f" but the generated code in task_pb2_grpc.py depends on"
+        + f" grpcio>={GRPC_GENERATED_VERSION}."
+        + f" Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}"
+        + f" or downgrade your generated code using grpcio-tools<={GRPC_VERSION}."
     )
 
 
 class TaskExecutorStub(object):
-    """The task execution service definition
-    """
+    """The task execution service definition"""
 
     def __init__(self, channel):
         """Constructor.
@@ -36,75 +38,78 @@ class TaskExecutorStub(object):
             channel: A grpc.Channel.
         """
         self.Execute = channel.unary_unary(
-                '/event_pipeline.TaskExecutor/Execute',
-                request_serializer=task__pb2.TaskRequest.SerializeToString,
-                response_deserializer=task__pb2.TaskResponse.FromString,
-                _registered_method=True)
+            "/event_pipeline.TaskExecutor/Execute",
+            request_serializer=task__pb2.TaskRequest.SerializeToString,
+            response_deserializer=task__pb2.TaskResponse.FromString,
+            _registered_method=True,
+        )
         self.ExecuteStream = channel.unary_stream(
-                '/event_pipeline.TaskExecutor/ExecuteStream',
-                request_serializer=task__pb2.TaskRequest.SerializeToString,
-                response_deserializer=task__pb2.TaskStatus.FromString,
-                _registered_method=True)
+            "/event_pipeline.TaskExecutor/ExecuteStream",
+            request_serializer=task__pb2.TaskRequest.SerializeToString,
+            response_deserializer=task__pb2.TaskStatus.FromString,
+            _registered_method=True,
+        )
 
 
 class TaskExecutorServicer(object):
-    """The task execution service definition
-    """
+    """The task execution service definition"""
 
     def Execute(self, request, context):
-        """Execute a task remotely
-        """
+        """Execute a task remotely"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def ExecuteStream(self, request, context):
-        """Stream task results (for long running tasks)
-        """
+        """Stream task results (for long running tasks)"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
 
 def add_TaskExecutorServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Execute': grpc.unary_unary_rpc_method_handler(
-                    servicer.Execute,
-                    request_deserializer=task__pb2.TaskRequest.FromString,
-                    response_serializer=task__pb2.TaskResponse.SerializeToString,
-            ),
-            'ExecuteStream': grpc.unary_stream_rpc_method_handler(
-                    servicer.ExecuteStream,
-                    request_deserializer=task__pb2.TaskRequest.FromString,
-                    response_serializer=task__pb2.TaskStatus.SerializeToString,
-            ),
+        "Execute": grpc.unary_unary_rpc_method_handler(
+            servicer.Execute,
+            request_deserializer=task__pb2.TaskRequest.FromString,
+            response_serializer=task__pb2.TaskResponse.SerializeToString,
+        ),
+        "ExecuteStream": grpc.unary_stream_rpc_method_handler(
+            servicer.ExecuteStream,
+            request_deserializer=task__pb2.TaskRequest.FromString,
+            response_serializer=task__pb2.TaskStatus.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'event_pipeline.TaskExecutor', rpc_method_handlers)
+        "event_pipeline.TaskExecutor", rpc_method_handlers
+    )
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('event_pipeline.TaskExecutor', rpc_method_handlers)
+    server.add_registered_method_handlers(
+        "event_pipeline.TaskExecutor", rpc_method_handlers
+    )
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class TaskExecutor(object):
-    """The task execution service definition
-    """
+    """The task execution service definition"""
 
     @staticmethod
-    def Execute(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+    def Execute(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/event_pipeline.TaskExecutor/Execute',
+            "/event_pipeline.TaskExecutor/Execute",
             task__pb2.TaskRequest.SerializeToString,
             task__pb2.TaskResponse.FromString,
             options,
@@ -115,23 +120,26 @@ class TaskExecutor(object):
             wait_for_ready,
             timeout,
             metadata,
-            _registered_method=True)
+            _registered_method=True,
+        )
 
     @staticmethod
-    def ExecuteStream(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+    def ExecuteStream(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
         return grpc.experimental.unary_stream(
             request,
             target,
-            '/event_pipeline.TaskExecutor/ExecuteStream',
+            "/event_pipeline.TaskExecutor/ExecuteStream",
             task__pb2.TaskRequest.SerializeToString,
             task__pb2.TaskStatus.FromString,
             options,
@@ -142,4 +150,5 @@ class TaskExecutor(object):
             wait_for_ready,
             timeout,
             metadata,
-            _registered_method=True)
+            _registered_method=True,
+        )
