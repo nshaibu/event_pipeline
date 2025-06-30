@@ -2,7 +2,7 @@ from unittest import TestCase
 import time
 
 import pytest
-
+from event_pipeline.typing import ConfigState
 from event_pipeline.result import ResultSet, EventResult
 from event_pipeline.constants import EMPTY
 from event_pipeline.exceptions import StopProcessingError, SwitchTask
@@ -54,9 +54,9 @@ class TestExecutorInitializerConfig(TestCase):
 
     def test_executor_config_defaults(self):
         config = ExecutorInitializerConfig()
-        self.assertIs(config.max_workers, EMPTY)
-        self.assertIs(config.max_tasks_per_child, EMPTY)
-        self.assertIs(config.thread_name_prefix, EMPTY)
+        self.assertIs(config.max_workers, ConfigState.UNSET)
+        self.assertIs(config.max_tasks_per_child, ConfigState.UNSET)
+        self.assertIs(config.thread_name_prefix, ConfigState.UNSET)
 
 
 class TestRetryMixin(TestCase):
