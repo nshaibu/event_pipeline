@@ -11,6 +11,7 @@ if typing.TYPE_CHECKING:
         AssignmentNode,
         DescriptorNode,
         ConditionalNode,
+        ExpressionGroupingNode
     )
 
 
@@ -49,7 +50,7 @@ class ASTVisitor(ABC):
         pass
 
     @abstractmethod
-    def visit_expression_grouping(self):
+    def visit_expression_grouping(self, node: "ExpressionGroupingNode"):
         pass
 
 
