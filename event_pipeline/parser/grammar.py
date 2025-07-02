@@ -4,19 +4,30 @@ from . import lexer
 from ply.yacc import yacc, YaccError
 
 from .ast import (
-    BinOp,
-    Descriptor,
-    TaskName,
-    ConditionalBinOP,
-    ConditionalGroup,
-    AssignmentExpression,
-    AssignmentExpressionGroup,
+    BinOpNode,
+    DescriptorNode,
+    TaskNode,
+    BlockNode,
+    AssignmentNode,
+    LiteralNode,
+    LiteralType,
+    ConditionalNode,
+    BlockType,
+    ProgramNode,
+    ExpressionGroupingNode,
 )
 
 pointy_lexer = lexer.PointyLexer()
 tokens = pointy_lexer.tokens
 
 precedence = (("left", "RETRY", "POINTER", "PPOINTER", "PARALLEL"),)
+
+
+def p_program(p):
+    """
+    program : expression
+    """
+    p[0] = ProgramNode(p[1])
 
 
 def p_expression(p):
@@ -26,10 +37,21 @@ def p_expression(p):
                 | expression PARALLEL expression
                 | descriptor POINTER expression
                 | descriptor PPOINTER expression
+                | expression_groupings POINTER expression
+                | expression POINTER expression_groupings
+                | descriptor POINTER expression_groupings
+                | expression_groupings PPOINTER expression
+                | expression PPOINTER expression_groupings
+                | descriptor PPOINTER expression_groupings
+                | expression_groupings PARALLEL expression_groupings
+                | expression_groupings PARALLEL expression
+                | expression PARALLEL expression_groupings
                 | factor RETRY task
                 | task RETRY factor
+                | expression_groupings RETRY factor
+                | factor RETRY expression_groupings
     """
-    p[0] = BinOp(p[2], p[1], p[3])
+    p[0] = BinOpNode(left=p[1], op=p[2], right=p[3])
 
 
 def p_expression_term(p):
@@ -52,7 +74,7 @@ def p_descriptor(p):
     """
     # p[0] = ("DESCRIPTOR", p[1])
     if 0 <= p[1] < 10:
-        p[0] = Descriptor(p[1])
+        p[0] = DescriptorNode(p[1])
     else:
         line = p.lineno(1) if hasattr(p, "lineno") else "unknown line"
         column = p.lexpos(1) if hasattr(p, "lexpos") else "unknown column"
@@ -75,7 +97,7 @@ def p_factor(p):
             f"Line: {line}, Column: {column}, Offending Token: {p[1]}"
         )
 
-    p[0] = p[1]
+    p[0] = LiteralNode(p[1], type=LiteralType.determine_literal_type(p[1]))
 
 
 def p_task_taskname(p):
@@ -83,28 +105,30 @@ def p_task_taskname(p):
     task : IDENTIFIER
         | IDENTIFIER LBRACKET assigment_expression_group RBRACKET
     """
-    # p[0] = ("TASKNAME", p[1])
     if len(p) == 2:
-        p[0] = TaskName(p[1])
+        p[0] = TaskNode(p[1])
     else:
-        p[0] = TaskName(p[1], p[3])
+        p[0] = TaskNode(p[1], p[3])
 
 
-def p_task_group(p):
+def p_conditional_group(p):
     """
-    task_group : expression SEPARATOR expression
-                | task_group SEPARATOR expression
+    conditional_group : expression SEPARATOR expression
+                | conditional_group SEPARATOR expression
     """
-    # p[0] = ("expr_group", p[1], p[3])
-    p[0] = ConditionalGroup(p[1], p[3])
+    statements = [p[3]]
+    if isinstance(p[1], BlockNode):
+        statements.extend(p[1].statements)
+    else:
+        statements.append(p[1])
+    p[0] = BlockNode(statements, type=BlockType.CONDITIONAL)
 
 
 def p_task_conditional_statement(p):
     """
-    task :  task LPAREN task_group RPAREN
+    task :  task LPAREN conditional_group RPAREN
     """
-    # p[0] = ("GROUP", p[1], p[3])
-    p[0] = ConditionalBinOP(p[1], p[3])
+    p[0] = ConditionalNode(p[1], p[3])
 
 
 def p_assignment_expression(p):
@@ -114,7 +138,9 @@ def p_assignment_expression(p):
                             | IDENTIFIER ASSIGN FLOAT
                             | IDENTIFIER ASSIGN BOOLEAN
     """
-    p[0] = AssignmentExpression(p[1], p[3])
+    p[0] = AssignmentNode(
+        p[1], LiteralNode(p[3], type=LiteralType.determine_literal_type(p[3]))
+    )
 
 
 def p_assignment_expression_group(p):
@@ -124,9 +150,27 @@ def p_assignment_expression_group(p):
                                 | assigment_expression_group SEPARATOR assignment_expression
     """
     if len(p) == 2:
-        p[0] = AssignmentExpressionGroup(p[1], None)
+        p[0] = BlockNode([p[1]], type=BlockType.ASSIGNMENT)
     else:
-        p[0] = AssignmentExpressionGroup(p[1], p[3])
+        statements = [p[3]]
+
+        if isinstance(p[1], BlockNode):
+            statements.extend(p[1].statements)
+        else:
+            statements.append(p[1])
+
+        p[0] = BlockNode(statements, type=BlockType.ASSIGNMENT)
+
+
+def p_expression_groupings(p):
+    """
+    expression_groupings : LCURLY_BRACKET expression RCURLY_BRACKET
+                            | expression_groupings assigment_expression_group
+    """
+    if len(p) == 4:
+        p[0] = ExpressionGroupingNode(p[2])
+    else:
+        p[0] = ExpressionGroupingNode(p[1], p[2])
 
 
 def p_error(p):

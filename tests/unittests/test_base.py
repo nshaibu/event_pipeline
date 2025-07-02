@@ -15,8 +15,6 @@ from event_pipeline.base import (
     EventBase,
     RetryPolicy,
     ExecutorInitializerConfig,
-    # EventExecutionEvaluationState,
-    # EvaluationContext,
 )
 
 

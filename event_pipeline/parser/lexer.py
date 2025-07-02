@@ -24,6 +24,8 @@ class PointyLexer(object):
         "RPAREN",
         "LBRACKET",
         "RBRACKET",
+        "LCURLY_BRACKET",
+        "RCURLY_BRACKET",
         "DIRECTIVE",
         "STRING_LITERAL",
         "INT",
@@ -36,6 +38,8 @@ class PointyLexer(object):
     t_RPAREN = r"\)"
     t_LBRACKET = r"\["
     t_RBRACKET = r"\]"
+    t_LCURLY_BRACKET = r"\{"
+    t_RCURLY_BRACKET = r"\}"
     t_IDENTIFIER = r"[a-zA-Z_][a-zA-Z0-9_]*"
     t_POINTER = r"\-\>"
     t_PPOINTER = r"\|\-\>"
