@@ -1,188 +1,179 @@
-import ast
 import typing
-from pydantic_mini.typing import NoneType
+import importlib
+import importlib.util
+from abc import abstractmethod, ABC
+from dataclasses import dataclass
+from enum import Enum
+
+if typing.TYPE_CHECKING:
+    from .visitor import ASTVisitor
 
 
-class Expression:
-
-    def __init__(self, operator: str):
-        self.op = operator
-
-
-class GroupExpression:
-
-    def __init__(self):
-        self.op = "EXPRESSION-GROUP"
-
-    def set_value(self, value: typing.Any, initial_value: typing.Any):
-        raise NotImplementedError
+STANDARD_EXECUTORS = {
+    "threadpoolexecutor": "event_pipeline.executors.ThreadPoolExecutor",
+    "processpoolexecutor": "event_pipeline.executors.ProcessPoolExecutor",
+    "defaultexecutor": "event_pipeline.executors.DefaultExecutor",
+}
 
 
-class AssignmentExpression(Expression):
+class BlockType(Enum):
+    ASSIGNMENT = "assignment"
+    CONDITIONAL = "conditional"
+    GROUP = "group"
 
-    def __init__(self, variable: typing.Any, value: typing.Any):
-        super().__init__("ASSIGNMENT")
-        self.variable = variable
-        self.value = value
-        self.data_type: typing.Type = self.determine_value_type(self.value)
 
-    def __str__(self):
-        return f"{self.variable} = {self.value} ({self.data_type})"
+class LiteralType(Enum):
+    NUMBER = "number"
+    STRING = "string"
+    IMPORT_STRING = "import_string"
+    BOOLEAN = "boolean"
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.variable} = {self.value} ({self.data_type}))"
-
-    @staticmethod
-    def determine_value_type(value: typing.Any) -> type:
-        if value is None:
-            return NoneType
-        elif isinstance(value, bool):
-            return bool
-        elif isinstance(value, int):
-            return int
-        elif isinstance(value, float):
-            return float
+    @classmethod
+    def determine_literal_type(cls, value) -> "LiteralType":
+        if isinstance(value, bool):
+            return cls.BOOLEAN
+        elif isinstance(value, (int, float)):
+            return cls.NUMBER
         elif isinstance(value, str):
-            try:
-                value = ast.literal_eval(value)
-                return type(value)
-            except (ValueError, TypeError):
-                return str
+            if cls._is_import_string(value):
+                return cls.IMPORT_STRING
+            return cls.STRING
+        else:
+            raise ValueError(f"Unsupported literal type: {type(value).__name__}")
 
+    @classmethod
+    def _is_import_string(cls, value: str) -> bool:
+        # Stage 1: Fast syntactic validation
+        if not cls._looks_like_import_path(value):
+            return False
 
-class AssignmentExpressionGroup(GroupExpression):
+        # Stage 2: Actual import validation (only if stage 1 passes)
+        return cls._is_actually_importable(value)
 
-    def __init__(
-        self, expr0: typing.Optional[Expression], expr1: typing.Optional[Expression]
-    ):
-        super().__init__()
-        self._assignment_groups: typing.List[AssignmentExpression] = []
+    @classmethod
+    def _looks_like_import_path(cls, value: str) -> bool:
+        """Fast syntactic check for potential import paths."""
+        if not value:
+            return False
 
-        self.set_value(expr0)
-        self.set_value(expr1)
-
-    def set_value(
-        self,
-        value: typing.Any,
-    ):
-        if value is None:
-            return
-        if isinstance(value, AssignmentExpression):
-            self._assignment_groups.append(value)
-        elif isinstance(value, AssignmentExpressionGroup):
-            for expr in value.assignment_groups():
-                self._assignment_groups.append(expr)
-
-    def assignment_groups(self) -> typing.List[AssignmentExpression]:
-        return self._assignment_groups
-
-
-class BinOp(Expression):
-    def __init__(self, op, left_node, right_node):
-        super().__init__(op)
-        self.left = left_node
-        self.right = right_node
-
-    def __repr__(self):
-        return f"BinOp({self.op}, {self.left}, {self.right})"
-
-
-class ConditionalGroup(GroupExpression):
-    def __init__(self, expr0: Expression, expr1: Expression):
-        super().__init__()
-        self._descriptors: typing.Dict[int, BinOp] = {}
-
-        self.set_value(expr0, expr0)
-        self.set_value(expr1, expr1)
-
-    def set_value(
-        self,
-        value: typing.Union[BinOp, "Expression"],
-        initial_value: typing.Union[BinOp, "Expression"],
-    ):
-        if value:
-            if isinstance(value, BinOp):
-                self.set_value(value.left, initial_value)
-            elif isinstance(value, ConditionalGroup):
-                for bin_op in value.get_bin_ops():
-                    self.set_value(bin_op.left, bin_op)
-            elif isinstance(value, Descriptor):
-                self._descriptors[value.value] = initial_value
-
-    @property
-    def descriptor_dict(self):
-        return self._descriptors
-
-    def get_bin_ops(self) -> typing.List[BinOp]:
-        return list(self._descriptors.values())
-
-    def get_extra_descriptors(self) -> typing.List[BinOp]:
-        descriptors = []
-        for key, value in self._descriptors.items():
-            if key not in [1, 0]:
-                descriptors.append(value)
-        return descriptors
-
-    def __repr__(self):
-        return f"ConditionalGroup({self.get_bin_ops()})"
-
-
-class ConditionalBinOP(Expression):
-    def __init__(self, parent, expr_group: ConditionalGroup):
-        super().__init__("CONDITIONAL")
-        self.parent = parent
-        self.expr_group = expr_group
-
-    @property
-    def descriptors_dict(self) -> typing.Dict[int, BinOp]:
-        if self.expr_group:
-            return self.expr_group.descriptor_dict
-        return {}
-
-    @property
-    def left(self):
-        return self.descriptors_dict.get(0)
-
-    @property
-    def right(self):
-        return self.descriptors_dict.get(1)
-
-    def extra_descriptors(self) -> typing.List[BinOp]:
-        if self.expr_group:
-            return self.expr_group.get_extra_descriptors()
-        return []
-
-    def __repr__(self):
+        parts = value.split(".")
         return (
-            f"ConditionalBinOP({self.parent}, "
-            f"{self.left}, {self.right}, "
-            f"{self.extra_descriptors()})"
+            len(parts) >= 2  # At least package.module
+            and all(part.isidentifier() for part in parts)
+            and not value.startswith(".")
+            and not value.endswith(".")
+            and all(
+                not part.startswith("__") or part.endswith("__") for part in parts
+            )  # Allow __init__ etc
         )
 
-
-class TaskName(object):
-    def __init__(self, value: str, assign_group: AssignmentExpressionGroup = None):
-        self.value = value
-        self.options = assign_group
-
-    def __repr__(self):
-        return f"Task({self.value})"
-
-
-class Descriptor(object):
-    def __init__(self, value):
-        self.value = value
-
-    def __repr__(self):
-        return f"Descriptor({self.value})"
+    @classmethod
+    def _is_actually_importable(cls, value: str) -> bool:
+        """Check if the string can actually be imported."""
+        try:
+            spec = importlib.util.find_spec(value)
+            return spec is not None
+        except (ImportError, ModuleNotFoundError, ValueError, AttributeError):
+            return False
 
 
-def df_traverse_post_order(
-    node: typing.Union[BinOp, ConditionalBinOP, TaskName, Descriptor],
-):
-    if node:
-        if isinstance(node, (BinOp, ConditionalBinOP)):
-            yield from df_traverse_post_order(node.right)
-            yield from df_traverse_post_order(node.left)
+class ASTNode(ABC):
 
-        yield node
+    @abstractmethod
+    def accept(self, visitor: "ASTVisitor"):
+        pass
+
+
+@dataclass
+class ProgramNode(ASTNode):
+    __slots__ = ("chain",)
+    chain: ASTNode
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_program(self)
+
+
+@dataclass
+class AssignmentNode(ASTNode):
+    __slots__ = ("target", "value")
+    target: str
+    value: ASTNode
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_assignment(self)
+
+
+@dataclass
+class BlockNode(ASTNode):
+    __slots__ = ("statements",)
+    statements: typing.List[ASTNode]
+    type: BlockType = BlockType.ASSIGNMENT
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_block(self)
+
+
+@dataclass
+class BinOpNode(ASTNode):
+    __slots__ = ("left", "right", "op")
+    left: ASTNode
+    op: str
+    right: ASTNode
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_binop(self)
+
+
+@dataclass
+class ConditionalNode(ASTNode):
+    __slots__ = ("task", "branches")
+    task: "TaskNode"
+    branches: BlockNode
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_conditional(self)
+
+
+@dataclass
+class TaskNode(ASTNode):
+    __slots__ = ("task",)
+    task: str
+    options: typing.Optional[BlockNode] = None
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_task(self)
+
+
+@dataclass
+class DescriptorNode(ASTNode):
+    """AST for descriptor nodes."""
+    __slots__ = ("value",)
+    value: int
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_descriptor(self)
+
+
+@dataclass
+class LiteralNode(ASTNode):
+    __slots__ = ("value",)
+    value: typing.Any
+    type: typing.Optional[LiteralType] = None
+
+    def __post_init__(self):
+        if self.value and self.type is None:
+            self.type = LiteralType.determine_literal_type(self.value)
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_literal(self)
+
+
+@dataclass
+class ExpressionGroupingNode(ASTNode):
+    """AST for expression chain. One expression chain only"""
+
+    expression: ASTNode
+    options: typing.Optional[BlockNode] = None
+
+    def accept(self, visitor: "ASTVisitor"):
+        return visitor.visit_expression_grouping(self)
