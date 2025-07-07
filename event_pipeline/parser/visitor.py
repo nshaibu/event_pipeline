@@ -11,11 +11,11 @@ if typing.TYPE_CHECKING:
         AssignmentNode,
         DescriptorNode,
         ConditionalNode,
-        ExpressionGroupingNode
+        ExpressionGroupingNode,
     )
 
 
-class ASTVisitor(ABC):
+class ASTVisitorInterface(ABC):
 
     @abstractmethod
     def visit_program(self, node: "ProgramNode"):
@@ -51,10 +51,4 @@ class ASTVisitor(ABC):
 
     @abstractmethod
     def visit_expression_grouping(self, node: "ExpressionGroupingNode"):
-        pass
-
-
-class ProgramTransformer(ASTVisitor):
-
-    def visit_program(self, node: "ProgramNode"):
         pass

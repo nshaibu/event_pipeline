@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 if typing.TYPE_CHECKING:
-    from .visitor import ASTVisitor
+    from .visitor import ASTVisitorInterface as ASTVisitor
 
 
 STANDARD_EXECUTORS = {
@@ -97,7 +97,7 @@ class ProgramNode(ASTNode):
 class AssignmentNode(ASTNode):
     __slots__ = ("target", "value")
     target: str
-    value: ASTNode
+    value: "LiteralNode"
 
     def accept(self, visitor: "ASTVisitor"):
         return visitor.visit_assignment(self)
@@ -105,9 +105,9 @@ class AssignmentNode(ASTNode):
 
 @dataclass
 class BlockNode(ASTNode):
-    __slots__ = ("statements",)
+    __slots__ = ("statements", "type")
     statements: typing.List[ASTNode]
-    type: BlockType = BlockType.ASSIGNMENT
+    type: BlockType
 
     def accept(self, visitor: "ASTVisitor"):
         return visitor.visit_block(self)
@@ -136,7 +136,7 @@ class ConditionalNode(ASTNode):
 
 @dataclass
 class TaskNode(ASTNode):
-    __slots__ = ("task",)
+    # __slots__ = ("task", "options")
     task: str
     options: typing.Optional[BlockNode] = None
 
@@ -147,6 +147,7 @@ class TaskNode(ASTNode):
 @dataclass
 class DescriptorNode(ASTNode):
     """AST for descriptor nodes."""
+
     __slots__ = ("value",)
     value: int
 
