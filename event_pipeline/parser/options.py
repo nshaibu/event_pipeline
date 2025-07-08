@@ -18,10 +18,6 @@ class Options(BaseModel):
     """
     Task execution configuration options that can be passed to a task or
     task groups in pointy scripts e.g A[retries=3], {A->B}[retries=3].
-
-    Note: Optional fields without explicit defaults will use library auto-defaults
-    (e.g., Optional[int] → 0, Optional[bool] → False) unless disabled in config.
-    Fields with MiniAnnotated have explicit validation and defaults.
     """
 
     # Core execution options with validation
@@ -38,11 +34,8 @@ class Options(BaseModel):
     bypass_event_checks: MiniAnnotated[typing.Optional[bool], Attrib(default=None)]
 
     class Config:
-        """Model configuration."""
-
         disable_typecheck = False
         disable_all_validation = False
-        # Add other configuration options as needed
 
     @classmethod
     def from_dict(cls, options_dict: typing.Dict[str, typing.Any]) -> "Options":
