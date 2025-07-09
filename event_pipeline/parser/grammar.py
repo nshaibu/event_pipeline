@@ -167,9 +167,10 @@ def p_expression_groupings(p):
                             | expression_groupings assigment_expression_group
     """
     if len(p) == 4:
-        p[0] = ExpressionGroupingNode(p[2])
+        p[0] = ExpressionGroupingNode([p[2]])
     else:
-        p[0] = ExpressionGroupingNode(p[1], p[2])
+        p[1].options = p[2]
+        p[0] = p[1]
 
 
 def p_error(p):

@@ -5,6 +5,8 @@ from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum
 
+from .protocols import GroupingStrategy
+
 if typing.TYPE_CHECKING:
     from .visitor import ASTVisitorInterface as ASTVisitor
 
@@ -43,11 +45,9 @@ class LiteralType(Enum):
 
     @classmethod
     def _is_import_string(cls, value: str) -> bool:
-        # Stage 1: Fast syntactic validation
         if not cls._looks_like_import_path(value):
             return False
 
-        # Stage 2: Actual import validation (only if stage 1 passes)
         return cls._is_actually_importable(value)
 
     @classmethod
@@ -173,8 +173,17 @@ class LiteralNode(ASTNode):
 class ExpressionGroupingNode(ASTNode):
     """AST for expression chain. One expression chain only"""
 
-    expression: ASTNode
+    expressions: typing.List[ASTNode]
+    grouping_strategy: "GroupingStrategy" = None
     options: typing.Optional[BlockNode] = None
+
+    def __post_init__(self):
+        if self.grouping_strategy is None:
+            self.grouping_strategy = (
+                GroupingStrategy.SINGLE_CHAIN
+                if len(self.expressions) == 1
+                else GroupingStrategy.MULTIPATH_CHAINS
+            )
 
     def accept(self, visitor: "ASTVisitor"):
         return visitor.visit_expression_grouping(self)

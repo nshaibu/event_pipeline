@@ -1,6 +1,6 @@
 import typing
 import dataclasses
-from enum import Enum
+from enum import Enum, StrEnum
 from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 
 
@@ -14,24 +14,30 @@ class StopCondition(Enum):
     ON_ANY = "on_any"
 
 
+class ResultEvaluationStrategy(StrEnum):
+    pass
+
+
 class Options(BaseModel):
     """
     Task execution configuration options that can be passed to a task or
-    task groups in pointy scripts e.g A[retries=3], {A->B}[retries=3].
+    task groups in pointy scripts e.g A[retry_attempts=3], {A->B}[retry_attempts=3].
     """
 
     # Core execution options with validation
-    retry_attempts: MiniAnnotated[typing.Optional[int], Attrib(default=None, ge=0)]
+    retry_attempts: MiniAnnotated[int, Attrib(default=0, ge=0)]
     executor: MiniAnnotated[typing.Optional[str], Attrib(default=None)]
 
-    # Configuration dictionaries with explicit factory defaults
+    # Configuration dictionaries
     executor_config: MiniAnnotated[dict, Attrib(default_factory=dict)]
     extras: MiniAnnotated[dict, Attrib(default_factory=dict)]
 
     # Execution state and control
-    execution_state: MiniAnnotated[typing.Optional[str], Attrib(default=None)]
-    stop_condition: MiniAnnotated[typing.Optional[StopCondition], Attrib(default=None)]
-    bypass_event_checks: MiniAnnotated[typing.Optional[bool], Attrib(default=None)]
+    result_evaluation_strategy: MiniAnnotated[
+        typing.Union[ResultEvaluationStrategy, str], Attrib(default="default")
+    ]
+    stop_condition: typing.Optional[StopCondition]
+    bypass_event_checks: typing.Optional[bool]
 
     class Config:
         disable_typecheck = False
@@ -91,7 +97,7 @@ class Options(BaseModel):
 
         return self.stop_condition in [target_condition, StopCondition.ON_ANY]
 
-    def merge_with(self, other: "Options") -> "Options":
+    def merge_with(self, other: typing.Union["Options", dict]) -> "Options":
         """
         Merge this Options with another, with other taking precedence.
 
@@ -103,7 +109,7 @@ class Options(BaseModel):
         """
         # Convert both to dicts
         self_dict = self.dump(_format="dict")
-        other_dict = other.dump(_format="dict")
+        other_dict = other.dump(_format="dict") if isinstance(other, Options) else other
 
         # Merge extras separately to avoid overwriting
         merged_extras = {**self_dict.get("extras", {}), **other_dict.get("extras", {})}

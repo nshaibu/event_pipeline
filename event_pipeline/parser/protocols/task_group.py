@@ -1,9 +1,10 @@
 import typing
 from enum import Enum, auto
 
+from .mixin import TaskProtocolMixin
+
 if typing.TYPE_CHECKING:
     from .task import TaskProtocol
-    from ..options import Options
 
 
 class GroupingStrategy(Enum):
@@ -16,7 +17,7 @@ class GroupingStrategy(Enum):
 
 
 @typing.runtime_checkable
-class TaskGroupingProtocol(typing.Protocol):
+class TaskGroupingProtocol(TaskProtocolMixin, typing.Protocol):
     """Task group protocol."""
 
     # head of each task chain
@@ -25,5 +26,6 @@ class TaskGroupingProtocol(typing.Protocol):
     # strategy for this grouping
     strategy: GroupingStrategy
 
-    # common configurations that will be shared by the chains
-    options: Options
+    def __init__(
+        self, chains: typing.List[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]
+    ) -> None: ...
