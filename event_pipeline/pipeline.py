@@ -41,6 +41,7 @@ from .exceptions import (
     BadPipelineError,
     EventDone,
     EventDoesNotExist,
+    PipelineConfigurationError,
 )
 from .mixins import ObjectIdentityMixin, ScheduleMixin
 from .fields import InputDataField
@@ -677,11 +678,24 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
 
     @staticmethod
     def _validate_batch_processor(batch_processor: BATCH_PROCESSOR_TYPE):
-        status = validate_batch_processor(batch_processor)
-        if status is False:
+        is_iterable = validate_batch_processor(batch_processor)
+        if not is_iterable:
             raise ImproperlyConfigured(
                 "Batch processor error. Batch processor must be iterable and generators"
             )
+
+    def _check_memory_usage(self):
+        """Monitor memory usage and adjust batch size if needed"""
+        import psutil
+        memory_percent = psutil.Process().memory_percent()
+        if memory_percent > self.max_memory_percent:
+            self._adjust_batch_size()
+
+    def _adjust_batch_size(self):
+        """Dynamically adjust batch size based on memory usage"""
+        for field in self._field_batch_op_map:
+            if hasattr(field, 'batch_size'):
+                field.batch_size = max(1, field.batch_size // 2)
 
     def _gather_field_batch_methods(
         self, field: InputDataField, batch_processor: BATCH_PROCESSOR_TYPE
@@ -803,8 +817,11 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
         self._init_pipelines()
 
         if not self._configured_pipelines:
-            # TODO: raise specific error condition
-            raise Exception
+            raise PipelineConfigurationError(
+                message=f"Starting batch execution of pipeline '{self.pipeline_template}' failed. "
+                f"No pipeline were configured.",
+                code="not_configured_pipeline",
+            )
 
         self.status = BatchPipelineStatus.RUNNING
 
@@ -831,7 +848,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
                 if event is None:
                     event = _BatchResult(None, exception=exception)
 
-                with AcquireReleaseLock(batch.lock):
+                with batch.lock:
                     batch.results.append(event)
 
             manager = mp.Manager()
@@ -894,6 +911,19 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
 
         return pipeline, exception
 
+    def close(self, timeout=2):
+        """Clean up resources"""
+        try:
+            if hasattr(self, "_monitor_thread") and self._monitor_thread:
+                self._monitor_thread.join(timeout=timeout)
+        except Exception as e:
+            logger.warning(f"Exception during BatchPipeline cleanup: {e}")
+
     def __del__(self):
-        if hasattr(self, "_monitor_thread") and self._monitor_thread:
-            self._monitor_thread.join()
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
