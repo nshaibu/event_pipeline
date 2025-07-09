@@ -175,13 +175,22 @@ class ResultSet(MutableSet):
         self._context_types: typing.Set[EntityContentType] = set()
 
         for result in results:
-            self._content[result.id] = result
+            self._content[self.get_hash(result)] = result
             self._insert_entity(result)
 
+    @staticmethod
+    def get_hash(value: Result) -> str:
+        try:
+            return f"{hash(value)}"
+        except TypeError as e:
+            raise TypeError("Result must be hashable") from e
+
     def __contains__(self, item: Result) -> bool:
-        if not getattr(item, "id", None):
+        try:
+            key = self.get_hash(item)
+        except TypeError:
             return False
-        return item.id in self._content
+        return key in self._content
 
     def __iter__(self) -> typing.Iterator[Result]:
         return iter(self._content.values())
@@ -195,7 +204,7 @@ class ResultSet(MutableSet):
 
     def _insert_entity(self, record: Result) -> None:
         """Insert an entity and track its content type."""
-        self._content[record.id] = typing.cast(Result, record)
+        self._content[self.get_hash(record)] = typing.cast(Result, record)
         content_type = EntityContentType.add_entity_content_type(record)
         if content_type and content_type not in self._context_types:
             self._context_types.add(content_type)
@@ -205,13 +214,9 @@ class ResultSet(MutableSet):
         if isinstance(result, ResultSet):
             self._content.update(result._content)
             self._context_types.update(result._context_types)
-        elif hasattr(result, "id"):
-            self._content[result.id] = result
-            self._insert_entity(result)
         else:
-            raise TypeError(
-                f"Expected Result or ResultSet, got {type(result).__name__}"
-            )
+            self._content[self.get_hash(result)] = result
+            self._insert_entity(result)
 
     def clear(self) -> None:
         """Remove all results."""
@@ -222,13 +227,9 @@ class ResultSet(MutableSet):
         """Remove a result or results from another ResultSet."""
         if isinstance(result, ResultSet):
             for res in result:
-                self._content.pop(res.id, None)
-        elif hasattr(result, "id"):  # Changed from EventResult to Result
-            self._content.pop(result.id, None)
+                self._content.pop(self.get_hash(res), None)
         else:
-            raise TypeError(
-                f"Expected Result or ResultSet, got {type(result).__name__}"
-            )
+            self._content.pop(self.get_hash(result), None)
 
     def copy(self) -> "ResultSet":
         """Create a shallow copy of this ResultSet."""
