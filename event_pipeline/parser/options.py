@@ -1,6 +1,7 @@
 import typing
 import dataclasses
 from enum import Enum, StrEnum
+from pydantic_mini.exceptions import ValidationError
 from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 
 
@@ -15,7 +16,26 @@ class StopCondition(Enum):
 
 
 class ResultEvaluationStrategy(StrEnum):
-    pass
+    """Defines strategies used to evaluate task results."""
+
+    ALL_MUST_SUCCEED = "ALL_MUST_SUCCEED"
+    ANY_MUST_SUCCEED = "ANY_MUST_SUCCEED"
+    MAJORITY_MUST_SUCCEED = "MAJORITY_MUST_SUCCEED"
+    NO_FAILURES_ALLOWED = "NO_FAILURES_ALLOWED"
+
+
+def resolve_str_to_enum(
+    enum_klass: typing.Type[Enum], value: str, use_lower_case: bool = False
+) -> typing.Type[Enum]:
+    if not isinstance(value, str):
+        return value
+    attr_name = value.lower() if use_lower_case else value.upper()
+    enum_attr = getattr(enum_klass, attr_name, None)
+    if enum_attr is None:
+        raise ValidationError(
+            f"Invalid enum value {value} for {enum_klass.__name__}", code="invalid_enum"
+        )
+    return enum_attr
 
 
 class Options(BaseModel):
@@ -34,9 +54,23 @@ class Options(BaseModel):
 
     # Execution state and control
     result_evaluation_strategy: MiniAnnotated[
-        typing.Union[ResultEvaluationStrategy, str], Attrib(default="default")
+        typing.Union[ResultEvaluationStrategy, str],
+        Attrib(
+            default=ResultEvaluationStrategy.ALL_MUST_SUCCEED,
+            pre_formatter=lambda val: resolve_str_to_enum(
+                ResultEvaluationStrategy, val, use_lower_case=False
+            ),
+        ),
     ]
-    stop_condition: typing.Optional[StopCondition]
+    stop_condition: MiniAnnotated[
+        typing.Union[StopCondition, str, None],
+        Attrib(
+            default=None,
+            pre_formatter=lambda val: val
+            and resolve_str_to_enum(StopCondition, val, use_lower_case=False)
+            or None,
+        ),
+    ]
     bypass_event_checks: typing.Optional[bool]
 
     class Config:
@@ -47,10 +81,8 @@ class Options(BaseModel):
     def from_dict(cls, options_dict: typing.Dict[str, typing.Any]) -> "Options":
         """
         Create Options instance from dictionary, placing unknown fields in extras.
-
         Args:
             options_dict: Dictionary containing option values
-
         Returns:
             Options instance with known fields populated and unknown fields in extras
         """

@@ -1,12 +1,11 @@
 import typing
 
-from ..conditional import ConditionalNode
-
 if typing.TYPE_CHECKING:
     from .task_group import TaskGroupingProtocol
     from .task import TaskProtocol
     from ..operator import PipeType
     from ..options import Options
+    from ..conditional import ConditionalNode
 
 
 class TaskProtocolMixin(typing.Protocol):
@@ -15,14 +14,14 @@ class TaskProtocolMixin(typing.Protocol):
     # options specified in pointy scripts for tasks are kept here
     options: typing.Optional["Options"]
 
-    parent_node: typing.Optional["TaskProtocol", "TaskGroupingProtocol"]
+    parent_node: typing.Optional[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]
 
     # sink event this is where the conditional events collapse
     # into after they are done executing
-    sink_node: typing.Optional["TaskProtocol", "TaskGroupingProtocol"]
+    sink_node: typing.Optional[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]
     sink_pipe: typing.Optional["PipeType"]
 
-    condition_node: ConditionalNode
+    condition_node: "ConditionalNode"
 
     @property
     def descriptor(self) -> int: ...

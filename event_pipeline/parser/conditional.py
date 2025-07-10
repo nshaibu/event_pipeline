@@ -30,7 +30,9 @@ class ConditionalNode:
         self,
         descriptor: int,
         pipe: typing.Optional["PipeType"] = None,
-        task: typing.Optional[typing.Union[TaskProtocol, TaskGroupingProtocol]] = None,
+        task: typing.Optional[
+            typing.Union["TaskProtocol", "TaskGroupingProtocol"]
+        ] = None,
     ) -> bool:
         if not self._is_valid_descriptor(descriptor):
             return False
