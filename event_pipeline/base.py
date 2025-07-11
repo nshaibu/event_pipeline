@@ -26,6 +26,8 @@ from .signal.signals import (
     event_execution_retry_done,
     event_init,
 )
+from event_pipeline.typing import ConfigState, ConfigurableValue
+from event_pipeline.parser.executor_config import ExecutorInitializerConfig
 
 from .result_evaluators import (
     ExecutionResultEvaluationStrategyBase,
@@ -46,32 +48,6 @@ conf = ConfigLoader.get_lazily_loaded_config()
 
 if typing.TYPE_CHECKING:
     from .task import EventExecutionContext, Options
-
-
-@dataclass
-class ExecutorInitializerConfig(object):
-    """
-    Configuration class for executor initialization.
-
-        max_workers (Union[int, EMPTY]): The maximum number of workers allowed
-                                          for event processing. Defaults to EMPTY.
-        max_tasks_per_child (Union[int, EMPTY]): The maximum number of tasks
-                                                  that can be assigned to each worker.
-                                                  Defaults to EMPTY.
-        thread_name_prefix (Union[str, EMPTY]): The prefix to use for naming threads
-                                                 in the event execution. Defaults to EMPTY.
-    """
-
-    max_workers: typing.Union[int, EMPTY] = EMPTY
-    max_tasks_per_child: typing.Union[int, EMPTY] = EMPTY
-    thread_name_prefix: typing.Union[str, EMPTY] = EMPTY
-    host: typing.Union[str, EMPTY] = EMPTY
-    port: typing.Union[int, EMPTY] = EMPTY
-    timeout: typing.Union[int, EMPTY] = 30  # "DEFAULT_TIMEOUT"
-    use_encryption: bool = False
-    client_cert_path: typing.Optional[str] = None
-    client_key_path: typing.Optional[str] = None
-    ca_cert_path: typing.Optional[str] = None
 
 
 @dataclass
@@ -219,6 +195,8 @@ class _RetryMixin(object):
                     continue
                 raise
 
+        return False, None
+
 
 class _ExecutorInitializerMixin(object):
 
@@ -238,7 +216,7 @@ class _ExecutorInitializerMixin(object):
     def get_executor_initializer_config(self) -> ExecutorInitializerConfig:
         if self.executor_config:
             if isinstance(self.executor_config, dict):
-                self.executor_config = ExecutorInitializerConfig(**self.executor_config)
+                self.executor_config = ExecutorInitializerConfig.from_dict(self.executor_config)
         else:
             self.executor_config = ExecutorInitializerConfig()
         return self.executor_config
