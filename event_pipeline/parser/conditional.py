@@ -34,6 +34,7 @@ class ConditionalNode:
             typing.Union["TaskProtocol", "TaskGroupingProtocol"]
         ] = None,
     ) -> bool:
+        """Add descriptor to conditional node"""
         if not self._is_valid_descriptor(descriptor):
             return False
 
