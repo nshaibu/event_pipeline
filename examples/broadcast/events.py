@@ -4,13 +4,15 @@ from event_pipeline.executors.grpc_executor import GRPCExecutor
 
 
 class GeneratorEvent(EventBase):
-    executor = GRPCExecutor
-    executor_config = {
-        "host": "localhost",
-        "port": 8990,
-    }
+    # executor = RemoteExecutor
+    # executor_config = {
+    #     "host": "localhost",
+    #     "port": 8990,
+    # }
 
     def process(self, name: str):
+        self.stop_on_error = True
+        raise NotImplementedError
         return True, name
 
 

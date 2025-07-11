@@ -1,5 +1,7 @@
 import typing
-from event_pipeline.task import PipelineTask, PipeType
+
+from event_pipeline.parser.operator import PipeType
+from event_pipeline.task import PipelineTask, PipelineTaskGrouping
 
 try:
     from StringIO import StringIO
@@ -22,6 +24,15 @@ def process_parallel_nodes(
         nodes_list.append(node_text)
 
     return node_id, node_label
+
+
+def draw_subgraph_from_task_state(task_state: PipelineTaskGrouping):
+    f = StringIO()
+
+    f.write("subgraph cluster_%s {\n".format(task_state.id))
+    f.write('\tstyle=filled\n')
+
+
 
 
 def generate_dot_from_task_state(task_state: PipelineTask) -> str:
@@ -50,8 +61,8 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
         parent = node.parent_node
         if (
             parent
-            and parent.on_success_pipe == PipeType.PARALLELISM
-            and node.on_success_pipe != PipeType.PARALLELISM
+            and parent.condition_node.on_success_pipe == PipeType.PARALLELISM
+            and node.condition_node.on_success_pipe != PipeType.PARALLELISM
         ):
             continue
 
@@ -69,8 +80,8 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
 
             for n in last_node.get_children():
                 edge = (
-                    f'\t"{node_id}" -> "{n.id}" [taillabel="{n._descriptor}"]'
-                    if n._descriptor is not None
+                    f'\t"{node_id}" -> "{n.id}" [taillabel="{n.descriptor}"]'
+                    if n.descriptor is not None
                     else f'\t"{node_id}" -> "{n.id}"'
                 )
 
@@ -92,12 +103,12 @@ def generate_dot_from_task_state(task_state: PipelineTask) -> str:
 
                     first_node = parallel_nodes[0]
                     edge += (
-                        f'"{node_id}" [taillabel="{first_node._descriptor}"]'
-                        if first_node._descriptor is not None
+                        f'"{node_id}" [taillabel="{first_node.descriptor}"]'
+                        if first_node.descriptor is not None
                         else f'"{node_id}"'
                     )
-                elif child._descriptor is not None:
-                    edge += f'"{child.id}" [taillabel="{child._descriptor}"]'
+                elif child.descriptor is not None:
+                    edge += f'"{child.id}" [taillabel="{child.descriptor}"]'
                 else:
                     edge += f'"{child.id}"'
 
