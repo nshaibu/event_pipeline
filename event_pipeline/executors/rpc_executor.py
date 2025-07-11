@@ -13,7 +13,7 @@ if typing.TYPE_CHECKING:
     from event_pipeline.base import EventBase
 
 
-def get_event_name(event: typing.Callable | object) -> str:
+def get_event_name(event: typing.Union[typing.Callable, object]) -> str:
     if hasattr(event, "__name__"):
         return event.__name__
     return event.__class__.__name__
