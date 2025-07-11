@@ -5,6 +5,9 @@ from concurrent.futures import Executor
 from .base import EventBase, RetryPolicy, ExecutorInitializerConfig
 from .executors.default_executor import DefaultExecutor
 
+if typing.TYPE_CHECKING:
+    from .signal import SoftSignal
+
 
 def event(
     executor: typing.Type[Executor] = DefaultExecutor,
@@ -47,7 +50,7 @@ def event(
     return worker
 
 
-def listener(signal, sender):
+def listener(signal: typing.Union["SoftSignal", typing.Iterable["SoftSignal"]], sender: typing.Type=None):
     """
     A decorator to connect a callback function to a specified signal or signals.
 
@@ -69,7 +72,8 @@ def listener(signal, sender):
     Args:
         signal (Union[Signal, List[Signal]]): A single signal or a list of signals to which the
                                                callback function will be connected.
-        sender: Additional keyword arguments that can be passed to the signal's connect method.
+        sender: The sender of this event. Additional keyword arguments that can be
+                passed to the signal's connect method.
 
     Returns:
         function: The original callback function wrapped with the connection logic.
