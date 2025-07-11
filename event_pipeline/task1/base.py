@@ -48,7 +48,7 @@ class TaskBase(ObjectIdentityMixin):
             raise TypeError("Descriptor must be an integer")
         if 0 > value or value > 9:
             raise ValueError("Descriptor must be between 0 and 9")
-        self.descriptor = value
+        self._descriptor = value
 
     @property
     def descriptor_pipe(self) -> "PipeType":

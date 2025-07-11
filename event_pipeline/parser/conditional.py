@@ -23,7 +23,7 @@ class ConditionalNode:
     """Conditional node for branching"""
 
     _descriptors: typing.Dict[int, DescriptorConfig] = field(
-        init=False, repr=False, default_factory=dict
+        init=False, repr=True, default_factory=dict
     )
 
     def add_descriptor(

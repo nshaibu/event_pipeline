@@ -4,6 +4,8 @@ from enum import Enum, StrEnum
 from pydantic_mini.exceptions import ValidationError
 from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 
+from .executor_config import ExecutorInitializerConfig
+
 
 class StopCondition(Enum):
     """Defines when task execution should stop."""
@@ -26,7 +28,8 @@ class ResultEvaluationStrategy(StrEnum):
 
 def resolve_str_to_enum(
     enum_klass: typing.Type[Enum], value: str, use_lower_case: bool = False
-) -> typing.Type[Enum]:
+) -> typing.Union[typing.Type[Enum], str]:
+    """Resolve enum value to enum class"""
     if not isinstance(value, str):
         return value
     attr_name = value.lower() if use_lower_case else value.upper()
@@ -49,7 +52,17 @@ class Options(BaseModel):
     executor: MiniAnnotated[typing.Optional[str], Attrib(default=None)]
 
     # Configuration dictionaries
-    executor_config: MiniAnnotated[dict, Attrib(default_factory=dict)]
+    executor_config: MiniAnnotated[
+        typing.Union[ExecutorInitializerConfig, dict],
+        Attrib(
+            default_factory=lambda: ExecutorInitializerConfig(),
+            pre_formatter=lambda val: (
+                ExecutorInitializerConfig.from_dict(val)
+                if isinstance(val, dict)
+                else val
+            ),
+        ),
+    ]
     extras: MiniAnnotated[dict, Attrib(default_factory=dict)]
 
     # Execution state and control
@@ -107,10 +120,8 @@ class Options(BaseModel):
     def should_stop_on(self, condition: str) -> bool:
         """
         Check if execution should stop on given condition.
-
         Args:
             condition: Condition to check ("error", "success", "exception")
-
         Returns:
             True if should stop on this condition
         """
@@ -132,10 +143,8 @@ class Options(BaseModel):
     def merge_with(self, other: typing.Union["Options", dict]) -> "Options":
         """
         Merge this Options with another, with other taking precedence.
-
         Args:
             other: Other Options instance to merge with
-
         Returns:
             New Options instance with merged values
         """

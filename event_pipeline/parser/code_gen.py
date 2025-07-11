@@ -91,8 +91,9 @@ class ExecutableASTGenerator(ASTVisitorInterface):
                 node_instance = right_instance
 
             if node_instance is None:
-                # TODO : Better error message
-                raise PointyParseError(f"AST is malformed {ast}")
+                raise PointyParseError(
+                    f"AST is malformed {ast}. Descriptor operation must have a valid task node"
+                )
 
             # handle retry syntax
             if node.op == PipeType.RETRY.token():
@@ -162,11 +163,13 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     def visit_conditional(self, node: ast.ConditionalNode):
         parent = self.visit_task(node.task)
 
-        for node in node.branches.statements:
+        for statement in node.branches.statements:
             instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = (
-                self._visit_node(node)
+                self._visit_node(statement)
             )
             if instance:
+                self._current_task = instance
+
                 instance = instance.get_root()
                 instance.parent_node = parent
 
