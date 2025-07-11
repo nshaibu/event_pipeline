@@ -169,7 +169,7 @@ class SoftSignal(ObjectIdentityMixin):
         # remove the reference when the referent is garbage collected
         weakref.finalize(
             listener_obj,
-            self._remove_unalived_listener,
+            self._remove_dead_listener,
             sender=sender,
             listener=ref_listener,
         )
@@ -195,7 +195,7 @@ class SoftSignal(ObjectIdentityMixin):
                 if not self._listeners[sender]:
                     del self._listeners[sender]
 
-    def _remove_unalived_listener(self, sender, listener: typing.Any = None) -> None:
+    def _remove_dead_listener(self, sender, listener: typing.Any = None) -> None:
         if sender:
             with self.lock:
                 if sender in self._listeners:

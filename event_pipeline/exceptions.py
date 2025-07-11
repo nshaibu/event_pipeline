@@ -121,3 +121,10 @@ class TaskSwitchingError(PipelineError):
 
 class SqlOperationError(ValueError):
     """SqlOperationError raised when a SQL operation fails."""
+
+
+class PipelineExecutionError(PipelineError):
+    """Exception raised when pipeline execution fails."""
+
+class PipelineConfigurationError(PipelineError):
+    """Exception raised for configuration errors."""

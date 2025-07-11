@@ -1,5 +1,6 @@
 from event_pipeline import EventBase
 from event_pipeline.executors.remote_executor import RemoteExecutor
+from event_pipeline.executors.grpc_executor import GRPCExecutor
 
 
 class GeneratorEvent(EventBase):

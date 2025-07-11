@@ -6,6 +6,8 @@ from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from event_pipeline.protos import task_pb2, task_pb2_grpc
 from event_pipeline.executors.message import TaskMessage
 
+from .rpc_executor import get_event_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -114,7 +116,7 @@ class GRPCExecutor(Executor):
             request = task_pb2.TaskRequest(
                 task_id=str(id(future)),
                 fn=serialized_fn,
-                name=fn.__name__,
+                name=get_event_name(fn),
                 args=serialized_args,
                 kwargs=serialized_kwargs,
             )
@@ -133,9 +135,7 @@ class GRPCExecutor(Executor):
                         else:
                             future.status_update(response.status, response.message)
 
-                except grpc.RpcError as e:
-                    future.set_exception(Exception(f"RPC error: {e.details()}"))
-                except Exception as e:
+                except (grpc.RpcError, Exception) as e:
                     future.set_exception(e)
             else:
                 # Use regular unary call
@@ -148,9 +148,7 @@ class GRPCExecutor(Executor):
                     else:
                         future.set_exception(Exception(response.error))
 
-                except grpc.RpcError as e:
-                    future.set_exception(Exception(f"RPC error: {e.details()}"))
-                except Exception as e:
+                except (grpc.RpcError, Exception) as e:
                     future.set_exception(e)
 
         except Exception as e:
