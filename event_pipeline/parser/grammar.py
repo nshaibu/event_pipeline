@@ -72,7 +72,6 @@ def p_descriptor(p):
     """
     descriptor : INT
     """
-    # p[0] = ("DESCRIPTOR", p[1])
     if 0 <= p[1] < 10:
         p[0] = DescriptorNode(p[1])
     else:
@@ -168,14 +167,15 @@ def p_expression_groupings(p):
                             | expression_groupings assigment_expression_group
     """
     if len(p) == 4:
-        p[0] = ExpressionGroupingNode(p[2])
+        p[0] = ExpressionGroupingNode([p[2]])
     else:
-        p[0] = ExpressionGroupingNode(p[1], p[2])
+        p[1].options = p[2]
+        p[0] = p[1]
 
 
 def p_error(p):
     """
-    Enhanced PLY error handler with better error reporting and context.
+    PLY error handler with better error reporting and context.
     """
     if p is None:
         raise SyntaxError("Syntax error: Unexpected end of input!")
