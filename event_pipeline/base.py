@@ -641,7 +641,8 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             logger.error(str(e), exc_info=e.exception)
             return self.on_failure(e)
         except Exception as e:
-            logger.error(str(e), exc_info=e)
+            if not isinstance(e, SwitchTask):
+                logger.error(str(e), exc_info=e)
             return self.on_failure(e)
         if self._execution_status:
             return self.on_success(execution_result)
