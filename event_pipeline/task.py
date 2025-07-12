@@ -473,29 +473,20 @@ class EventExecutionContext(ObjectIdentityMixin):
             None: This method modifies internal states of the execution context and performs actions based on
              the event and results, without returning a value.
         """
-        last_switch_to_task_request = None
+        task_switch_request = None
         waited_results = wait(futures)
 
-        with AcquireReleaseLock(self.conditional_variable):
+        with self.conditional_variable:
 
             for fut in waited_results.done:
                 try:
                     result: EventResult = fut.result()
+                    if result.content and isinstance(result.content, SwitchTask):
+                        task_switch_request = result.content
                 except Exception as e:
                     if isinstance(e, SwitchTask):
                         result = e.result
-                        current_task_profile = self._get_last_task_profile_in_chain()
-                        if not current_task_profile.extra_config.get_descriptor_config(
-                            e.next_task_descriptor
-                        ):
-                            logger.error(
-                                f"Task profile has no configured descriptor {e.next_task_descriptor}"
-                            )
-                            self.cancel()
-                            e.descriptor_configured = False
-                        else:
-                            e.descriptor_configured = True
-                        last_switch_to_task_request = e
+                        task_switch_request = e
                     else:
                         params = getattr(e, "params", {})
                         event_name = params.get("event_name", "unknown")
@@ -516,6 +507,21 @@ class EventExecutionContext(ObjectIdentityMixin):
                             call_params=params.get("call_args"),
                         )
 
+                if task_switch_request:
+                    current_task_profile = self._get_last_task_profile_in_chain()
+                    if not current_task_profile.extra_config.get_descriptor_config(
+                        task_switch_request.next_task_descriptor
+                    ):
+                        logger.error(
+                            f"Task profile has no configured descriptor {task_switch_request.next_task_descriptor}"
+                        )
+                        self.cancel()
+                        task_switch_request.descriptor_configured = False
+                    else:
+                        task_switch_request.descriptor_configured = True
+
+                    raise task_switch_request
+
                 if result.error:
                     self._errors.append(
                         PipelineError(
@@ -526,9 +532,6 @@ class EventExecutionContext(ObjectIdentityMixin):
                     )
                 else:
                     self.execution_result.add(result)
-
-        if last_switch_to_task_request:
-            raise last_switch_to_task_request
 
     def cancel(self):
         """

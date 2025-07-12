@@ -7,7 +7,7 @@ version = "2.0.0"
 requires-python = ">=3.8"
 authors = [
     {name = "nshaibu", email = "nafiushaibu1@gmail.com"},
-    {name = "lateofrederick", email = ""}
+    {name = "lateofrederick", email = "test@email.com"}
 ]
 description="Simple tool for writing events and pipelines in python"
 keywords=["pipeline","events","concurrency","data","pointy", "pointy-lang", "event-pipeline", "redis", "pointy", "ETL"]

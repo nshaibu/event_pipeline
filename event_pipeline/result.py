@@ -1,5 +1,4 @@
 import os
-import json
 import typing
 from datetime import datetime
 from collections.abc import MutableSet
@@ -87,8 +86,20 @@ class EventResult(BackendIntegrationMixin, BaseModel):
     def is_error(self) -> bool:
         return self.error
 
-    def as_dict(self):
-        return asdict(self)
+    def as_dict(self) -> typing.Dict[str, typing.Any]:
+        """Serialize event result"""
+        content = None
+        if isinstance(self.content, Exception):
+            content = self.content
+            self.content = None
+        result_dict = asdict(self)
+        if content is not None:
+            if hasattr(content, "as_dict"):
+                content = content.as_dict()
+            elif hasattr(content, "to_dict"):
+                content = content.to_dict()
+            result_dict["content"] = content
+        return result_dict
 
 
 class EntityContentType:
