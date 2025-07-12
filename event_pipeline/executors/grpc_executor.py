@@ -58,6 +58,7 @@ class GRPCExecutor(Executor):
         self._shutdown = False
         self._lock = Lock()
         self._thread_pool = ThreadPoolExecutor(max_workers=max_workers)
+        self._futures = set()
 
         # Setup gRPC channel
         self._channel = grpc.insecure_channel(f"{self._host}:{self._port}")
@@ -96,6 +97,7 @@ class GRPCExecutor(Executor):
         submission_future = self._thread_pool.submit(
             self._submit_task, future, fn, args, kwargs
         )
+        self._futures.add(submission_future)
         submission_future.add_done_callback(
             lambda f: f.result() if not f.cancelled() else None
         )
@@ -141,7 +143,6 @@ class GRPCExecutor(Executor):
                 # Use regular unary call
                 try:
                     response = self._stub.Execute(request)
-
                     if response.success:
                         result, _ = TaskMessage.deserialize(response.result)
                         future.set_result(result)
@@ -158,6 +159,20 @@ class GRPCExecutor(Executor):
     def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
         """Clean shutdown of the executor"""
         with self._lock:
+            if self._shutdown:
+                return
             self._shutdown = True
+
+            if cancel_futures:
+                for future in self._futures:
+                    future.cancel()
+
+            if wait:
+                for future in list(self._futures):
+                    try:
+                        future.result()
+                    except Exception:
+                        logger.error("<============= error waiting for future ==============>")
+
             self._channel.close()
             self._thread_pool.shutdown(wait=wait, cancel_futures=cancel_futures)
