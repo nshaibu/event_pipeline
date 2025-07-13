@@ -8,11 +8,10 @@ from event_pipeline.signal.signals import (
     pipeline_execution_start,
     pipeline_execution_end,
 )
-from .logger import telemetry
+from event_pipeline.base import EventBase
+from event_pipeline.task import EventExecutionContext
 
-if typing.TYPE_CHECKING:
-    from event_pipeline.base import EventBase
-    from event_pipeline.task import EventExecutionContext
+from .logger import telemetry
 
 
 class MetricsCollector:
@@ -51,8 +50,6 @@ class MetricsCollector:
 
 def register_collectors():
     """Register all metric collectors with the signal system"""
-    from event_pipeline import EventBase
-
     event_execution_init.connect(MetricsCollector.on_event_init, sender=EventBase)
     event_execution_end.connect(MetricsCollector.on_event_end, sender=EventBase)
     event_execution_retry.connect(MetricsCollector.on_event_retry, sender=EventBase)
