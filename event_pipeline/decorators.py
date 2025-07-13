@@ -50,7 +50,10 @@ def event(
     return worker
 
 
-def listener(signal: typing.Union["SoftSignal", typing.Iterable["SoftSignal"]], sender: typing.Type=None):
+def listener(
+    signal: typing.Union["SoftSignal", typing.Iterable["SoftSignal"]],
+    sender: typing.Type = None,
+):
     """
     A decorator to connect a callback function to a specified signal or signals.
 

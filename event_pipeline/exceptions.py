@@ -126,5 +126,6 @@ class SqlOperationError(ValueError):
 class PipelineExecutionError(PipelineError):
     """Exception raised when pipeline execution fails."""
 
+
 class PipelineConfigurationError(PipelineError):
     """Exception raised for configuration errors."""
