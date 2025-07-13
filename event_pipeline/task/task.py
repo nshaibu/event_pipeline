@@ -32,7 +32,6 @@ class PipelineTask(TaskBase):
         return f'\t"{self.id}" [label="{self.event}", shape=circle, style="filled,rounded", fillcolor=yellow]\n'
 
 
-
 class PipelineTaskGrouping(TaskBase):
 
     def __init__(

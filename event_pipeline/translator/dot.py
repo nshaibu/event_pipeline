@@ -33,18 +33,20 @@ def draw_subgraph_from_task_state(task_state: PipelineTaskGrouping):
     f.write('\tstyle=filled\n')
 
 
-
-
-def generate_dot_from_task_state(task_state: PipelineTask) -> str:
+def generate_dot_from_task_state(task_state: PipelineTask, is_subgraph: bool = False) -> str:
     root = task_state.get_root()
     nodes = []
     edges = []
 
     f = StringIO()
 
-    f.write("digraph G {\n")
-    f.write('\tnode [fontname="Helvetica", fontsize=11]\n')
-    f.write('\tedge [fontname="Helvetica", fontsize=10]\n')
+    if is_subgraph:
+        f.write("subgraph task_group_%s {\n".format(task_state.id))
+        f.write('\tstyle=filled\n')
+    else:
+        f.write("digraph G {\n")
+        f.write('\tnode [fontname="Helvetica", fontsize=11]\n')
+        f.write('\tedge [fontname="Helvetica", fontsize=10]\n')
 
     iterator = task_state.bf_traversal(root)
 

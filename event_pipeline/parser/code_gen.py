@@ -57,8 +57,8 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     def visit_binop(
         self, node: ast.BinOpNode
     ) -> typing.Union[TaskProtocol, TaskGroupingProtocol]:
-        left_instance = self._visit_node(node.left)
-        right_instance = self._visit_node(node.right)
+        left_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = self._visit_node(node.left)
+        right_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = self._visit_node(node.right)
 
         if isinstance(
             left_instance, (TaskProtocol, TaskGroupingProtocol)
