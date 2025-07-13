@@ -51,6 +51,8 @@ class MetricsCollector:
 
 def register_collectors():
     """Register all metric collectors with the signal system"""
-    event_execution_init.connect(MetricsCollector.on_event_init)
-    event_execution_end.connect(MetricsCollector.on_event_end)
-    event_execution_retry.connect(MetricsCollector.on_event_retry)
+    from event_pipeline import EventBase
+
+    event_execution_init.connect(MetricsCollector.on_event_init, sender=EventBase)
+    event_execution_end.connect(MetricsCollector.on_event_end, sender=EventBase)
+    event_execution_retry.connect(MetricsCollector.on_event_retry, sender=EventBase)
