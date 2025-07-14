@@ -337,6 +337,10 @@ class InputDataField(CacheInstanceFieldMixin):
                     f"Value for '{self.name}' has incorrect type. Expected {self.data_type}, "
                     f"got {type(value).__name__}."
                 )
+        if callable(value):
+            raise TypeError(
+                f"Value for '{self.name}' cannot be a callable. Did you mean to call the function?"
+            )
 
         if value is None:
             if self.required and self.default is EMPTY and self.default_factory is None:

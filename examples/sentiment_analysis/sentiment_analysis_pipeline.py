@@ -25,17 +25,17 @@ class SentimentAnalysisPipeline(Pipeline):
     )
     sender_email = InputDataField(
         required=False,
-        default_factory=lambda : os.getenv("SENDER_EMAIL"),
+        default_factory=lambda: os.getenv("SENDER_EMAIL"),
         help_text="The email address to send the email notification.",
     )
     sender_password = InputDataField(
         required=False,
-        default_factory=lambda : os.getenv("SENDER_PASSWORD"),
+        default_factory=lambda: os.getenv("SENDER_PASSWORD"),
         help_text="The email password or app-specific password.",
     )
     recipient_email = InputDataField(
         required=False,
-        default_factory=lambda : os.getenv("RECIPIENT_EMAIL"),
+        default_factory=lambda: os.getenv("RECIPIENT_EMAIL"),
         help_text="The recipient email address for the email notification.",
     )
 
