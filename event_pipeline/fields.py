@@ -243,6 +243,7 @@ class InputDataField(CacheInstanceFieldMixin):
         default: typing.Any = EMPTY,
         batch_processor: BATCH_PROCESSOR_TYPE = None,
         batch_size: int = batch_defaults.DEFAULT_BATCH_SIZE,
+        help_text: str = None,
     ):
         self.name = name
         self.data_type = (
@@ -257,6 +258,7 @@ class InputDataField(CacheInstanceFieldMixin):
         self.required = required
         self.batch_processor = None
         self.batch_size: int = batch_size
+        self.help_text = help_text
 
         # Auto-set batch processor for list/tuple types if none provided
         if batch_processor is None:
@@ -356,6 +358,7 @@ class FileInputDataField(InputDataField):
         chunk_size: int = batch_defaults.DEFAULT_CHUNK_SIZE,
         mode: str = "r",
         encoding: typing.Optional[str] = None,
+        help_text: str = None,
     ):
         self.mode = mode
         self.encoding = encoding
@@ -367,6 +370,7 @@ class FileInputDataField(InputDataField):
             default=EMPTY,
             batch_size=chunk_size,
             batch_processor=batch_defaults.file_stream_batch_processor,
+            help_text=help_text,
         )
 
     def __set__(self, instance, value):
