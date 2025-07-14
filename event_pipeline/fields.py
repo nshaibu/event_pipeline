@@ -241,6 +241,7 @@ class InputDataField(CacheInstanceFieldMixin):
         required: bool = False,
         data_type: typing.Union[typing.Type, typing.Tuple[typing.Type]] = UNKNOWN,
         default: typing.Any = EMPTY,
+        default_factory: typing.Callable[[], typing.Any] = None,
         batch_processor: BATCH_PROCESSOR_TYPE = None,
         batch_size: int = batch_defaults.DEFAULT_BATCH_SIZE,
         help_text: str = None,
@@ -255,6 +256,7 @@ class InputDataField(CacheInstanceFieldMixin):
                 raise TypeError(f"Data type '{_type}' is not valid type")
 
         self.default = default
+        self.default_factory = default_factory
         self.required = required
         self.batch_processor = None
         self.batch_size: int = batch_size
@@ -309,8 +311,12 @@ class InputDataField(CacheInstanceFieldMixin):
             return self
 
         value = instance.__dict__.get(self.name, None)
-        if value is None and self.default is not EMPTY:
-            return self.default
+        if value is None:
+            if self.default is not EMPTY:
+                return self.default
+            elif self.default_factory is not None:
+                return self.default_factory()
+
         return value
 
     def __set__(self, instance, value):
@@ -333,10 +339,12 @@ class InputDataField(CacheInstanceFieldMixin):
                 )
 
         if value is None:
-            if self.required and self.default is EMPTY:
+            if self.required and self.default is EMPTY and self.default_factory is None:
                 raise ValueError(f"Field '{self.name}' is required")
             elif self.default is not EMPTY:
                 value = self.default
+            elif self.default_factory is not None:
+                value = self.default_factory()
 
         self.set_field_cache_value(instance, value)
         instance.__dict__[self.name] = value
