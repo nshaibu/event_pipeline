@@ -507,6 +507,18 @@ class EventExecutionContext(ObjectIdentityMixin):
                             call_params=params.get("call_args"),
                         )
 
+                if result.error:
+                    self.execution_result.add(result)
+                    self._errors.append(
+                        PipelineError(
+                            message=result.content,
+                            code=result.task_id,
+                            params=result.as_dict(),
+                        )
+                    )
+                else:
+                    self.execution_result.add(result)
+
                 if task_switch_request:
                     current_task_profile = self._get_last_task_profile_in_chain()
                     if not current_task_profile.extra_config.get_descriptor_config(
@@ -521,17 +533,6 @@ class EventExecutionContext(ObjectIdentityMixin):
                         task_switch_request.descriptor_configured = True
 
                     raise task_switch_request
-
-                if result.error:
-                    self._errors.append(
-                        PipelineError(
-                            message=result.content,
-                            code=result.task_id,
-                            params=result.as_dict(),
-                        )
-                    )
-                else:
-                    self.execution_result.add(result)
 
     def cancel(self):
         """

@@ -687,6 +687,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     def _check_memory_usage(self):
         """Monitor memory usage and adjust batch size if needed"""
         import psutil
+
         memory_percent = psutil.Process().memory_percent()
         if memory_percent > self.max_memory_percent:
             self._adjust_batch_size()
@@ -694,7 +695,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     def _adjust_batch_size(self):
         """Dynamically adjust batch size based on memory usage"""
         for field in self._field_batch_op_map:
-            if hasattr(field, 'batch_size'):
+            if hasattr(field, "batch_size"):
                 field.batch_size = max(1, field.batch_size // 2)
 
     def _gather_field_batch_methods(

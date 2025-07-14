@@ -253,7 +253,9 @@ class ResultSet(MutableSet):
         if len(qs) == 0:
             raise KeyError(f"No result found matching filters: {filters}")
         if len(qs) > 1:
-            raise MultiValueError(f"More than one result found for filters {filters}: {len(qs)}!=1")
+            raise MultiValueError(
+                f"More than one result found for filters {filters}: {len(qs)}!=1"
+            )
         return qs[0]
 
     def filter(self, **filter_params) -> "ResultSet":
@@ -399,7 +401,9 @@ class ResultSet(MutableSet):
         """
         actual_value = self._get_field_value(obj, field_path.split("__"))
 
-        if operator in ("startswith", "endswith", "icontains") and not isinstance(actual_value, str):
+        if operator in ("startswith", "endswith", "icontains") and not isinstance(
+            actual_value, str
+        ):
             return False
 
         # Handle None case for all operators except isnull
