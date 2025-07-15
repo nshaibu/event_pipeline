@@ -73,6 +73,15 @@ class TestInputDataField:
             mock_instance, "test", "value"
         )
 
+    def test_default_factory(self):
+        factory = lambda: "from_factory"
+        field = InputDataField(name="test", default_factory=factory)
+
+        mock_instance = MagicMock()
+        mock_instance.__dict__ = {}
+
+        assert field.__get__(mock_instance) == "from_factory"
+
 
 class TestFileInputDataField:
     def test_init(self):

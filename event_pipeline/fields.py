@@ -241,8 +241,10 @@ class InputDataField(CacheInstanceFieldMixin):
         required: bool = False,
         data_type: typing.Union[typing.Type, typing.Tuple[typing.Type]] = UNKNOWN,
         default: typing.Any = EMPTY,
+        default_factory: typing.Callable[[], typing.Any] = None,
         batch_processor: BATCH_PROCESSOR_TYPE = None,
         batch_size: int = batch_defaults.DEFAULT_BATCH_SIZE,
+        help_text: str = None,
     ):
         self.name = name
         self.data_type = (
@@ -254,9 +256,11 @@ class InputDataField(CacheInstanceFieldMixin):
                 raise TypeError(f"Data type '{_type}' is not valid type")
 
         self.default = default
+        self.default_factory = default_factory
         self.required = required
         self.batch_processor = None
         self.batch_size: int = batch_size
+        self.help_text = help_text
 
         # Auto-set batch processor for list/tuple types if none provided
         if batch_processor is None:
@@ -307,8 +311,12 @@ class InputDataField(CacheInstanceFieldMixin):
             return self
 
         value = instance.__dict__.get(self.name, None)
-        if value is None and self.default is not EMPTY:
-            return self.default
+        if value is None:
+            if self.default is not EMPTY:
+                return self.default
+            elif self.default_factory is not None:
+                return self.default_factory()
+
         return value
 
     def __set__(self, instance, value):
@@ -329,12 +337,18 @@ class InputDataField(CacheInstanceFieldMixin):
                     f"Value for '{self.name}' has incorrect type. Expected {self.data_type}, "
                     f"got {type(value).__name__}."
                 )
+        if callable(value):
+            raise TypeError(
+                f"Value for '{self.name}' cannot be a callable. Did you mean to call the function?"
+            )
 
         if value is None:
-            if self.required and self.default is EMPTY:
+            if self.required and self.default is EMPTY and self.default_factory is None:
                 raise ValueError(f"Field '{self.name}' is required")
             elif self.default is not EMPTY:
                 value = self.default
+            elif self.default_factory is not None:
+                value = self.default_factory()
 
         self.set_field_cache_value(instance, value)
         instance.__dict__[self.name] = value
@@ -356,6 +370,7 @@ class FileInputDataField(InputDataField):
         chunk_size: int = batch_defaults.DEFAULT_CHUNK_SIZE,
         mode: str = "r",
         encoding: typing.Optional[str] = None,
+        help_text: str = None,
     ):
         self.mode = mode
         self.encoding = encoding
@@ -367,6 +382,7 @@ class FileInputDataField(InputDataField):
             default=EMPTY,
             batch_size=chunk_size,
             batch_processor=batch_defaults.file_stream_batch_processor,
+            help_text=help_text,
         )
 
     def __set__(self, instance, value):
