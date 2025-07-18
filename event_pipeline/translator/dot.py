@@ -1,12 +1,12 @@
 import typing
 
-from event_pipeline.parser.operator import PipeType
-from event_pipeline.task import PipelineTask, PipelineTaskGrouping
-
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
+
+from event_pipeline.parser.operator import PipeType
+from event_pipeline.task import PipelineTask, PipelineTaskGrouping
 
 
 def process_parallel_nodes(

@@ -20,3 +20,9 @@ class ObjectIdentityMixin:
 
     def set_state(self, state: typing.Dict[str, typing.Any]) -> None:
         raise NotImplementedError()
+
+    def __setstate__(self, state):
+        self.set_state(state)
+
+    def __getstate__(self):
+        return self.get_state()

@@ -59,8 +59,9 @@ class MultiValueError(PipelineError, KeyError):
 
 class StopProcessingError(PipelineError, RuntimeError):
 
-    def __init__(self, *args, exception=None, **kwargs):
+    def __init__(self, *args, exception=None, stop_condition=None, **kwargs):
         self.exception = exception
+        self.stop_condition = stop_condition
         super().__init__(*args, **kwargs)
 
 
@@ -125,6 +126,7 @@ class SqlOperationError(ValueError):
 
 class PipelineExecutionError(PipelineError):
     """Exception raised when pipeline execution fails."""
+
 
 class PipelineConfigurationError(PipelineError):
     """Exception raised for configuration errors."""
