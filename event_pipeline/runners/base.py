@@ -86,13 +86,13 @@ class Runner(ABC):
     def _create_result(self, success: bool, skipped: bool = False) -> Dict[str, Any]:
 
         return {
-            'success': success,
-            'skipped': skipped,
-            'result': self.result,
-            'duration': self.duration,
-            'error': str(self.error) if self.error else None,
-            'state': self.state.value,
-            'context': self.context.copy()
+            "success": success,
+            "skipped": skipped,
+            "result": self.result,
+            "duration": self.duration,
+            "error": str(self.error) if self.error else None,
+            "state": self.state.value,
+            "context": self.context.copy(),
         }
 
     @property

@@ -60,7 +60,7 @@ class TaskBase(ObjectIdentityMixin):
 
     @property
     def is_conditional(self):
-        return len(self.condition_node.get_descriptors()) > 0
+        return len(self.condition_node.get_descriptors()) > 1
 
     @property
     def is_descriptor_task(self):
@@ -117,21 +117,21 @@ class TaskBase(ObjectIdentityMixin):
         pipe_type = None
         if self.parent_node is not None:
             if (
-                self.parent_node.conditional_node.on_success_event
-                and self.parent_node.conditional_node.on_success_event == self
+                self.parent_node.condition_node.on_success_event
+                and self.parent_node.condition_node.on_success_event == self
             ):
-                pipe_type = self.parent_node.conditional_node.on_success_pipe
+                pipe_type = self.parent_node.condition_node.on_success_pipe
             elif (
-                self.parent_node.conditional_node.on_failure_event
-                and self.parent_node.conditional_node.on_failure_event == self
+                self.parent_node.condition_node.on_failure_event
+                and self.parent_node.condition_node.on_failure_event == self
             ):
-                pipe_type = self.parent_node.conditional_node.on_failure_pipe
+                pipe_type = self.parent_node.condition_node.on_failure_pipe
             elif self.parent_node.sink_node and self.parent_node.sink_node == self:
                 pipe_type = self.parent_node.sink_pipe
             else:
                 # Handle custom descriptors
                 descriptor_profile = (
-                    self.parent_node.conditional_node.get_descriptor_config(
+                    self.parent_node.condition_node.get_descriptor_config(
                         self._descriptor
                     )
                 )
@@ -155,7 +155,7 @@ class TaskBase(ObjectIdentityMixin):
             return self
         return self.parent_node.get_root()
 
-    def get_dot_node_data(self) -> typing.Optional[str]:
+    def get_dot_node_data(self) -> str:
         raise NotImplementedError
 
     def get_task_count(self) -> int:
