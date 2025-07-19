@@ -1,5 +1,6 @@
+import asyncio
 import typing
-from concurrent.futures import Future
+from concurrent.futures import Future as MpFuture
 from event_pipeline.result import EventResult, ResultSet
 
 
@@ -9,20 +10,18 @@ class ResultProcessor:
     def __init__(self, evaluator_factory: "EvaluatorFactory"):
         self._evaluator_factory = evaluator_factory
 
-    def process_futures(self, futures: list[Future]) -> ResultSet:
+    async def process_futures(self, futures: typing.List[asyncio.Future]) -> ResultSet:
         """Process futures and handle exceptions consistently"""
         results = ResultSet([])
         errors = []
 
-        for future in futures:
+        for result in await asyncio.gather(*futures, return_exceptions=True):
             try:
-                result = future.result()
-                results.append(result)
+                results.add(result)
             except Exception as e:
-                error = self._convert_exception_to_error(e)
-                errors.append(error)
+                pass
 
-        return ProcessedResults(results, errors)
+        return results
 
     def evaluate_execution(
         self, results: ProcessedResults, strategy: EvaluationStrategy

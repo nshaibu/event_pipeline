@@ -41,7 +41,7 @@ class ExecutionState:
     """Execution state"""
 
     status: ExecutionStatus = field(default=ExecutionStatus.PENDING)
-    errors: typing.List[PipelineError, ...] = field(default_factory=list)
+    errors: typing.List[PipelineError] = field(default_factory=list)
     results: ResultSet[EventResult] = field(default_factory=lambda: ResultSet([]))
 
     def cancel(self, execution_context: "ExecutionContext") -> None:
@@ -140,7 +140,7 @@ class ExecutionContext(ObjectIdentityMixin):
             current = current.previous_context
         return current
 
-    def get_latest_execution_context(self) -> "ExecutionContext":
+    def get_latest_context(self) -> "ExecutionContext":
         """
         Returns the latest execution context.
         :return: EventExecutionContext

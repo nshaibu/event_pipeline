@@ -1,5 +1,6 @@
 import typing
 from concurrent.futures import Executor
+from event_pipeline.exceptions import ExecutorNotFound
 
 
 class ExecutorRegistry:
@@ -8,10 +9,10 @@ class ExecutorRegistry:
     def __init__(self):
         self._executors: typing.Dict[str, typing.Type[Executor]] = {}
 
-    def register(self, name: str, executor_class: typing.Type[Executor]) -> None:
+    def register(self, executor_class: typing.Type[Executor]) -> None:
         if not issubclass(executor_class, Executor):
             raise ValueError(f"Invalid executor type: {executor_class}")
-        self._executors[name] = executor_class
+        self._executors[executor_class.__name__] = executor_class
 
     def get(self, name: str) -> typing.Type[Executor]:
         if name not in self._executors:

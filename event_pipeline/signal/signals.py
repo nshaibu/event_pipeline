@@ -232,6 +232,10 @@ pipeline_execution_end = SoftSignal(
 
 
 event_init = SoftSignal("event_init", provide_args=["event", "init_kwargs"])
+event_called = SoftSignal(
+    "event_called",
+    provide_args=["event", "init_kwargs", "call_kwargs", "hook_type", "result"],
+)
 
 event_execution_init = SoftSignal(
     "event_execution_init",

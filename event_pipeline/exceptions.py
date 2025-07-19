@@ -130,3 +130,7 @@ class PipelineExecutionError(PipelineError):
 
 class PipelineConfigurationError(PipelineError):
     """Exception raised for configuration errors."""
+
+
+class ExecutorNotFound(IndexError):
+    """Exception raised when an executor does not exist."""

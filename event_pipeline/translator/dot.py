@@ -26,24 +26,34 @@ def process_parallel_nodes(
     return node_id, node_label
 
 
-def draw_subgraph_from_task_state(task_state: PipelineTaskGrouping):
+def draw_subgraph_from_task_state(task_state: PipelineTaskGrouping) -> str:
+    """Draw sub graph from task state"""
     f = StringIO()
 
-    f.write("subgraph cluster_%s {\n".format(task_state.id))
-    f.write('\tstyle=filled\n')
+    f.write("subgraph" + task_state.id + "{\n")
+    f.write("\tstyle=filled\n")
+
+    for chain in task_state.chains:
+        if isinstance(chain, PipelineTask):
+            f.write(generate_dot_from_task_state(chain, is_subgraph=True))
+        elif isinstance(chain, PipelineTaskGrouping):
+            f.write(draw_subgraph_from_task_state(chain))
+        else:
+            continue
+
+    return f.getvalue()
 
 
-def generate_dot_from_task_state(task_state: PipelineTask, is_subgraph: bool = False) -> str:
+def generate_dot_from_task_state(
+    task_state: PipelineTask, is_subgraph: bool = False
+) -> str:
     root = task_state.get_root()
     nodes = []
     edges = []
 
     f = StringIO()
 
-    if is_subgraph:
-        f.write("subgraph task_group_%s {\n".format(task_state.id))
-        f.write('\tstyle=filled\n')
-    else:
+    if not is_subgraph:
         f.write("digraph G {\n")
         f.write('\tnode [fontname="Helvetica", fontsize=11]\n')
         f.write('\tedge [fontname="Helvetica", fontsize=10]\n')

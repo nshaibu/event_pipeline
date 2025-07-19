@@ -28,7 +28,12 @@ from .signal.signals import (
     pipeline_shutdown,
     pipeline_stop,
 )
-from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
+
+# from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState Old imports
+from event_pipeline.task import PipelineTask
+from event_pipeline.runners.execution_data import ExecutionContext as EventExecutionContext, ExecutionState
+from event_pipeline.parser.operator import PipeType
+
 from .constants import (
     PIPELINE_FIELDS,
     PIPELINE_STATE,

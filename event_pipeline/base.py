@@ -24,6 +24,7 @@ from event_pipeline.signal.signals import (
     event_execution_retry,
     event_execution_retry_done,
     event_init,
+    event_called,
 )
 from event_pipeline.parser.executor_config import ExecutorInitializerConfig
 from event_pipeline.result_evaluators import (
@@ -32,6 +33,7 @@ from event_pipeline.result_evaluators import (
     EventEvaluator,
 )
 from event_pipeline.parser.options import StopCondition
+from event_pipeline.parser.options import Options
 
 __all__ = ["EventBase", "RetryPolicy", "ExecutorInitializerConfig"]
 
@@ -41,11 +43,11 @@ logger = logging.getLogger(__name__)
 conf = ConfigLoader.get_lazily_loaded_config()
 
 if typing.TYPE_CHECKING:
-    from .task import EventExecutionContext, Options
+    from event_pipeline.runners.execution_data import ExecutionContext
 
 
 @dataclass
-class RetryPolicy(object):
+class RetryPolicy:
     max_attempts: int = field(
         init=True, default=conf.get("MAX_EVENT_RETRIES", default=MAX_RETRIES)
     )
@@ -61,7 +63,7 @@ class RetryPolicy(object):
     )
 
 
-class _RetryMixin(object):
+class _RetryMixin:
 
     retry_policy: typing.Union[
         typing.Optional[RetryPolicy], typing.Dict[str, typing.Any]
@@ -192,7 +194,7 @@ class _RetryMixin(object):
         return False, None
 
 
-class _ExecutorInitializerMixin(object):
+class _ExecutorInitializerMixin:
 
     executor: typing.Type[Executor] = DefaultExecutor
 
@@ -439,7 +441,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
     def __init__(
         self,
-        execution_context: "EventExecutionContext",
+        execution_context: "ExecutionContext",
         task_id: str,
         *args,
         previous_result: typing.Union[typing.List[EventResult], EMPTY] = EMPTY,
@@ -514,7 +516,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                 success/failure handlers; otherwise, wraps it in `EventResult`.
         """
         if not isinstance(descriptor, int):
-            raise ValueError("descriptor must be an integer")
+            raise ValueError("Descriptor must be an integer between 0 to 9")
 
         if execute_on_event_method:
             if result_success:
@@ -623,6 +625,15 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     def on_success(self, execution_result) -> EventResult:
         self.stop_condition.message = execution_result
 
+        event_called.emit(
+            sender=self.__class__,
+            event=self,
+            init_args=self.get_init_args(),
+            call_args=self.get_call_args(),
+            hook_type="on_success",
+            result=execution_result,
+        )
+
         if self.stop_condition.on_success():
             raise StopProcessingError(
                 message=execution_result,
@@ -639,6 +650,15 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         return self.event_result(False, execution_result)
 
     def on_failure(self, execution_result) -> EventResult:
+        event_called.emit(
+            sender=self.__class__,
+            event=self,
+            init_args=self.get_init_args(),
+            call_args=self.get_call_args(),
+            hook_type="on_failure",
+            result=execution_result,
+        )
+
         if isinstance(execution_result, Exception):
             execution_result = (
                 execution_result.exception

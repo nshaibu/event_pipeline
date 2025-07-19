@@ -47,6 +47,6 @@ class PipelineTaskGrouping(TaskBase):
             else GroupingStrategy.SINGLE_CHAIN
         )
 
-    def get_dot_node_data(self) -> typing.Optional[str]:
-        if self.is_sink:
-            pass
+    def get_dot_node_data(self) -> str:
+        from event_pipeline.translator.dot import draw_subgraph_from_task_state
+        return draw_subgraph_from_task_state(self)
