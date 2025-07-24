@@ -19,7 +19,7 @@ class ResultProcessor:
             try:
                 results.add(result)
             except Exception as e:
-                pass
+                errors.append(e)
 
         return results
 

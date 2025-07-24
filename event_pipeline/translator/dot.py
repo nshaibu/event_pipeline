@@ -1,5 +1,5 @@
 import typing
-
+from functools import lru_cache
 try:
     from StringIO import StringIO
 except ImportError:
@@ -7,6 +7,18 @@ except ImportError:
 
 from event_pipeline.parser.operator import PipeType
 from event_pipeline.task import PipelineTask, PipelineTaskGrouping
+
+
+@lru_cache(maxsize=None)
+def str_to_number(s: str) -> int:
+    """Convert a string to an integer"""
+    val = 0
+    for ch in s:
+        if ch.isdigit():
+            val += int(ch)
+        else:
+            val += ord(ch)
+    return val
 
 
 def process_parallel_nodes(
@@ -27,11 +39,11 @@ def process_parallel_nodes(
 
 
 def draw_subgraph_from_task_state(task_state: PipelineTaskGrouping) -> str:
-    """Draw sub graph from task state"""
+    """Draw subgraph from task state"""
     f = StringIO()
 
-    f.write("subgraph" + task_state.id + "{\n")
-    f.write("\tstyle=filled\n")
+    f.write("subgraph " + f"cluster_{str_to_number(task_state.id)}" + " {\n")
+    f.write("\tstyle=filled;\n")
 
     for chain in task_state.chains:
         if isinstance(chain, PipelineTask):

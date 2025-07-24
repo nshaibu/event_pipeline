@@ -143,7 +143,7 @@ class ExecutionContext(ObjectIdentityMixin):
     def get_latest_context(self) -> "ExecutionContext":
         """
         Returns the latest execution context.
-        :return: EventExecutionContext
+        :return: ExecutionContext
         """
         current = self.get_execution_context_head()
         while current.next_context:
@@ -153,9 +153,9 @@ class ExecutionContext(ObjectIdentityMixin):
     def get_tail_context(self) -> "ExecutionContext":
         """
         Returns the tail context of the execution context.
-        :return: EventExecutionContext
+        :return: ExecutionContext
         """
-        return self.get_latest_execution_context()
+        return self.get_latest_context()
 
     def filter_by_event(self, event_name: str) -> ResultSet:
         """

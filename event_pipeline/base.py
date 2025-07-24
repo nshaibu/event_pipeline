@@ -429,6 +429,16 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
     def __init_subclass__(cls, **kwargs):
         """Automatically register subclasses when they're defined"""
+        # prevent the overriding of __init__
+        if cls.__name__ != "EventBase":
+            for attr_name in ["__init__"]:
+                if attr_name in cls.__dict__:
+                    raise PermissionError(
+                        f"Model '{cls.__name__}' cannot override {attr_name!r}. "
+                        f"Consider registering a 'listener' function for the signal 'event_init' for all your custom initialization. "
+                        f"You can also do your initialisation within the 'process' method"
+                    )
+
         super().__init_subclass__(**kwargs)
 
         # Register this class in the global registry
@@ -542,7 +552,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     @classmethod
     def register_event(cls, event_klass: typing.Type["EventBase"]):
         if not issubclass(event_klass, EventBase):
-            raise ValueError("event_klass must be a subclass of EventBase")
+            raise ValueError(f"Event '{event_klass}' must be a subclass of EventBase")
 
         # Register this class in the global registry
         EventBase._all_event_classes.add(cls)

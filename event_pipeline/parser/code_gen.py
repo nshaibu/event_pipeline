@@ -204,5 +204,7 @@ class ExecutableASTGenerator(ASTVisitorInterface):
 
         return parent
 
-    def generate(self) -> TaskProtocol:
-        pass
+    def generate(self) -> typing.Optional[TaskProtocol]:
+        if self._current_task is None:
+            return None
+        return self._current_task.get_root()
