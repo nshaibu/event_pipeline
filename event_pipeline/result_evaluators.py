@@ -72,7 +72,7 @@ class AllTasksMustSucceedStrategy(ExecutionResultEvaluationStrategyBase):
 
     def evaluate(self, task_results: T) -> bool:
         if not task_results:
-            return False  # No tasks means no success
+            return False
         return all(result.success for result in task_results)
 
     def get_strategy_name(self) -> str:
@@ -84,7 +84,7 @@ class AnyTaskMustSucceedStrategy(ExecutionResultEvaluationStrategyBase):
 
     def evaluate(self, task_results: T) -> bool:
         if not task_results:
-            return False  # No tasks means no success
+            return False
         return any(result.success for result in task_results)
 
     def get_strategy_name(self) -> str:
