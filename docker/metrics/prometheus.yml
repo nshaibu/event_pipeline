@@ -1,0 +1,18 @@
+scrape_configs:
+  - job_name: 'event-pipeline'
+    static_configs:
+      - targets: ['event-pipeline:8000']
+
+  # test
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # test
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: [ 'cadvisor:8080' ]
+
+global:
+  scrape_interval: 10s
+  scrape_timeout: 5s
