@@ -27,17 +27,14 @@ Usage:
 """
 
 import typing
-from .logger import telemetry
+
 from .collector import register_collectors
-from .reporter import reporter
+from .logger import telemetry
 from .network import network_telemetry
-from .publisher import (
-    MetricsPublisher,
-    ElasticsearchPublisher,
-    PrometheusPublisher,
-    GrafanaCloudPublisher,
-    CompositePublisher,
-)
+from .publisher import (CompositePublisher, ElasticsearchPublisher,
+                        GrafanaCloudPublisher, MetricsPublisher,
+                        PrometheusPublisher)
+from .reporter import reporter
 
 
 def monitor_events(publishers: typing.List[MetricsPublisher] = None) -> None:
