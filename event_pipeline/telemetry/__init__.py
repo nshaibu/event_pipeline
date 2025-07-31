@@ -55,43 +55,43 @@ def get_metrics() -> str:
     return reporter.get_all_metrics_json()
 
 
-def get_failed_events() -> list:
-    """Get metrics for all failed events"""
-    return reporter.get_failed_events()
+# def get_failed_events() -> list:
+#     """Get metrics for all failed events"""
+#     return reporter.get_failed_events()
+#
+#
+# def get_slow_events(
+#     threshold_seconds: float = 1.0,
+# ) -> typing.List[typing.Dict[str, typing.Any]]:
+#     """Get metrics for events that took longer than threshold"""
+#     return reporter.get_slow_events(threshold_seconds)
+#
 
-
-def get_slow_events(
-    threshold_seconds: float = 1.0,
-) -> typing.List[typing.Dict[str, typing.Any]]:
-    """Get metrics for events that took longer than threshold"""
-    return reporter.get_slow_events(threshold_seconds)
-
-
-def get_retry_stats() -> typing.Dict[str, typing.Any]:
-    """Get retry statistics"""
-    return reporter.get_retry_stats()
-
-
-def get_failed_network_ops() -> typing.Dict[str, typing.Any]:
-    """Get metrics for failed network operations"""
-    return network_telemetry.get_failed_operations()
-
-
-def get_slow_network_ops(
-    threshold_seconds: float = 1.0,
-) -> typing.Dict[str, typing.Any]:
-    """Get metrics for slow network operations"""
-    return network_telemetry.get_slow_operations(threshold_seconds)
-
-
+# def get_retry_stats() -> typing.Dict[str, typing.Any]:
+#     """Get retry statistics"""
+#     return reporter.get_retry_stats()
+#
+#
+# def get_failed_network_ops() -> typing.Dict[str, typing.Any]:
+#     """Get metrics for failed network operations"""
+#     return network_telemetry.get_failed_operations()
+#
+#
+# def get_slow_network_ops(
+#     threshold_seconds: float = 1.0,
+# ) -> typing.Dict[str, typing.Any]:
+#     """Get metrics for slow network operations"""
+#     return network_telemetry.get_slow_operations(threshold_seconds)
+#
+#
 __all__ = [
     "monitor_events",
     "get_metrics",
-    "get_failed_events",
-    "get_slow_events",
-    "get_retry_stats",
-    "get_failed_network_ops",
-    "get_slow_network_ops",
+    # "get_failed_events",
+    # "get_slow_events",
+    # "get_retry_stats",
+    # "get_failed_network_ops",
+    # "get_slow_network_ops",
     "MetricsPublisher",
     "ElasticsearchPublisher",
     "PrometheusPublisher",
