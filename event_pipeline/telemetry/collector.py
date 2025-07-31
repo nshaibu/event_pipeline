@@ -8,7 +8,7 @@ from event_pipeline.signal.signals import (event_execution_end,
                                            pipeline_execution_end,
                                            pipeline_execution_start)
 
-from .logger import telemetry
+from .factory import TelemetryLoggerFactory
 
 if typing.TYPE_CHECKING:
     from event_pipeline.base import EventBase
@@ -23,7 +23,8 @@ class MetricsCollector:
         """Handle event initialization"""
 
         event = kwargs.get("event")
-        # TODO: after the refactor make sure the make use of this id
+
+        telemetry = TelemetryLoggerFactory.get_logger()
 
         if event:
             telemetry.start_event(
@@ -40,6 +41,8 @@ class MetricsCollector:
         **kwargs,
     ) -> None:
         """Handle event completion"""
+
+        telemetry = TelemetryLoggerFactory.get_logger()
         error = None
         if execution_context._errors:
             error = str(execution_context._errors[0])
@@ -57,9 +60,13 @@ class MetricsCollector:
         sender: "EventBase", task_id: str, max_attempts: int, **kwargs
     ) -> None:
         """Handle event retry"""
+
+        telemetry = TelemetryLoggerFactory.get_logger()
         event = kwargs.get("event")
         pipeline_id = kwargs.get("pipeline_id")
-        telemetry.record_retry(task_id, event.__class__.__name__,pipeline_id=pipeline_id)
+        telemetry.record_retry(
+            task_id, event.__class__.__name__, pipeline_id=pipeline_id
+        )
 
 
 def register_collectors():

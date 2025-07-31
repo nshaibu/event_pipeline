@@ -4,23 +4,34 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from event_pipeline.result import ResultSet
+from event_pipeline.telemetry.factory import TelemetryLoggerFactory
 
-from .logger import EventMetrics, telemetry
+from .logger import AbstractTelemetryLogger, EventMetrics, Pipeline_Id
 
 
 class TelemetryReporter:
     """Formats and outputs telemetry data"""
 
-    # TODO: think of how you can have a generic reporter that can handle any type of logger
-    # def format_metrics(self, metrics: typing.Dict[str, typing.List[EventMetrics]]):
-    def format_metrics(self, metrics: ResultSet):
-        """Format a dictionary of metrics"""
+    def __init__(self):
+        self.logger = None
 
-        return [metric.to_dict() for metric in metrics]
+    def format_metrics(
+        self, metrics: typing.Union[ResultSet, typing.Dict[Pipeline_Id, ResultSet]]
+    ) -> typing.Union[typing.List[dict], typing.Dict[str, typing.List[dict]]]:
+
+        """Format metrics while preserving pipeline structure"""
+        if isinstance(metrics, ResultSet):
+            return [metric.to_dict() for metric in metrics]
+        elif isinstance(metrics, dict):
+            return {
+                pipeline_id or "default": [metric.to_dict() for metric in result_set]
+                for pipeline_id, result_set in metrics.items()
+            }
 
     def get_all_metrics_json(self) -> str:
         """Get all metrics as JSON string"""
-        metrics = telemetry.get_all_metrics()
+        self.logger = TelemetryLoggerFactory.get_logger()
+        metrics = self.logger.get_all_metrics()
 
         formatted = self.format_metrics(metrics)
         return json.dumps(formatted, indent=2)

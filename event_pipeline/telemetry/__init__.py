@@ -28,8 +28,10 @@ Usage:
 
 import typing
 
+from event_pipeline.telemetry.logger import AbstractTelemetryLogger
+
 from .collector import register_collectors
-from .logger import telemetry
+from .factory import TelemetryLoggerFactory
 from .network import network_telemetry
 from .publisher import (CompositePublisher, ElasticsearchPublisher,
                         GrafanaCloudPublisher, MetricsPublisher,
@@ -37,13 +39,22 @@ from .publisher import (CompositePublisher, ElasticsearchPublisher,
 from .reporter import reporter
 
 
-def monitor_events(publishers: typing.List[MetricsPublisher] = None) -> None:
+def monitor_events(
+    publishers: typing.List[MetricsPublisher] = None,
+    logger_class: typing.Type[AbstractTelemetryLogger] = None,
+) -> None:
     """
     Start monitoring pipeline events and collecting metrics.
 
     Args:
         publishers: Optional list of MetricsPublisher instances to publish metrics
     """
+
+    if logger_class:
+        TelemetryLoggerFactory.set_logger_class(logger_class)
+
+    telemetry = TelemetryLoggerFactory.get_logger()
+
     if publishers:
         for pub in publishers:
             telemetry.add_publisher(pub)

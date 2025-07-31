@@ -73,6 +73,10 @@ class AbstractTelemetryLogger(ABC):
         pass
 
     @abstractmethod
+    def add_publisher(self, publisher: MetricsPublisher) -> None:
+        """Add a metrics publisher"""
+        pass
+    @abstractmethod
     def end_event(
         self,
         task_id: str,
@@ -156,6 +160,7 @@ class StandardTelemetryLogger(AbstractTelemetryLogger):
         """Record the end of an event execution"""
         with self._lock:
             metric = self._metrics.get(event_name=name, task_id=task_id)
+            #TODO: handle the case where there are multiple found because the user is using the wrong logger
             metric.end_time = time.time()
             metric.status = "failed" if error else "completed"
             metric.error = error
@@ -284,5 +289,3 @@ class DefaultBatchTelemetryLogger(AbstractTelemetryLogger):
             return self._metrics.copy()
 
 
-# Global telemetry logger instance
-telemetry = StandardTelemetryLogger()
