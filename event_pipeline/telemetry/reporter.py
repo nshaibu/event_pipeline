@@ -9,30 +9,11 @@ from .logger import EventMetrics, telemetry
 class TelemetryReporter:
     """Formats and outputs telemetry data"""
 
-    @staticmethod
-    def format_single_metric(metrics: EventMetrics) -> Dict[str, Any]:
-        """Format a single metric record"""
-        return {
-            "event_name": metrics.event_name,
-            "task_id": metrics.task_id,
-            "start_time": datetime.fromtimestamp(metrics.start_time).isoformat(),
-            "end_time": (
-                datetime.fromtimestamp(metrics.end_time).isoformat()
-                if metrics.end_time
-                else None
-            ),
-            "duration": f"{metrics.duration():.3f}s",
-            "status": metrics.status,
-            "error": metrics.error,
-            "retry_count": metrics.retry_count,
-            "process_id": metrics.process_id,
-        }
-
     def format_metrics(self, metrics: typing.Dict[str, typing.List[EventMetrics]]):
         """Format a dictionary of metrics"""
 
         return {
-            key: [self.format_single_metric(metric) for metric in metric_list]
+            key: [metric.to_dict() for metric in metric_list]
             for key, metric_list in metrics.items()
         }
 
@@ -47,7 +28,7 @@ class TelemetryReporter:
         """Get metrics for all failed events"""
         metrics = telemetry.get_all_metrics()
         return [
-            self.format_single_metric(m)
+            m.to_dict()
             for metric in metrics.values()
             for m in metric
             if m.status == "failed"
@@ -57,7 +38,7 @@ class TelemetryReporter:
         """Get metrics for events that took longer than threshold"""
         metrics = telemetry.get_all_metrics()
         return [
-            self.format_single_metric(m)
+            m.to_dict()
             for metric in metrics.values()
             for m in metric
             if m.duration() > threshold_seconds

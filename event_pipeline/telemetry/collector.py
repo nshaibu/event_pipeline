@@ -23,6 +23,9 @@ class MetricsCollector:
         """Handle event initialization"""
 
         event = kwargs.get("event")
+        #TODO: after the refactor make sure the make use of this id
+        pipeline_id = kwargs.get("pipeline_id")
+
         if event:
             telemetry.start_event(
                 event_name=event.__class__.__name__,

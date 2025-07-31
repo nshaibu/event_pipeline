@@ -1,8 +1,9 @@
-import typing
-import weakref
 import logging
 import threading
-from inspect import Signature, Parameter
+import typing
+import weakref
+from inspect import Parameter, Signature
+
 from event_pipeline.mixins import ObjectIdentityMixin
 
 logger = logging.getLogger(__name__)

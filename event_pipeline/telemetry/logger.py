@@ -3,6 +3,7 @@ import threading
 import time
 import typing
 from dataclasses import dataclass
+from datetime import datetime
 
 from .publisher import MetricsPublisher
 
@@ -21,12 +22,32 @@ class EventMetrics:
     error: typing.Optional[str] = None
     retry_count: int = 0
     process_id: typing.Optional[int] = None
+    pipeline_id: typing.Optional[str] = None
 
     def duration(self) -> float:
         """Calculate execution duration in seconds"""
         if not self.end_time:
             return 0
         return self.end_time - self.start_time
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary format"""
+        return {
+            "event_name": self.event_name,
+            "task_id": self.task_id,
+            "start_time": datetime.fromtimestamp(self.start_time).isoformat(),
+            "end_time": (
+                datetime.fromtimestamp(self.end_time).isoformat()
+                if self.end_time
+                else None
+            ),
+            "duration": f"{self.duration():.3f}s",
+            "status": self.status,
+            "error": self.error,
+            "retry_count": self.retry_count,
+            "process_id": self.process_id,
+            "pipeline_id": self.pipeline_id,
+        }
 
 
 Task_Id = str
