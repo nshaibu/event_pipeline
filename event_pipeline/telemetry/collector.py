@@ -23,14 +23,14 @@ class MetricsCollector:
         """Handle event initialization"""
 
         event = kwargs.get("event")
-        #TODO: after the refactor make sure the make use of this id
-        pipeline_id = kwargs.get("pipeline_id")
+        # TODO: after the refactor make sure the make use of this id
 
         if event:
             telemetry.start_event(
                 event_name=event.__class__.__name__,
                 task_id=event._task_id,
                 process_id=kwargs.get("process_id"),
+                pipeline_id=kwargs.get("pipeline_id"),
             )
 
     @staticmethod
@@ -45,7 +45,12 @@ class MetricsCollector:
             error = str(execution_context._errors[0])
         event = kwargs.get("event")
         if event:
-            telemetry.end_event(event._task_id, event.__class__.__name__, error=error)
+            telemetry.end_event(
+                event._task_id,
+                event.__class__.__name__,
+                error=error,
+                pipeline_id=kwargs.get("pipeline_id"),
+            )
 
     @staticmethod
     def on_event_retry(
@@ -53,7 +58,8 @@ class MetricsCollector:
     ) -> None:
         """Handle event retry"""
         event = kwargs.get("event")
-        telemetry.record_retry(task_id, event.__class__.__name__)
+        pipeline_id = kwargs.get("pipeline_id")
+        telemetry.record_retry(task_id, event.__class__.__name__,pipeline_id=pipeline_id)
 
 
 def register_collectors():
