@@ -1,44 +1,51 @@
-import unittest
 import time
+import unittest
+
 from event_pipeline import EventBase
-from event_pipeline.telemetry import (
-    monitor_events,
-    get_metrics,
-    get_failed_events,
-    get_slow_events,
-    get_retry_stats,
-    get_failed_network_ops,
-    get_slow_network_ops,
-)
-from event_pipeline.telemetry.logger import telemetry
-from event_pipeline.telemetry.network import network_telemetry
 from event_pipeline.executors.remote_executor import RemoteExecutor
+from event_pipeline.telemetry import (get_failed_events,
+                                      get_failed_network_ops, get_metrics,
+                                      get_retry_stats, get_slow_events,
+                                      get_slow_network_ops, monitor_events)
+from event_pipeline.telemetry.factory import TelemetryLoggerFactory
+from event_pipeline.telemetry.logger import StandardTelemetryLogger
+from event_pipeline.telemetry.network import network_telemetry
 
 
+# TODO: add tests for batch pipeline cases
 class TestTelemetry(unittest.TestCase):
     def setUp(self):
-        # Reset telemetry state before each test
-        telemetry._metrics.clear()
+        # Create a fresh factory instance for each test
+        TelemetryLoggerFactory._instance = None
+        TelemetryLoggerFactory.set_logger_class(StandardTelemetryLogger)
         network_telemetry._metrics.clear()
 
     def test_event_tracking(self):
+        telemetry = TelemetryLoggerFactory.get_logger()
         task_id = "test-task-1"
-        telemetry.start_event("TestEvent", task_id)
-        time.sleep(0.1)  # Simulate work
-        telemetry.end_event(task_id)
+        event_name = "TestEvent"
 
-        metrics = telemetry.get_metrics(task_id)
+        telemetry.start_event(event_name, task_id)
+        time.sleep(0.1)  # Simulate work
+        telemetry.end_event(task_id, event_name)
+
+        metrics = telemetry.get_metrics(event_name=event_name)
         self.assertIsNotNone(metrics)
+        assert metrics is not None  # done for lsp issues
         self.assertEqual(metrics.event_name, "TestEvent")
         self.assertEqual(metrics.status, "completed")
         self.assertGreater(metrics.duration(), 0)
 
     def test_failed_event_tracking(self):
+        telemetry = TelemetryLoggerFactory.get_logger()
         task_id = "test-task-2"
-        telemetry.start_event("FailedEvent", task_id)
-        telemetry.end_event(task_id, error="Test error")
+        event_name = "FailedEvent"
 
-        metrics = telemetry.get_metrics(task_id)
+        telemetry.start_event(event_name, task_id)
+        telemetry.end_event(task_id, event_name, error="Test error")
+
+        metrics = telemetry.get_metrics(event_name=event_name)
+        assert metrics is not None  # done for lsp issues
         self.assertEqual(metrics.status, "failed")
         self.assertEqual(metrics.error, "Test error")
 
@@ -47,13 +54,18 @@ class TestTelemetry(unittest.TestCase):
         self.assertEqual(failed_events[0]["event_name"], "FailedEvent")
 
     def test_retry_tracking(self):
+        telemetry = TelemetryLoggerFactory.get_logger()
         task_id = "test-task-3"
-        telemetry.start_event("RetryEvent", task_id)
-        telemetry.record_retry(task_id)
-        telemetry.record_retry(task_id)
-        telemetry.end_event(task_id)
+        event_name = "RetryEvent"
 
-        metrics = telemetry.get_metrics(task_id)
+        telemetry.start_event(event_name, task_id)
+        telemetry.record_retry(task_id, event_name)
+        telemetry.record_retry(task_id, event_name)
+        telemetry.end_event(task_id, event_name)
+
+        metrics = telemetry.get_metrics(event_name=event_name)
+        self.assertIsNotNone(metrics)
+        assert metrics is not None  # done for lsp issues
         self.assertEqual(metrics.retry_count, 2)
 
         retry_stats = get_retry_stats()
@@ -67,6 +79,7 @@ class TestTelemetry(unittest.TestCase):
         network_telemetry.end_operation(task_id, bytes_sent=1000, bytes_received=500)
 
         metrics = network_telemetry.get_metrics(task_id)
+        assert metrics is not None  # done for lsp issues
         self.assertIsNotNone(metrics)
         self.assertEqual(metrics.host, "localhost")
         self.assertEqual(metrics.port, 8080)
@@ -84,9 +97,12 @@ class TestTelemetry(unittest.TestCase):
         self.assertEqual(failed_ops[task_id].error, "Connection refused")
 
     def test_metrics_json_format(self):
+        telemetry = TelemetryLoggerFactory.get_logger()
         task_id = "test-task-4"
-        telemetry.start_event("JsonTest", task_id)
-        telemetry.end_event(task_id)
+        event_name = "JsonTest"
+
+        telemetry.start_event(event_name, task_id)
+        telemetry.end_event(task_id, event_name)
 
         metrics_json = get_metrics()
         self.assertIn("JsonTest", metrics_json)
