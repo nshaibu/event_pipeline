@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 
+from event_pipeline.exceptions import MultiValueError, ObjectDoesNotExist
 from event_pipeline.mixins.identity import ObjectIdentityMixin
 from event_pipeline.result import ResultSet
 
@@ -76,6 +77,7 @@ class AbstractTelemetryLogger(ABC):
     def add_publisher(self, publisher: MetricsPublisher) -> None:
         """Add a metrics publisher"""
         pass
+
     @abstractmethod
     def end_event(
         self,
@@ -95,7 +97,6 @@ class AbstractTelemetryLogger(ABC):
         pass
 
     @abstractmethod
-    # TODO: refactor this for the case of a batch pipeline
     def get_metrics(self, **kwargs) -> typing.Union[EventMetrics, ResultSet, None]:
         """Get metrics for a specific task"""
         pass
@@ -159,8 +160,29 @@ class StandardTelemetryLogger(AbstractTelemetryLogger):
     ) -> None:
         """Record the end of an event execution"""
         with self._lock:
-            metric = self._metrics.get(event_name=name, task_id=task_id)
-            #TODO: handle the case where there are multiple found because the user is using the wrong logger
+            try:
+                metric = self._metrics.get(event_name=name, task_id=task_id)
+            except MultiValueError:
+                logger.error(
+                    f"Multiple metrics found for event_name='{name}' and task_id='{task_id}'. "
+                    f"This suggests you may be using the wrong logger type. "
+                    f"Consider using DefaultBatchTelemetryLogger for batch processing."
+                )
+                return
+            except ObjectDoesNotExist:
+                logger.error(
+                    f"No metric found for event_name='{name}' and task_id='{task_id}'. "
+                    f"Make sure start_event was called before end_event."
+                )
+                return
+
+            if metric is None:
+                logger.error(
+                    f"No metric found for event_name='{name}' and task_id='{task_id}'. "
+                    f"Make sure start_event was called before end_event."
+                )
+                return
+
             metric.end_time = time.time()
             metric.status = "failed" if error else "completed"
             metric.error = error
@@ -248,9 +270,31 @@ class DefaultBatchTelemetryLogger(AbstractTelemetryLogger):
     ) -> None:
         """Record the end of an event execution"""
         with self._lock:
+            if pipeline_id not in self._metrics:
+                logger.error(
+                    f"No metrics found for pipeline_id='{pipeline_id}'. "
+                    f"Make sure start_event was called before end_event."
+                )
+                return
+
             pipeline_metrics = self._metrics[pipeline_id]
 
-            metrics = pipeline_metrics.get(event_name=name, task_id=task_id)
+            try:
+                metrics = pipeline_metrics.get(event_name=name, task_id=task_id)
+            except ObjectDoesNotExist:
+                logger.error(
+                    f"No metric found for event_name='{name}' and task_id='{task_id}' "
+                    f"in pipeline_id='{pipeline_id}'. Make sure start_event was called before end_event."
+                )
+                return
+
+            if metrics is None:
+                logger.error(
+                    f"No metric found for event_name='{name}' and task_id='{task_id}' "
+                    f"in pipeline_id='{pipeline_id}'. Make sure start_event was called before end_event."
+                )
+                return
+
             metrics.end_time = time.time()
             metrics.status = "failed" if error else "completed"
             metrics.error = error
@@ -287,5 +331,3 @@ class DefaultBatchTelemetryLogger(AbstractTelemetryLogger):
         """Get all collected metrics"""
         with self._lock:
             return self._metrics.copy()
-
-
