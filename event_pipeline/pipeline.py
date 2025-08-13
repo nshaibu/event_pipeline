@@ -792,44 +792,54 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             args[field_name] = getattr(self, field_name, None)
         return args
 
-    def _init_pipelines(self) -> None:
+    # def _init_pipelines(self) -> None:
+    #     """
+    #     Initializes and configures processing pipelines, handling both batch and non-batch operations.
+    #     """
+    #     template = self.get_pipeline_template()
+    #
+    #     if not self._field_batch_op_map:
+    #         self._gather_and_init_field_batch_iterators()
+    #
+    #     non_batch_kwargs = self._prepare_args_for_non_batch_fields()
+    #
+    #     if not self._field_batch_op_map:
+    #         # Configure only one pipeline
+    #         self._configured_pipelines.add(template(**non_batch_kwargs))
+    #         return
+    #
+    #     for kwargs in self._execute_field_batch_processors(self._field_batch_op_map):
+    #         if any([value for value in kwargs.values()]):
+    #             kwargs.update(non_batch_kwargs)
+    #             pipeline = template(**kwargs)
+    #             self._configured_pipelines.add(pipeline)
+
+    def execute(self):
         """
-        Initializes and configures processing pipelines, handling both batch and non-batch operations.
+        Initializes, configures processing pipelines and executes them.
         """
+        # self._init_pipelines()
+
         template = self.get_pipeline_template()
 
         if not self._field_batch_op_map:
             self._gather_and_init_field_batch_iterators()
 
         non_batch_kwargs = self._prepare_args_for_non_batch_fields()
-
-        if not self._field_batch_op_map:
-            # Configure only one pipeline
-            self._configured_pipelines.add(template(**non_batch_kwargs))
-            return
-
-        for kwargs in self._execute_field_batch_processors(self._field_batch_op_map):
-            if any([value for value in kwargs.values()]):
-                kwargs.update(non_batch_kwargs)
-                pipeline = template(**kwargs)
-                self._configured_pipelines.add(pipeline)
-
-    def execute(self):
-        self._init_pipelines()
-
-        if not self._configured_pipelines:
+        
+        if len(non_batch_kwargs) == 0 and not self._field_batch_op_map:
             raise PipelineConfigurationError(
-                message=f"Starting batch execution of pipeline '{self.pipeline_template}' failed. "
+                message=f"Starting batch execution of pipeline '{self.pipeline_template}' failed. " 
                 f"No pipeline were configured.",
-                code="not_configured_pipeline",
+                code="not_configured_pipeline"
             )
-
+        
         self.status = BatchPipelineStatus.RUNNING
 
-        if len(self._configured_pipelines) == 1:
-            # if only one pipeline configured, just run it. Don't create any sub process
-            for pipeline in self._configured_pipelines:
-                pipeline.start(force_rerun=True)
+        if not self._field_batch_op_map:
+            # execute pipeline here
+            pipeline = template(**non_batch_kwargs)
+            pipeline.start(force_rerun=True)
         else:
 
             def _process_futures(fut: Future, batch: "BatchPipeline" = self):
@@ -865,15 +875,20 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             with ProcessPoolExecutor(
                 max_workers=conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
             ) as executor:
-                for pipeline in self._configured_pipelines:
-                    future = executor.submit(
-                        self._pipeline_executor,
-                        pipeline=pipeline,
-                        focus_on_signals=self.listen_to_signals,
-                        signals_queue=self._signals_queue,
-                    )
 
-                    future.add_done_callback(partial(_process_futures, batch=self))
+                for kwargs in self._execute_field_batch_processors(self._field_batch_op_map):
+                    if any([value for value in kwargs.values()]):
+                        kwargs.update(non_batch_kwargs)
+                        pipeline = template(**kwargs)
+                        
+                        future = executor.submit(
+                            self._pipeline_executor,
+                            pipeline=pipeline,
+                            focus_on_signals=self.listen_to_signals,
+                            signals_queue=self._signals_queue,
+                        )
+
+                        future.add_done_callback(partial(_process_futures, batch=self))
 
             self._signals_queue.put(None)
             self._monitor_thread.join()
