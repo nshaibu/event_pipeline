@@ -1,5 +1,6 @@
 import os
 import time
+import traceback
 import typing
 from enum import Enum
 
@@ -100,4 +101,29 @@ class PipelineWrapper:
         self._connected_signals.clear()
 
     def run(self):
-        pass
+        """
+        Execute the pipeline, emitting lifecycle events and returning
+        (pipeline, exception) to preserve existing batch behaviour.
+        """
+        self._emit_lifecycle(PipelineExecutionState.START)
+        self._connect_signals()
+
+        exception = None
+
+        try:
+            self._emit_lifecycle(PipelineExecutionState.PROCESS)
+            self.pipeline.start(force_rerun=True)
+            self._emit_lifecycle(PipelineExecutionState.SUCCESS)
+        except Exception as e:
+            exception = e
+            traceback = "".join(
+                traceback.format_exception(type(exc), e, e.__traceback__)
+            )
+            self._emit_lifecycle(
+                PipelineExecutionState.FAIL, error=str(e), traceback=traceback
+            )
+        finally:
+            self._emit_lifecycle(PipelineExecutionState.END)
+            self._disconnect_signals()
+
+        return self.pipeline, exception
