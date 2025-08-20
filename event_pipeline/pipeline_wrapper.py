@@ -116,11 +116,9 @@ class PipelineWrapper:
             self._emit_lifecycle(PipelineExecutionState.SUCCESS)
         except Exception as e:
             exception = e
-            traceback = "".join(
-                traceback.format_exception(type(exc), e, e.__traceback__)
-            )
+            tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
             self._emit_lifecycle(
-                PipelineExecutionState.FAIL, error=str(e), traceback=traceback
+                PipelineExecutionState.FAIL, error=str(e), traceback=tb
             )
         finally:
             self._emit_lifecycle(PipelineExecutionState.END)
