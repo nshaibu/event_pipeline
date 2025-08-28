@@ -5,53 +5,256 @@ Introduction
 ------------
 
 This documentation provides a comprehensive guide to defining and configuring events in the event pipeline system.
-Events are the core components that define the processing logic and execution behavior within the pipeline.
+Events are the building blocks of the event pipeline system. They represent individual units of work that take in input data, 
+process the data, perform operations, return an output, and determine the flow of execution. 
+Think of events as steps in a recipe - each one performs a specific task, and together they create a complete processing pipeline.
 
-Define the Event Class
-~~~~~~~~~~~~~~~~~~~~~~
+Key Concepts:
+
+- Events encapsulate processing logic
+
+- They can succeed or fail, affecting pipeline flow
+
+- Multiple events can run concurrently using executors
+
+- Events support retry mechanisms for fault tolerance
+
+
+Events are flexible:
+
+- They can be defined as classes or functions.
+
+- They can run concurrently using executors.
+
+- They can be configured to retry on failure, switch tasks, or even skip execution under certain conditions.
+
+This guide will show you how to define, configure, and use events step by step.
+
+
+Quick Start
+-----------
+
+Let's create a simple event that processes user data:
+
+.. code-block:: python
+
+    from event_pipeline import EventBase
+
+    class UserRegistrationEvent(EventBase):
+        def process(self, user_data, *args, **kwargs):
+            # Simple validation and processing
+            if not user_data.get('email'):
+                return False, "Email is required"
+            
+            # Process the user registration
+            user_id = self._create_user(user_data)
+            return True, {"user_id": user_id, "status": "registered"}
+        
+        def _create_user(self, user_data):
+            # Your user creation logic here
+            return "u983"  # Return generated user ID
+..
+
+
+Defining events
+---------------
+
+**Class Based Events**
 
 To define an event, you need to inherit from the ``EventBase`` class and override the ``process`` method. This method
 contains the logic that will be executed when the event is processed.
 
 .. code-block:: python
 
-   from nexus import EventBase
+    from nexus import EventBase
 
-   class MyEvent(EventBase):
-       def process(self, *args, **kwargs):
-           # Event processing logic here
-           return True, "Event processed successfully"
+    class MyCustomEvent(EventBase):
+        def process(self, input_data, *args, **kwargs):
+            """
+            Process input data and return success status with result
+            
+            Args:
+                input_data: Data to process
+                *args, **kwargs: Additional parameters
+                
+            Returns:
+                Tuple[bool, Any]: (success_status, result_message_or_data)
+            """
+            try:
+                # Your processing logic here
+                processed_data = self._transform_data(input_data)
+                return True, processed_data
+            except Exception as e:
+                return False, f"Processing failed: {str(e)}"
+..
 
 The ``process`` method should return a tuple containing:
 
 1. A boolean indicating success (``True``) or failure (``False``)
-2. A result value or message
+2. A result value or message, which can be a string message or dict, list, etc.
 
-Specify the Executor for the Event
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Every event must specify an executor that defines how the event will be executed. Executors manage the concurrency or parallelism when the event is being processed.
+**Function Based Events**
 
-Executors implement the ``Executor`` interface from the ``concurrent.futures._base`` module in the Python standard library. If no executor is specified, the ``DefaultExecutor`` will be used.
+In addition to defining events using classes, you can also define events as functions using the ``@event`` decorator from the ``decorators`` module.
 
 .. code-block:: python
 
-   from nexus.executors import ThreadPoolExecutor
+    from nexus.executors import ThreadPoolExecutor
 
-   class MyEvent(EventBase):
-       executor = ThreadPoolExecutor  # Specify executor for the event
+    # Define a function-based event using the @event decorator
+    @event()
+    def my_event(input_data, *args, **kwargs):
+        """
+            Process input data and return success status with result
+            
+            Args:
+                input_data: Data to process
+                *args, **kwargs: Additional parameters
+                
+            Returns:
+                Tuple[bool, Any]: (success_status, result_message_or_data)
+        """
+        try:
+            # Your processing logic here
+            processed_data = self._transform_data(input_data)
+            return True, processed_data
+        except Exception as e:
+            return False, f"Processing failed: {str(e)}"
+..
 
-       def process(self, *args, **kwargs):
-           # Event processing logic here
-           return True, "Event processed successfully"
+Configuring Executors
+---------------------
 
-Executor Configuration
-~~~~~~~~~~~~~~~~~~~~~~
+Executors control how events run - whether they execute sequentially, in threads, or in separate processes.
+Every event must specify an ``executor`` that defines how the event will be executed. 
+Executors manage the concurrency or parallelism when the event is being processed.
+Executors implement the ``Executor`` interface from the ``concurrent.futures._base`` module in the Python standard library. 
+If no executor is specified, the ``DefaultExecutor`` will be used.
 
-The ``ExecutorInitializerConfig`` class is used to configure the initialization of an executor that manages event processing. This class allows you to control several aspects of the executor's behavior.
+**Default Behavior**
 
-Configuration Fields
---------------------
+If you don't specify an executor, events use the DefaultExecutor which runs tasks sequentially:
+
+.. code-block:: python
+
+    class SimpleEvent(EventBase):
+        # Uses DefaultExecutor (sequential execution)
+        def process(self, data):
+            return True, f"Processed: {data}"
+..
+
+**Using Thread Pool Executor**
+
+For concurrent execution using threads:
+
+.. code-block:: python
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    class ConcurrentEvent(EventBase):
+        executor = ThreadPoolExecutor  # Run in thread pool
+        
+        def process(self, data):
+            # This will run concurrently with other events
+            return True, data
+..
+
+
+**Using Process Pool Executor**
+
+For CPU-intensive tasks using separate processes:
+
+.. code-block:: python
+
+    from concurrent.futures import ProcessPoolExecutor
+
+    class CPUIntensiveEvent(EventBase):
+        executor = ProcessPoolExecutor  # Run in separate processes
+        
+        def process(self, data):
+            # CPU-intensive processing here
+            return True, data
+..
+
+
+Simple Executor Configuration
+-----------------------------
+
+The ``ExecutorInitializerConfig`` class is used to configure the initialization of an executor that manages event processing. 
+This class allows you to control several aspects of the executor's behavior.
+
+
+**Example Configuration**
+
+Here's an example of how to use the ``ExecutorInitializerConfig`` class:
+
+.. code-block:: python
+
+    from event_pipeline import ExecutorInitializerConfig, EventBase
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Configuring an executor with specific settings
+    config = ExecutorInitializerConfig(
+        max_workers=4,
+        max_tasks_per_child=50,
+        thread_name_prefix="event_executor_"
+    )
+
+    class ConfiguredEvent(EventBase):
+        executor = ThreadPoolExecutor
+        
+        # Simple dictionary configuration
+        executor_config = config
+        
+        def process(self, data):
+            # Event processing logic here
+            return True, data
+..
+
+
+Alternatively, you can provide configuration as a dictionary:
+
+.. code-block:: python
+
+    class ConfiguredEvent(EventBase):
+        executor = ThreadPoolExecutor
+
+        # Configure the executor using a dictionary
+        executor_config = {
+            "max_workers": 4,
+            "max_tasks_per_child": 50,
+            "thread_name_prefix": "event_executor_"
+        }
+
+        def process(self, *args, **kwargs):
+            # Event processing logic here
+            return True, data
+..
+
+
+The ``@event`` decorator allows you to also configure the executor for the event's execution:
+
+.. code-block:: python
+
+    from event_pipeline.decorators import event
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Define a function-based event with configuration
+    @event(
+        executor=ThreadPoolExecutor,               # Define the executor to use
+        max_workers=4,                             # Specify max workers
+        max_tasks_per_child=10,                    # Limit tasks per worker
+        thread_name_prefix="my_event_executor",    # Prefix for thread names
+        stop_on_exception=True                     # Stop execution on exception
+    )
+    def my_event(*args, **kwargs):
+        # Event processing logic here
+        return True, data
+..
+
+
+**Configuration Fields**
 
 The ``ExecutorInitializerConfig`` class contains the following configuration fields:
 
@@ -73,50 +276,48 @@ The ``ExecutorInitializerConfig`` class contains the following configuration fie
    - **Description**: A string to use as a prefix when naming threads.
    - **Default**: If not provided (``EMPTY``), threads will not have a prefix.
 
-Example Configuration
----------------------
 
 Here's an example of how to use the ``ExecutorInitializerConfig`` class:
 
 .. code-block:: python
 
-   from nexus import ExecutorInitializerConfig, EventBase
-   from nexus.executors import ThreadPoolExecutor
+    from nexus import ExecutorInitializerConfig, EventBase
+    from nexus.executors import ThreadPoolExecutor
 
-   # Configuring an executor with specific settings
-   config = ExecutorInitializerConfig(
-       max_workers=4,
-       max_tasks_per_child=50,
-       thread_name_prefix="event_executor_"
-   )
+    # Configuring an executor with specific settings
+    config = ExecutorInitializerConfig(
+        max_workers=4,
+        max_tasks_per_child=50,
+        thread_name_prefix="event_executor_"
+    )
 
-   class MyEvent(EventBase):
-       executor = ThreadPoolExecutor
+    class MyEvent(EventBase):
+        executor = ThreadPoolExecutor
 
-       # Configure the executor
-       executor_config = config
+        # Configure the executor
+        executor_config = config
 
-       def process(self, *args, **kwargs):
-           # Event processing logic here
-           return True, "Event processed successfully"
+        def process(self, *args, **kwargs):
+            # Event processing logic here
+            return True, "Event processed successfully"
 
 Alternatively, you can provide configuration as a dictionary:
 
 .. code-block:: python
 
-   class MyEvent(EventBase):
-       executor = ThreadPoolExecutor
+    class MyEvent(EventBase):
+        executor = ThreadPoolExecutor
 
-       # Configure the executor using a dictionary
-       executor_config = {
-           "max_workers": 4,
-           "max_tasks_per_child": 50,
-           "thread_name_prefix": "event_executor_"
-       }
+        # Configure the executor using a dictionary
+        executor_config = {
+            "max_workers": 4,
+            "max_tasks_per_child": 50,
+            "thread_name_prefix": "event_executor_"
+        }
 
-       def process(self, *args, **kwargs):
-           # Event processing logic here
-           return True, "Event processed successfully"
+        def process(self, *args, **kwargs):
+            # Event processing logic here
+            return True, "Event processed successfully"
 
 Default Behavior
 ----------------
@@ -131,25 +332,29 @@ For example:
 
 .. code-block:: python
 
-   config = ExecutorInitializerConfig()  # Default configuration
+    config = ExecutorInitializerConfig()  # Default configuration
+..
 
-Function-Based Events
-~~~~~~~~~~~~~~~~~~~~~
+Retry Policies
+--------------
 
-In addition to defining events using classes, you can also define events as functions using the ``event`` decorator from the ``decorators`` module.
+Retry policies help handle temporary failures by automatically retrying events.
+Events may fail because of temporary errors (network issues, timeouts, etc.).
+For handling events that may fail intermittently, you can define a retry policy. 
+The retry policy allows you to configure settings like maximum retry attempts, backoff strategy, and which exceptions should trigger a retry.
 
 Basic Function-Based Event
 --------------------------
 
 .. code-block:: python
 
-   from nexus.decorators import event
+    from nexus.decorators import event
 
-   # Define a function-based event using the @event decorator
-   @event()
-   def my_event(*args, **kwargs):
-       # Event processing logic here
-       return True, "Event processed successfully"
+    # Define a function-based event using the @event decorator
+    @event()
+    def my_event(*args, **kwargs):
+        # Event processing logic here
+        return True, "Event processed successfully"
 
 Configuring Function-Based Events
 ---------------------------------
@@ -158,20 +363,20 @@ The ``event`` decorator allows you to configure the executor for the event's exe
 
 .. code-block:: python
 
-   from nexus.decorators import event
-   from nexus.executors import ThreadPoolExecutor
+    from nexus.decorators import event
+    from nexus.executors import ThreadPoolExecutor
 
-   # Define a function-based event with configuration
-   @event(
-       executor=ThreadPoolExecutor,               # Define the executor to use
-       max_workers=4,                             # Specify max workers
-       max_tasks_per_child=10,                    # Limit tasks per worker
-       thread_name_prefix="my_event_executor",    # Prefix for thread names
-       stop_on_exception=True                     # Stop execution on exception
-   )
-   def my_event(*args, **kwargs):
-       # Event processing logic here
-       return True, "Event processed successfully"
+    # Define a function-based event with configuration
+    @event(
+        executor=ThreadPoolExecutor,               # Define the executor to use
+        max_workers=4,                             # Specify max workers
+        max_tasks_per_child=10,                    # Limit tasks per worker
+        thread_name_prefix="my_event_executor",    # Prefix for thread names
+        stop_on_exception=True                     # Stop execution on exception
+    )
+    def my_event(*args, **kwargs):
+        # Event processing logic here
+        return True, "Event processed successfully"
 
 Event Result Evaluation
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -191,13 +396,13 @@ Example Usage
 
 .. code-block:: python
 
-   from nexus import EventBase, EventExecutionEvaluationState
+    from nexus import EventBase, EventExecutionEvaluationState
 
-   class MyEvent(EventBase):
-       execution_evaluation_state = EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
+    class MyEvent(EventBase):
+        execution_evaluation_state = EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
 
-       def process(self, *args, **kwargs):
-           return True, "obrafour"
+        def process(self, *args, **kwargs):
+            return True, "obrafour"
 
 Specifying a Retry Policy for Events
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -211,64 +416,93 @@ The ``RetryPolicy`` class has the following parameters:
 
 .. code-block:: python
 
-   @dataclass
-   class RetryPolicy(object):
-       max_attempts: int   # Maximum retry attempts
-       backoff_factor: float  # Backoff time between retries
-       max_backoff: float  # Maximum allowed backoff time
-       retry_on_exceptions: typing.List[typing.Type[Exception]]  # Exceptions that trigger a retry
+    @dataclass
+    class RetryPolicy(object):
+        max_attempts: int   # Maximum retry attempts
+        backoff_factor: float  # Backoff time between retries
+        max_backoff: float  # Maximum allowed backoff time
+        retry_on_exceptions: typing.List[typing.Type[Exception]]  # Exceptions that trigger a retry
+..
 
-Configuring the RetryPolicy
----------------------------
+
+**Basic Retry Configuration**
 
 You can create an instance of ``RetryPolicy`` or define it as a dictionary:
 
 .. code-block:: python
 
-   from nexus.base import RetryPolicy
+    from nexus.base import RetryPolicy
 
-   # Define a custom retry policy as an instance
-   retry_policy = RetryPolicy(
-       max_attempts=5,  # Maximum number of retries
-       backoff_factor=0.1,  # 10% backoff factor
-       max_backoff=5.0,  # Max backoff of 5 seconds
-       retry_on_exceptions=[ConnectionError, TimeoutError]  # Specific exceptions
-   )
+    class NetworkEvent(EventBase):
+        # Retry on network errors
+        retry_policy = {
+            "max_attempts": 3,  # Try up to 3 times
+            "backoff_factor": 1.0,  # Wait 1, 2, 4 seconds between retries
+            "max_backoff": 10.0,  # Never wait more than 10 seconds
+            "retry_on_exceptions": [ConnectionError, TimeoutError]
+        }
+        
+        def process(self, url):
+            response = requests.get(url)  # This might fail temporarily
+            return True, response.json()
+..
 
-   # Or define as a dictionary
-   retry_policy_dict = {
-       "max_attempts": 5,
-       "backoff_factor": 0.1,
-       "max_backoff": 5.0,
-       "retry_on_exceptions": [ConnectionError, TimeoutError]
-   }
+OR
+
+.. code-block:: python
+
+    from nexus import EventBase, RetryPolicy
+    from requests.exceptions import ConnectionError, TimeoutError
+
+    _retry_policy = RetryPolicy(
+        max_attempts=3,  # Try up to 3 times
+        backoff_factor=1.0,  # Wait 1, 2, 4 seconds between retries
+        max_backoff=10.0,  # Never wait more than 10 seconds
+        retry_on_exceptions=[ConnectionError, TimeoutError]
+    )
+
+    class NetworkEvent(EventBase):
+        # Retry on network errors
+        retry_policy = _retry_policy
+        
+        def process(self, url):
+            response = requests.get(url)  # This might fail temporarily
+            return True, response.json()
+..
+
+
+**Understanding Retry Parameters**
 
 The configuration parameters are:
 
-- ``max_attempts``: The maximum number of times the event will be retried.
+- ``max_attempts``: The maximum number of times the event will be retried (initial + retries).
 - ``backoff_factor``: How long the system will wait between retry attempts, increasing with each retry.
 - ``max_backoff``: The maximum time to wait between retries.
 - ``retry_on_exceptions``: A list of exception types that should trigger a retry.
 
-Assigning the Retry Policy to an Event
---------------------------------------
 
-Once defined, you can assign the retry policy to your event class:
+**Another Practical Retry Example**
 
 .. code-block:: python
 
-   import typing
-   from nexus import EventBase
+    import typing
+    from nexus import EventBase
+    
+    class DatabaseEvent(EventBase):
+        retry_policy = {
+            "max_attempts": 5,
+            "backoff_factor": 0.5,  # Wait 0.5, 1, 2, 4, 8 seconds
+            "retry_on_exceptions": [DatabaseConnectionError]
+        }
+        
+        def process(self, query):
+            # Database operation that might fail temporarily
+            result = database.execute(query)
+            return True, result
+..
 
-   class MyEvent(EventBase):
-       # Assign instance of RetryPolicy or RetryPolicy dictionary
-       retry_policy = retry_policy
 
-       def process(self, *args, **kwargs) -> typing.Tuple[bool, typing.Any]:
-           pass
-
-How the Retry Policy Works
---------------------------
+**How the Retry Policy Works**
 
 When an event is processed, if it fails due to an exception in the ``retry_on_exceptions`` list:
 
@@ -277,3 +511,318 @@ When an event is processed, if it fails due to an exception in the ``retry_on_ex
 3. If the maximum retry attempts are exceeded, the event will be marked as failed.
 
 This retry mechanism ensures that intermittent failures do not cause a complete halt in processing and allows for better fault tolerance in your system.
+
+
+Advanced Features
+------------------
+
+**Event Result Evaluation**
+
+The ``EventExecutionEvaluationState`` class defines the criteria for evaluating the success or failure of an event based on the outcomes of its tasks.
+
+**Available States**
+
+- ``SUCCESS_ON_ALL_EVENTS_SUCCESS``: The event is considered successful only if all tasks succeeded. This is the **default** state.
+- ``FAILURE_FOR_PARTIAL_ERROR``: The event is considered a failure if any task fails.
+- ``SUCCESS_FOR_PARTIAL_SUCCESS``: The event is considered successful if at least one task succeeds.
+- ``FAILURE_FOR_ALL_EVENTS_FAILURE``: The event is considered a failure only if all tasks fail.
+
+**Example Usage**
+
+.. code-block:: python
+
+    from event_pipeline import EventBase, EventExecutionEvaluationState
+
+    class StrictEvent(EventBase):
+        # Only succeed if ALL tasks succeed (default)
+        execution_evaluation_state = EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
+
+        def process(self, *args, **kwargs):
+            return True, "obrafour"
+
+    class LenientEvent(EventBase):
+        # Succeed if ANY task succeeds
+        execution_evaluation_state = EventExecutionEvaluationState.SUCCESS_FOR_PARTIAL_SUCCESS
+
+        def process(self, *args, **kwargs):
+            return True, "obrafour"
+..
+
+
+**Stopping Conditions**
+
+Events can control whether the pipeline should stop early after their execution.
+This is useful for cases where certain outcomes (such as success, error, or exception) should halt further event processing.
+
+The stop condition for an event is defined using the ``StopCondition`` enum, which can be imported from ``event_pipeline.parser.options``.
+
+**Available stop conditions:**
+
+.. code-block:: python
+
+    class StopCondition(Enum):
+        """Defines when task execution should stop."""
+
+        NEVER = "never"               # The pipeline never stops early (default)
+        ON_ERROR = "on_error"         # Stop if the event fails
+        ON_SUCCESS = "on_success"     # Stop if the event succeeds
+        ON_EXCEPTION = "on_exception" # Stop if an exception occurs
+        ON_ANY = "on_any"             # Stop on either success, failure, or exception
+..
+
+
+**Example Usage**
+
+.. code-block:: python
+
+    from event_pipeline import EventBase
+    from event_pipeline.parser.options import StopCondition
+
+    class MyCustomEvent(EventBase):
+        # Stop the pipeline if this event encounters an error
+        stop_condition = StopCondition.ON_ERROR
+
+        def process(self, *args, **kwargs):
+            if kwargs.get("fail", False):
+                return False, "Something went wrong"
+            return True, "Event processed successfully"
+..
+
+In this example:
+
+    - If MyCustomEvent fails (process returns False), the pipeline will stop immediately.
+    - If it succeeds, the pipeline continues to the next event.
+
+
+**Task Transitions (Goto)**
+
+Jump to different tasks based on results.
+
+**Example Usage**
+
+.. code-block:: python
+
+    class ConditionalEvent(EventBase):
+    def process(self, data, *args, **kwargs):
+        if data.get('type') == 'premium':
+            # Jump to premium processing task (task ID 101)
+            self.goto(
+                descriptor=101,                 # The identifier of the next task to switch to.
+                result_status=True,             # Indicates if the current task succeeded or failed.
+                result=data,                    # The result data to pass to the next task.
+                reason="Premium user detected"  # Reason for the task switch. Defaults to "manual".
+            )
+        
+        # Normal processing for regular users
+        return True, self._process_regular_user(data)
+..
+
+
+**Event Bypassing**
+
+Sometimes you may want to skip certain events based on specific conditions without affecting the overall pipeline flow. 
+The ``can_bypass_current_event`` method allows you to define custom rules for bypassing events when appropriate.
+
+When an event is about to execute, the system first checks if it can be bypassed. 
+If bypass conditions are met, the event is skipped entirely, and processing continues with the next event in the pipeline.
+
+**Example Usage**
+
+.. code-block:: python
+
+    class UserValidationEvent(EventBase):
+        def can_bypass_current_event(self):
+            """
+            Determine if this validation event should be skipped
+            
+            Returns:
+                Tuple[bool, Any]: (should_skip, data_to_pass_forward)
+            """
+            # Skip validation for admin users
+            if self._execution_context.user_role == 'admin':
+                return True, {"bypass_reason": "Admin users skip validation"}
+            
+            # Skip validation during system maintenance
+            if self._execution_context.is_maintenance_mode:
+                return True, {"bypass_reason": "Maintenance mode active"}
+                
+            # Normal execution for all other cases
+            return False, None
+        
+        def process(self, user_data):
+            # This only runs if can_bypass_current_event returns False
+            return self._validate_user(user_data)
+..
+
+
+**Returned Values Explained**
+
+The method returns a tuple with two elements:
+
+1. Bypass Decision (bool):
+    - True: Skip this event entirely
+    - False: Execute the event normally
+
+2. Result Data (Any):
+    - Data to pass to the next event when bypassing
+    - Can be None if no specific data needs to be passed
+
+
+Examples of real world application
+-----------------------------------
+
+**E-commerce Order Processing**
+
+.. code-block:: python
+
+    from event_pipeline import EventBase
+    from concurrent.futures import ThreadPoolExecutor
+
+    class ValidateOrderEvent(EventBase):
+        def process(self, order_data):
+            if not order_data.get('items'):
+                return False, "Order has no items"
+            return True, order_data
+
+    class ProcessPaymentEvent(EventBase):
+        executor = ThreadPoolExecutor
+        retry_policy = {
+            "max_attempts": 3,
+            "retry_on_exceptions": [PaymentGatewayError]
+        }
+        
+        def process(self, order_data):
+            payment_result = payment_gateway.charge(order_data['total'])
+            return True, payment_result
+
+    class SendConfirmationEvent(EventBase):
+        def process(self, order_data, payment_result):
+            email_service.send_confirmation(
+                order_data['email'],
+                order_data['order_id']
+            )
+            return True, "Confirmation sent"
+..
+
+
+**Data Processing Pipeline**
+
+.. code-block:: python
+
+    class DataExtractionEvent(EventBase):
+        def process(self, source):
+            data = extract_from_source(source)
+            return True, data
+
+    class DataTransformationEvent(EventBase):
+        executor = ProcessPoolExecutor  # CPU-intensive
+        
+        def process(self, raw_data):
+            transformed = transform_data(raw_data)
+            return True, transformed
+
+    class DataLoadEvent(EventBase):
+        retry_policy = {
+            "max_attempts": 5,
+            "retry_on_exceptions": [DatabaseError]
+        }
+        
+        def process(self, transformed_data):
+            load_to_database(transformed_data)
+            return True, "Load successful"
+..
+
+
+FAQs
+----
+
+Q: Why is my event not executing?
+A: Check that:
+    - You've implemented the process method
+    - The event is properly registered in your pipeline
+    - You're passing the required parameters
+
+
+Q: How do I handle exceptions in events?
+A: Either:
+    - Catch exceptions and return False with error message
+    -Let the exception bubble up for the retry mechanism
+
+.. code-block:: python
+
+    def process(self, data):
+        try:
+            result = risky_operation(data)
+            return True, result
+        except SpecificError as e:
+            return False, f"Operation failed: {str(e)}"
+..
+
+
+Q: When should I use different executors?
+A:
+    - DefaultExecutor: Simple sequential execution
+    - ThreadPoolExecutor: I/O-bound operations (HTTP requests, file I/O)
+    - ProcessPoolExecutor: CPU-intensive computations
+
+
+Best Practices
+--------------
+
+**Keep Events Focused**
+
+.. code-block:: python
+
+    # Good: Single responsibility
+    class ValidateEmailEvent(EventBase):
+        def process(self, email):
+            return is_valid_email(email), email
+
+    # Avoid: Doing too much
+    class ProcessUserEvent(EventBase):
+        def process(self, user_data):
+            # Validation goes here
+            # processing goes here
+            # notification goes here
+
+            # too many responsibilities in this process method alone, 
+            # if possible break them into different events on their own
+            pass
+..
+
+
+**Use Meaningful Error Messages**
+
+.. code-block:: python
+
+    # Good: return meaningful and specific error messages
+    def process(self, data):
+        if not data.get('required_field'):
+            return False, "Missing required_field parameter"  # Specific
+    
+    # Avoid: using vague and generic error messages
+    def process(self, data):
+        if not data.get('required_field'):
+            return False, "Error occurred"  # Vague
+..
+
+
+Troubleshooting Common Issues
+-----------------------------
+
+**Event Not Being Called**
+
+Check your pipeline configuration and ensure the event is properly registered.
+
+**Retries Not Working**
+
+Verify that:
+    - The exception type is in retry_on_exceptions
+    - max_attempts is greater than 1
+    - The exception is actually being raised
+
+**Performance Issues**
+
+- Use ProcessPoolExecutor for CPU-bound tasks
+- Use ThreadPoolExecutor for I/O-bound tasks
+- Monitor executor worker counts
