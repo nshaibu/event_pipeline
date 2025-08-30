@@ -13,7 +13,6 @@ class PipelineExecutionState(Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
-    CLEANUP = "cleanup"
     FINISHED = "finished"
 
 
@@ -69,35 +68,6 @@ class PipelineWrapper:
     def _now(self) -> float:
         return time.time()
 
-    def _emit_lifecycle(
-        self,
-        state: PipelineExecutionState,
-        event_type: str,
-        *,
-        error: typing.Optional[typing.Any] = None,
-        extras: typing.Dict[str, typing.Any] = None,
-    ) -> None:
-        message: Message = Message(
-            message_type=event_type,
-            version=1,
-            state=state.value,
-            pipeline_id=getattr(self.pipeline, "id", None),
-            process_id=os.getpid(),
-            timestamp=self._now(),
-            error=error,
-            wrapper_id=self.wrapper_id,
-            extras=extras,
-        )
-
-        try:
-            self.signals_queue.put(message)
-        except Exception as e:
-            # avoid crashing the subprocess due to IPC issues
-            if self._logger:
-                self._logger.warning(
-                    f"Failed to send lifecycle event {state.value}: {e}"
-                )
-
     def _connect_signals(self) -> None:
         # Import and connect each requested soft signal so child events are forwared to parent
         if not self.focus_on_signals:
@@ -105,27 +75,40 @@ class PipelineWrapper:
 
         def signal_handler(*args, **kwargs):
             # todo - convert signal data to Message instance
-            signal_data = {
-                "message_type": "pipeline_signal",
-                "wrapper_id": self.wrapper_id,
+
+            # add subprocess context to signal kwargs
+            enhanced_kwargs = {
+                **kwargs,
                 "pipeline_id": getattr(self.pipeline, "id", None),
                 "process_id": os.getpid(),
                 "timestamp": self._now(),
+                "wrapper_id": self.wrapper_id,
+            }
+
+            # create message format expected by _BatchProcessingMonitor
+            signal_data = {
+                "message_type": "pipeline_signal",
                 "args": args,
-                "kwargs": dict(**kwargs),
+                "kwargs": enhanced_kwargs,
+                "wrapper_id": self.wrapper_id,
+                "timestamp": self._now(),
                 "version": "1",
             }
 
             try:
                 self.signals_queue.put(signal_data)
-            except Exception:
-                pass
+            except Exception as e:
+                if self._logger:
+                    self._logger.debug(f"Failed to forward signal: {e}")
 
         for signal_str in self.focus_on_signals:
             try:
                 module = self._import_string(signal_str)
                 module.connect(listener=signal_handler, sender=None)
                 self._connected_signals.append(module)
+                if self._logger:
+                    self._logger.debug(f"Connected to signal: {signal_str}")
+
             except Exception as e:
                 if self._logger:
                     self._logger.warning(
@@ -144,7 +127,11 @@ class PipelineWrapper:
     def _handle_pipeline_execution(self) -> None:
         try:
             self.execution_state = PipelineExecutionState.RUNNING
-            self._emit_lifecycle(self.execution_state, "execution_started")
+            if self._logger:
+                self._logger.debug(
+                    f"Starting pipeline execution: {self.pipeline.__class__.__name__}",
+                    extra={"pipeline_id": getattr(self.pipeline, "id", None)},
+                )
 
             # execute the pipeline
             execution_context = self.pipeline.start(force_rerun=True)
@@ -154,42 +141,71 @@ class PipelineWrapper:
                 if latest_context.execution_failed():
                     # pipeline failed during execution
                     error_node = self.pipeline.get_first_error_execution_node()
-                    error_info = {
-                        "error_message": "pipeline execution failed",
-                        "failed_task_id": error_node.task.id if error_node else None,
-                        "execution_context": str(latest_context.state)
-                        if latest_context
-                        else None,
-                    }
                     self.execution_state = PipelineExecutionState.FAILED
-                    self._emit_lifecycle(
-                        self.execution_state, "execution_failed", error=error_info
-                    )
+                    if self._logger:
+                        self._logger.error(
+                            f"Pipeline execution failed at task: {error_node.task.id if error_node else 'Unknown'}",
+                            extra={
+                                "pipeline_id": getattr(self.pipeline, "id", None),
+                                "failed_task": error_node.task.id
+                                if error_node
+                                else None,
+                                "execution_state": str(latest_context.state)
+                                if latest_context
+                                else None,
+                            },
+                        )
+                    return
 
             self.execution_state = PipelineExecutionState.COMPLETED
-            self._emit_lifecycle(self.execution_state, "execution_completed")
+            if self._logger:
+                self._logger.debug(
+                    "Pipeline execution completed successfully",
+                    extra={"pipeline_id": getattr(self.pipeline, "id", None)},
+                )
         except Exception as e:
             self.exception = e
             self.execution_state = PipelineExecutionState.FAILED
 
-            error_data = {
-                "error_message": str(e),
-                "error_type": type(e).__name__,
-                "traceback": self._format_exception_traceback(e),
-                "pipeline_state": self._get_pipeline_state_info(),
-            }
+            if self._logger:
+                self._logger.error(
+                    f"Pipeline execution failed: {e}",
+                    exc_info=True,
+                    extra={
+                        "wrapper_id": self.wrapper_id,
+                        "pipeline_id": getattr(self.pipeline, "id", None),
+                        "exception_type": type(e).__name__,
+                    },
+                )
 
-            self._emit_lifecycle(
-                self.execution_state, "execution_failed", error=error_data
-            )
-            self._logger.error(
-                f"Pipeline execution failed: {e}",
-                exc_info=True,
-                extra={
-                    "wrapper_id": self.wrapper_id,
-                    "pipeline_id": getattr(self.pipeline, "id", None),
-                },
-            )
+    def _send_wrapper_lifecycle_event(
+        self, event_type: str, additional_data: typing.Dict = None
+    ) -> None:
+        """
+        Send wrapper-specific lifecycle events that complement pipeline signals.
+        These are processed by _BatchProcessingMonitor but are wrapper-specific, not pipeline signals.
+        """
+        message_data = {
+            "message_type": "wrapper_lifecycle",
+            "event_type": event_type,
+            "wrapper_id": self.wrapper_id,
+            "pipeline_id": getattr(self.pipeline, "id", None),
+            "process_id": os.getpid(),
+            "timestamp": self._now(),
+            "execution_state": self.execution_state.value,
+            "version": "1.0",
+        }
+
+        if additional_data:
+            message_data.update(additional_data)
+
+        try:
+            self.signals_queue.put(message_data, timeout=0.5)
+        except Exception as e:
+            if self._logger:
+                self._logger.debug(
+                    f"Failed to send wrapper lifecycle event {event_type}: {e}"
+                )
 
     def _format_exception_traceback(self, exception: Exception) -> str:
         """Format exception with traceback for parent communication"""
@@ -225,7 +241,14 @@ class PipelineWrapper:
 
         try:
             self.execution_state = PipelineExecutionState.INITIALIZING
-            self._emit_lifecycle(self.execution_state, "wrapper_initialized")
+
+            # send wrapper started event
+            self._send_wrapper_lifecycle_event("wrapper_started")
+            if self._logger:
+                self._logger.debug(
+                    f"Pipeline wrapper started: {self.wrapper_id}",
+                    extra={"pipeline_id": getattr(self.pipeline, "id", None)},
+                )
 
             # initialize signals
             self._connect_signals()
@@ -241,15 +264,37 @@ class PipelineWrapper:
                 "error_message": f"Wrapper execution failed: {str(e)}",
                 "error_type": type(e).__name__,
                 "traceback": self._format_exception_traceback(e),
+                "pipeline_state": self._get_pipeline_state_info(),
             }
 
-            self._emit_lifecycle(
-                self.execution_state, "wrapper_failed", error=error_data
-            )
-            self._logger.error(f"Wrapper execution failed: {e}", exc_info=True)
+            self._send_wrapper_lifecycle_event("wrapper_failed", error_data)
+            if self._logger:
+                self._logger.error(f"Wrapper execution failed: {e}", exc_info=True)
         finally:
-            self._emit_lifecycle(PipelineExecutionState.CLEANUP, "wrapper_cleanup")
+            self.end_time = self._now()
+            execution_duration = (
+                self.end_time - self.start_time if self.start_time else 0
+            )
+            self.execution_state = PipelineExecutionState.FINISHED
+
+            # Send wrapper finished event with duration
+            self._send_wrapper_lifecycle_event(
+                "wrapper_finished",
+                {
+                    "execution_duration": execution_duration,
+                    "final_state": self.execution_state.value,
+                    "had_exception": self.exception is not None,
+                },
+            )
+
+            # Cleanup signal connections
             self._disconnect_signals()
-            self._emit_lifecycle(PipelineExecutionState.FINISHED, "wrapper_finished")
+
+            if self._logger:
+                self._logger.debug(
+                    f"Pipeline wrapper finished: {self.wrapper_id} "
+                    f"(Duration: {execution_duration:.2f}s, State: {self.execution_state.value})",
+                    extra={"pipeline_id": getattr(self.pipeline, "id", None)},
+                )
 
         return self.pipeline, self.exception
