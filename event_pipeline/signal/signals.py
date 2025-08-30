@@ -267,3 +267,16 @@ event_execution_aborted = SoftSignal(
     "event_execution_aborted",
     provide_args=["task_profiles", "execution_context", "state"],
 )
+batch_pipeline_started = SoftSignal(
+    name="batch_pipeline_started",
+    provide_args=["batch", "total_pipelines", "timestamp"]
+)
+batch_pipeline_finished = SoftSignal(
+    name="batch_pipeline_finished", 
+    provide_args=["batch", "metrics", "success_rate", "total_duration", "timestamp"]
+)
+pipeline_metrics_updated = SoftSignal(
+    name="pipeline_metrics_updated",
+    provide_args=["batch_id", "metrics", "active_count", "completion_rate", "timestamp"]
+)
+
