@@ -1,10 +1,7 @@
-import dataclasses
 import os
 import time
 import typing
 from enum import Enum
-
-from pydantic_mini import Attrib, BaseModel, MiniAnnotated
 
 
 class PipelineExecutionState(Enum):
@@ -14,31 +11,6 @@ class PipelineExecutionState(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     FINISHED = "finished"
-
-
-class Message(BaseModel):
-    message_type: MiniAnnotated[str, Attrib(default="pipeline_lifecycle")]
-    version: MiniAnnotated[int, Attrib(default=1)]
-    state: MiniAnnotated[str, Attrib(default=None)]
-    pipeline_id: int
-    process_id: int
-    timestamp: MiniAnnotated[time, Attrib(default=time.time())]
-    error: MiniAnnotated[typing.Any, Attrib(default=None)]
-    extras: MiniAnnotated[dict, Attrib(default_factory=dict)]
-    wrapper_id: MiniAnnotated[int, Attrib(default=None)]
-
-    @classmethod
-    def from_dict(cls, message_dict: typing.Dict[str, typing.Any]) -> "Message":
-        known_fields = {field.name for field in dataclasses.fields(cls)}
-        msg = {}
-        for field_name, value in message_dict.items():
-            if field_name in known_fields:
-                msg[field_name] = value
-            else:
-                if "extras" not in msg:
-                    msg["extras"] = {}
-                msg["extras"][field_name] = value
-        return cls.loads(msg, _format="dict")
 
 
 class PipelineWrapper:
