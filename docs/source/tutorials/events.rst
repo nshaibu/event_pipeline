@@ -246,7 +246,6 @@ The ``@event`` decorator allows you to also configure the executor for the event
         max_workers=4,                             # Specify max workers
         max_tasks_per_child=10,                    # Limit tasks per worker
         thread_name_prefix="my_event_executor",    # Prefix for thread names
-        stop_on_exception=True                     # Stop execution on exception
     )
     def my_event(*args, **kwargs):
         # Event processing logic here
