@@ -71,28 +71,35 @@ class PipelineWrapper:
                 self.signals_queue.put(signal_data)
             except Exception as e:
                 if self._logger:
-                    self._logger.debug(f"Failed to forward signal: {e}")
+                    self._logger.info(f"❕Failed to forward signal: {e}")
 
         for signal_str in self.focus_on_signals:
             try:
                 module = self._import_string(signal_str)
                 module.connect(listener=signal_handler, sender=None)
                 self._connected_signals.append(module)
-                if self._logger:
-                    self._logger.debug(f"Connected to signal: {signal_str}")
+
+            #                if self._logger:
+            #                    self._logger.info(f"❕Connected to signal: {signal_str}")
 
             except Exception as e:
                 if self._logger:
                     self._logger.warning(
-                        f"Signal import failed: {signal_str}, exception: {e}"
+                        f"❕Signal import failed: {signal_str}, exception: {e}"
                     )
+
+    def _handle_pipeline_signal_disconnect(self) -> None:
+        # todo log or handle any case here
+        pass
 
     def _disconnect_signals(self) -> None:
         for s in self._connected_signals:
             try:
-                s.disconnet(sender=None)
+                s.disconnect(
+                    sender=None, listener=self._handle_pipeline_signal_disconnect
+                )
             except Exception as e:
-                self._logger.debug(f"Error disconnecting signal: {e}")
+                self._logger.info(f"❕Error disconnecting signal: {e}")
 
         self._connected_signals.clear()
 
@@ -100,11 +107,15 @@ class PipelineWrapper:
         try:
             self.execution_state = PipelineExecutionState.RUNNING
             if self._logger:
-                self._logger.debug(
-                    f"Starting pipeline execution: {self.pipeline.__class__.__name__}",
+                self._logger.info(
+                    f"❕Starting pipeline execution: {self.pipeline.__class__.__name__}",
                     extra={"pipeline_id": getattr(self.pipeline, "id", None)},
                 )
-
+            # send pipeline start message
+            self._send_wrapper_lifecycle_event(
+                "pipeline_execution_start",
+                {"pipeline": self.pipeline, "timestamp": self._now()},
+            )
             # execute the pipeline
             execution_context = self.pipeline.start(force_rerun=True)
 
@@ -116,7 +127,7 @@ class PipelineWrapper:
                     self.execution_state = PipelineExecutionState.FAILED
                     if self._logger:
                         self._logger.error(
-                            f"Pipeline execution failed at task: {error_node.task.id if error_node else 'Unknown'}",
+                            f"❗️Pipeline execution failed at task: {error_node.task.id if error_node else 'Unknown'}",
                             extra={
                                 "pipeline_id": getattr(self.pipeline, "id", None),
                                 "failed_task": error_node.task.id
@@ -130,9 +141,17 @@ class PipelineWrapper:
                     return
 
             self.execution_state = PipelineExecutionState.COMPLETED
+            self._send_wrapper_lifecycle_event(
+                "pipeline_execution_end",
+                {
+                    "execution_context": execution_context,
+                    "timestamp": self._now(),
+                    "success": True,
+                },
+            )
             if self._logger:
-                self._logger.debug(
-                    "Pipeline execution completed successfully",
+                self._logger.info(
+                    "❕Pipeline execution completed successfully",
                     extra={"pipeline_id": getattr(self.pipeline, "id", None)},
                 )
         except Exception as e:
@@ -141,7 +160,7 @@ class PipelineWrapper:
 
             if self._logger:
                 self._logger.error(
-                    f"Pipeline execution failed: {e}",
+                    f"❗️Pipeline execution failed: {e}",
                     exc_info=True,
                     extra={
                         "wrapper_id": self.wrapper_id,
@@ -149,6 +168,15 @@ class PipelineWrapper:
                         "exception_type": type(e).__name__,
                     },
                 )
+
+            error_data = {
+                "error_message": f"Wrapper execution failed: {str(e)}",
+                "error_type": type(e).__name__,
+                "traceback": self._format_exception_traceback(e),
+                "pipeline_state": self._get_pipeline_state_info(),
+            }
+
+            self._send_wrapper_lifecycle_event("wrapper_failed", error_data)
 
     def _send_wrapper_lifecycle_event(
         self, event_type: str, additional_data: typing.Dict = None
@@ -175,8 +203,8 @@ class PipelineWrapper:
             self.signals_queue.put(message_data, timeout=0.5)
         except Exception as e:
             if self._logger:
-                self._logger.debug(
-                    f"Failed to send wrapper lifecycle event {event_type}: {e}"
+                self._logger.error(
+                    f"❗️Failed to send wrapper lifecycle event {event_type}: {e}"
                 )
 
     def _format_exception_traceback(self, exception: Exception) -> str:
@@ -190,10 +218,10 @@ class PipelineWrapper:
                 )
             )
         except Exception:
-            return f"Failed to format traceback for: {str(exception)}"
+            return f"❗️Failed to format traceback for: {str(exception)}"
 
     def _get_pipeline_state_info(self) -> typing.Dict[str, typing.Any]:
-        """Get current pipeline state information for debugging"""
+        """Get current pipeline state information for infoging"""
         try:
             return {
                 "pipeline_id": getattr(self.pipeline, "id", None),
@@ -202,7 +230,7 @@ class PipelineWrapper:
                 "has_cache": bool(getattr(self.pipeline, "_state", None)),
             }
         except Exception:
-            return {"error": "Failed to gather pipeline state info"}
+            return {"error": "❗️Failed to gather pipeline state info"}
 
     def run(self):
         """
@@ -217,17 +245,17 @@ class PipelineWrapper:
             # send wrapper started event
             self._send_wrapper_lifecycle_event("wrapper_started")
             if self._logger:
-                self._logger.debug(
-                    f"Pipeline wrapper started: {self.wrapper_id}",
+                self._logger.info(
+                    f"❕Pipeline wrapper started: {self.wrapper_id}",
                     extra={"pipeline_id": getattr(self.pipeline, "id", None)},
                 )
 
             # initialize signals
             self._connect_signals()
+            # self.execution_state = PipelineExecutionState.INITIALIZED
 
             # execute pipeline
             self._handle_pipeline_execution()
-
         except Exception as e:
             self.exception = e
             self.execution_state = PipelineExecutionState.FAILED
@@ -241,7 +269,7 @@ class PipelineWrapper:
 
             self._send_wrapper_lifecycle_event("wrapper_failed", error_data)
             if self._logger:
-                self._logger.error(f"Wrapper execution failed: {e}", exc_info=True)
+                self._logger.error(f"❗️Wrapper execution failed: {e}", exc_info=True)
         finally:
             self.end_time = self._now()
             execution_duration = (
@@ -263,8 +291,8 @@ class PipelineWrapper:
             self._disconnect_signals()
 
             if self._logger:
-                self._logger.debug(
-                    f"Pipeline wrapper finished: {self.wrapper_id} "
+                self._logger.info(
+                    f"❕Pipeline wrapper finished: {self.wrapper_id} "
                     f"(Duration: {execution_duration:.2f}s, State: {self.execution_state.value})",
                     extra={"pipeline_id": getattr(self.pipeline, "id", None)},
                 )
