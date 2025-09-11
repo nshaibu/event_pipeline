@@ -5,23 +5,27 @@ from pathlib import Path
 from pstats import SortKey
 
 from command_line_flags import PipelineType, args
-from pipelines import (BatchPipeline, DecisionTreePipeline, LinearPipeline,
-                       ParallelPipeline)
+from pipelines import (BatchPipelineType, DecisionTreePipeline, LinearPipeline,
+                       LinearPipelineWithPreviousResult, ParallelPipeline)
 
 if __name__ == "__main__":
 
+    name = "Kwabena"
+    age = 30
+
     match args.type:
         case PipelineType.LINEAR.value:
-            pipeline = LinearPipeline(["Kwabena"], 30)
+            pipeline = LinearPipeline([name], age)
         case PipelineType.DECISION_TREE.value:
-            pipeline = DecisionTreePipeline(["Kwabena"], 30)
+            pipeline = DecisionTreePipeline([name], age)
+        case PipelineType.LINEAR_WITH_PREVIOUS_RESULT.value:
+            pipeline = LinearPipelineWithPreviousResult([name], age)
         case PipelineType.PARALLEL.value:
-            pipeline = ParallelPipeline(["Kwabena"], 30)
+            pipeline = ParallelPipeline([name], age)
         case PipelineType.BATCH.value:
-            pipeline = BatchPipeline(["Kwabena"], 30)
+            pipeline = BatchPipelineType([name, "Nafiu", "Lateo"], age)
         case _:
-            pipeline = LinearPipeline(["Kwabena"], 30)
-
+            pipeline = LinearPipeline([name], age)
 
     cProfile.run("pipeline.start()", str(Path("profiling", "stats.txt")))
 

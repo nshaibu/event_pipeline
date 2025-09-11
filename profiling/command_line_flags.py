@@ -3,6 +3,7 @@ from enum import Enum
 
 class PipelineType(Enum):
     LINEAR = "linear"
+    LINEAR_WITH_PREVIOUS_RESULT = "linear_pr"
     DECISION_TREE = "decision_tree"
     PARALLEL = "parallel"
     BATCH = "batch"
