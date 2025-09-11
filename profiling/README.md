@@ -1,14 +1,14 @@
 # Profiling Event Pipeline
 
-This tool provides comprehensive performance profiling for different types of event pipelines. It uses cProfile to generate detailed performance statistics and supports web-based visualization through snakeviz.
+This tool provides comprehensive performance profiling for different types of pipelines. It uses cProfile to generate detailed performance statistics and supports web-based visualization through snakeviz.
 
 ## Installation
 
 First, install the required dependencies:
 
-\`\`\`bash
+```bash
 pip install snakeviz # For web visualization
-\`\`\`
+```
 
 ## Available Pipeline Types
 
@@ -31,33 +31,33 @@ The profiling tool supports the following pipeline types:
 
 ### Basic Linear Pipeline
 
-\`\`\`bash
+```bash
 python3 profiling/profiler.py -t linear
-\`\`\`
+```
 
 ### Parallel Pipeline with Web Visualization
 
-\`\`\`bash
+```bash
 python3 profiling/profiler.py -t parallel -w True
-\`\`\`
+```
 
 ### Batch Processing
 
-\`\`\`bash
+```bash
 python3 profiling/profiler.py -t batch
-\`\`\`
+```
 
 ### Decision Tree Pipeline
 
-\`\`\`bash
+```bash
 python3 profiling/profiler.py -t decision_tree
-\`\`\`
+```
 
 ### Linear Pipeline with Previous Results
 
-\`\`\`bash
+```bash
 python3 profiling/profiler.py -t linear_pr
-\`\`\`
+```
 
 ## Web Visualization
 
@@ -68,7 +68,7 @@ When using the \`-w True\` flag, the tool will automatically open snakeviz in yo
 ### Snakeviz Not Found
 
 If you get an error about snakeviz not being found, install it:
-\`\`\`bash
+```bash
 pip install snakeviz
-\`\`\`
+```
 
