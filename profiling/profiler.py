@@ -12,28 +12,26 @@ if __name__ == "__main__":
 
     name = "Kwabena"
     age = 30
+    stats_txt_file = "stats.txt"
+    stats_prof_file = "stats.prof"
+    profiling_dir = "profiling"
 
-    match args.type:
-        case PipelineType.LINEAR.value:
-            pipeline = LinearPipeline([name], age)
-        case PipelineType.DECISION_TREE.value:
-            pipeline = DecisionTreePipeline([name], age)
-        case PipelineType.LINEAR_WITH_PREVIOUS_RESULT.value:
-            pipeline = LinearPipelineWithPreviousResult([name], age)
-        case PipelineType.PARALLEL.value:
-            pipeline = ParallelPipeline([name], age)
-        case PipelineType.BATCH.value:
-            pipeline = BatchPipelineType([name, "Nafiu", "Lateo"], age)
-        case _:
-            pipeline = LinearPipeline([name], age)
+    pipeline_constructors = {
+        PipelineType.LINEAR.value: lambda: LinearPipeline([name], age),
+        PipelineType.DECISION_TREE.value: lambda: DecisionTreePipeline([name], age),
+        PipelineType.LINEAR_WITH_PREVIOUS_RESULT.value: lambda: LinearPipelineWithPreviousResult([name], age),
+        PipelineType.PARALLEL.value: lambda: ParallelPipeline([name], age),
+        PipelineType.BATCH.value: lambda: BatchPipelineType([name, "Nafiu", "Lateo"], age),
+    }
 
-    cProfile.run("pipeline.start()", str(Path("profiling", "stats.txt")))
+    pipeline = pipeline_constructors.get(args.type, lambda: LinearPipeline([name], age))()
+    cProfile.run("pipeline.start()", str(Path(profiling_dir, stats_txt_file)))
 
-    p = pstats.Stats(str(Path("profiling", "stats.txt")))
+    p = pstats.Stats(str(Path(profiling_dir, stats_txt_file)))
 
     p.sort_stats(SortKey.CUMULATIVE).print_stats(
         "event_pipeline"
-    ).strip_dirs().dump_stats(str(Path("profiling", "stats.prof")))
+    ).strip_dirs().dump_stats(str(Path(profiling_dir, stats_prof_file)))
 
     if args.run_in_web_browser:
-        os.system("snakeviz" + str(Path(" profiling", "stats.prof")))
+        os.system("snakeviz" + str(Path(profiling_dir, stats_prof_file)))
