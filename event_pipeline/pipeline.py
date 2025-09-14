@@ -1176,6 +1176,16 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             args[field_name] = getattr(self, field_name, None)
         return args
 
+    def _count_configured_pipelines(self):
+        if not self._field_batch_op_map:
+            self._configured_pipelines_count += 1
+        else:
+            for kwargs in self._execute_field_batch_processors(
+                self._field_batch_op_map
+            ):
+                if any([value for value in kwargs.values()]):
+                    self._configured_pipelines_count += 1
+
     def execute(self):
         """
         Initializes, configures processing pipelines and executes them.
@@ -1187,7 +1197,10 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
 
         non_batch_kwargs = self._prepare_args_for_non_batch_fields()
 
-        if not non_batch_kwargs:
+        # get pipeline count
+        self._count_configured_pipelines()
+
+        if self._configured_pipelines_count == 0:
             raise PipelineConfigurationError(
                 message=f"Starting batch execution of pipeline '{self.pipeline_template}' failed. "
                 f"No pipeline were configured.",
@@ -1197,7 +1210,6 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
         self.status = BatchPipelineStatus.RUNNING
 
         if not self._field_batch_op_map:
-            self._configured_pipelines_count += 1
             # execute pipeline here
             pipeline = template(**non_batch_kwargs)
             pipeline.start(force_rerun=True)
@@ -1251,7 +1263,6 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
                         )
 
                         future.add_done_callback(partial(_process_futures, batch=self))
-                        self._configured_pipelines_count += 1
 
             self._signals_queue.put(None)
             self._monitor_thread.join()
