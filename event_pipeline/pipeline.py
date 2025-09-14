@@ -1273,31 +1273,6 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
         focus_on_signals: typing.List[str],
         signals_queue: mp.Queue,
     ):
-        # signals = []
-        # for signal_str in focus_on_signals:
-        #     try:
-        #         module = import_string(signal_str)
-        #         signals.append(module)
-        #     except Exception as exc:
-        #         logger.warning(f"signal: {signal_str}, exception: {exc}")
-        #
-        # exception = None
-        #
-        # def signal_handler(*args, **kwargs):
-        #     kwargs = dict(**kwargs, pipeline_id=pipeline.id, process_id=os.getpid())
-        #     signal_data = {
-        #         "args": args,
-        #         "kwargs": kwargs,
-        #     }
-        #     signals_queue.put(signal_data)
-        #
-        # for s in signals:
-        #     s.connect(listener=signal_handler, sender=None)
-        #
-        # try:
-        #     pipeline.start(force_rerun=True)
-        # except Exception as e:
-        #     exception = e
         wrapper = PipelineWrapper(
             pipeline,
             focus_on_signals=focus_on_signals,
