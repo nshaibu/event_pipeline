@@ -1,61 +1,59 @@
-import os
-import re
+import copy
 import inspect
 import logging
-import typing
-import copy
+import multiprocessing as mp
+import os
+import re
 import threading
 import time
-import multiprocessing as mp
-from enum import Enum
-from functools import partial
-from concurrent.futures import ProcessPoolExecutor, Future, CancelledError
-from collections import OrderedDict, ChainMap, deque
-from functools import lru_cache
-from inspect import Signature, Parameter
-from treelib.tree import Tree
+import typing
+from collections import ChainMap, OrderedDict, deque
+from concurrent.futures import CancelledError, Future, ProcessPoolExecutor
 from dataclasses import dataclass, field
+from enum import Enum
+from functools import lru_cache, partial
+from inspect import Parameter, Signature
 
+from treelib.tree import Tree
 
 try:
     import graphviz
 except ImportError:
     graphviz = None
 
-from .signal.signals import (
-    SoftSignal,
-    pipeline_pre_init,
-    pipeline_post_init,
-    pipeline_execution_start,
-    pipeline_execution_end,
-    pipeline_shutdown,
-    pipeline_stop,
-    batch_pipeline_started,
-    batch_pipeline_finished,
-    pipeline_metrics_updated,
-)
-from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
+from .conf import ConfigLoader
 from .constants import (
+    BATCH_PROCESSOR_TYPE,
+    EMPTY,
     PIPELINE_FIELDS,
     PIPELINE_STATE,
     UNKNOWN,
-    EMPTY,
-    BATCH_PROCESSOR_TYPE,
 )
 from .exceptions import (
-    ImproperlyConfigured,
     BadPipelineError,
-    EventDone,
     EventDoesNotExist,
+    EventDone,
+    ImproperlyConfigured,
     PipelineConfigurationError,
 )
-from .mixins import ObjectIdentityMixin, ScheduleMixin
 from .fields import InputDataField
 from .import_utils import import_string
-from .utils import AcquireReleaseLock, validate_batch_processor
-from .conf import ConfigLoader
+from .mixins import ObjectIdentityMixin, ScheduleMixin
 from .pipeline_wrapper import PipelineWrapper
-
+from .signal.signals import (
+    SoftSignal,
+    batch_pipeline_finished,
+    batch_pipeline_started,
+    pipeline_execution_end,
+    pipeline_execution_start,
+    pipeline_metrics_updated,
+    pipeline_post_init,
+    pipeline_pre_init,
+    pipeline_shutdown,
+    pipeline_stop,
+)
+from .task import EventExecutionContext, ExecutionState, PipelineTask, PipeType
+from .utils import AcquireReleaseLock, validate_batch_processor
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +148,6 @@ class PipelineState(object):
 
 
 class PipelineMeta(type):
-
     def __new__(cls, name, bases, namespace, **kwargs):
         parents = [b for b in bases if isinstance(b, PipelineMeta)]
         if not parents:
@@ -584,6 +581,7 @@ class BatchPipelineStatus(Enum):
 @dataclass
 class PipelineExecutionMetrics:
     """Tracks execution metrics for batch pipeline monitoring"""
+
     total_pipelines: int = 0
     started: int = 0
     completed: int = 0
@@ -596,11 +594,19 @@ class PipelineExecutionMetrics:
 
     @property
     def success_rate(self) -> float:
-        return (self.completed / (self.completed + self.failed) * 100) if (self.completed + self.failed) > 0 else 0.0
+        return (
+            (self.completed / (self.completed + self.failed) * 100)
+            if (self.completed + self.failed) > 0
+            else 0.0
+        )
 
     @property
     def average_duration(self) -> float:
-        return sum(self.execution_durations) / len(self.execution_durations) if self.execution_durations else 0.0
+        return (
+            sum(self.execution_durations) / len(self.execution_durations)
+            if self.execution_durations
+            else 0.0
+        )
 
     @property
     def total_duration(self) -> float:
@@ -612,7 +618,11 @@ class PipelineExecutionMetrics:
 
     @property
     def completion_rate(self) -> float:
-        return ((self.completed + self.failed) / self.total_pipelines * 100) if self.total_pipelines > 0 else 0.0
+        return (
+            ((self.completed + self.failed) / self.total_pipelines * 100)
+            if self.total_pipelines > 0
+            else 0.0
+        )
 
 
 class _BatchProcessingMonitor(threading.Thread):
@@ -627,57 +637,73 @@ class _BatchProcessingMonitor(threading.Thread):
         batch (BatchPipeline): The batch pipeline being processed.
     """
 
-    def __init__(
-        self,
-        batch_pipeline: "BatchPipeline",
-        enable_metrics: bool = True
-    ):
+    def __init__(self, batch_pipeline: "BatchPipeline", enable_metrics: bool = True):
         self.batch = batch_pipeline
         self.metrics = PipelineExecutionMetrics() if enable_metrics else None
-        
+
         # Track active pipelines and their states
         self.active_pipelines: typing.Set[str] = set()
         self.pipeline_start_times: typing.Dict[str, float] = {}
-        
+
         self._shutdown_flag = threading.Event()
         self._signals_connected = False
         self._batch_started_emitted = False
         self._setup_signal_listeners()
         super().__init__(name=f"BatchMonitor-{batch_pipeline.id}")
-    
+
     def _setup_signal_listeners(self):
         """Setup listeners for pipeline signals with proper sender handling"""
         try:
             # Connect to pipeline signals - use GenericSender to catch all pipeline signals
-            pipeline_execution_start.connect(sender=None, listener=self._on_pipeline_started)
-            pipeline_execution_end.connect(sender=None, listener=self._on_pipeline_ended)
-            
+            pipeline_execution_start.connect(
+                sender=None, listener=self._on_pipeline_started
+            )
+            pipeline_execution_end.connect(
+                sender=None, listener=self._on_pipeline_ended
+            )
+
             # Connect to batch monitoring signals - these we control, so we can be specific
-            pipeline_metrics_updated.connect(sender=self.batch.__class__, listener=self._on_metrics_updated)
-            batch_pipeline_started.connect(sender=self.batch.__class__, listener=self._on_batch_started)
-            batch_pipeline_finished.connect(sender=self.batch.__class__, listener=self._on_batch_finished)
-            
+            pipeline_metrics_updated.connect(
+                sender=self.batch.__class__, listener=self._on_metrics_updated
+            )
+            batch_pipeline_started.connect(
+                sender=self.batch.__class__, listener=self._on_batch_started
+            )
+            batch_pipeline_finished.connect(
+                sender=self.batch.__class__, listener=self._on_batch_finished
+            )
+
             self._signals_connected = True
-            logger.debug("Signal listeners connected for batch monitoring")    
+            logger.debug("Signal listeners connected for batch monitoring")
         except Exception as e:
             logger.warning(f"Failed to setup signal listeners: {e}")
-    
+
     def _cleanup_signal_listeners(self):
         """Cleanup signal connections"""
         if not self._signals_connected:
             return
-            
+
         try:
-            pipeline_execution_start.disconnect(sender=self.batch.__class__, listener=self._on_pipeline_started)
-            pipeline_execution_end.disconnect(sender=self.batch.__class__, listener=self._on_pipeline_ended)
-            batch_pipeline_started.disconnect(sender=self.batch.__class__, listener=self._on_batch_started)
-            batch_pipeline_finished.disconnect(sender=self.batch.__class__, listener=self._on_batch_finished)
-            pipeline_metrics_updated.disconnect(sender=self.batch.__class__, listener=self._on_metrics_updated)
+            pipeline_execution_start.disconnect(
+                sender=self.batch.__class__, listener=self._on_pipeline_started
+            )
+            pipeline_execution_end.disconnect(
+                sender=self.batch.__class__, listener=self._on_pipeline_ended
+            )
+            batch_pipeline_started.disconnect(
+                sender=self.batch.__class__, listener=self._on_batch_started
+            )
+            batch_pipeline_finished.disconnect(
+                sender=self.batch.__class__, listener=self._on_batch_finished
+            )
+            pipeline_metrics_updated.disconnect(
+                sender=self.batch.__class__, listener=self._on_metrics_updated
+            )
             self._signals_connected = False
             logger.debug("Signal listeners disconnected")
         except Exception as e:
             logger.debug(f"Error cleaning up signal listeners: {e}")
-    
+
     def _emit_batch_started(self):
         """Emit batch_pipeline_started signal"""
         if not self._batch_started_emitted and self.metrics:
@@ -686,10 +712,10 @@ class _BatchProcessingMonitor(threading.Thread):
                 sender=self.batch.__class__,
                 batch=self.batch,
                 total_pipelines=self.metrics.total_pipelines,
-                timestamp=time.time()
+                timestamp=time.time(),
             )
             self._batch_started_emitted = True
-    
+
     def _emit_batch_finished(self):
         """Emit batch_pipeline_finished signal"""
         if self.metrics:
@@ -699,7 +725,7 @@ class _BatchProcessingMonitor(threading.Thread):
                 metrics=self.metrics,
                 success_rate=self.metrics.success_rate,
                 total_duration=self.metrics.total_duration,
-                timestamp=time.time()
+                timestamp=time.time(),
             )
 
     def _emit_metrics_updated(self):
@@ -711,25 +737,25 @@ class _BatchProcessingMonitor(threading.Thread):
                 metrics=self.metrics,
                 active_count=self.metrics.active,
                 completion_rate=self.metrics.completion_rate,
-                timestamp=time.time()
+                timestamp=time.time(),
             )
 
     def _get_sender_name(self, sender) -> str:
         """Safely get sender name with fallbacks"""
         if sender is None:
             return "Unknown"
-        
-        if hasattr(sender, '__name__'):
+
+        if hasattr(sender, "__name__"):
             return sender.__name__
-        elif hasattr(sender, '__class__'):
+        elif hasattr(sender, "__class__"):
             return sender.__class__.__name__
         else:
             return str(sender)
-            
+
     def get_current_metrics(self) -> typing.Optional[PipelineExecutionMetrics]:
         """Get a copy of current execution metrics"""
         return self.metrics
-    
+
     def _on_batch_started(self, sender, **kwargs):
         """Handle batch started signal"""
         if self.metrics and not self.metrics.start_time:
@@ -740,17 +766,17 @@ class _BatchProcessingMonitor(threading.Thread):
         logger.info(
             f"❕❕Batch pipeline started: {sender_name} (Expected: {self.metrics.total_pipelines if self.metrics else 'N/A'} pipelines)",
             extra={
-                "batch_id": self.batch.id, 
+                "batch_id": self.batch.id,
                 "sender": sender_name,
-                "total_pipelines": self.metrics.total_pipelines if self.metrics else 0
-            }
+                "total_pipelines": self.metrics.total_pipelines if self.metrics else 0,
+            },
         )
-    
+
     def _on_batch_finished(self, sender, **kwargs):
         """Handle batch finished signal"""
         if self.metrics and not self.metrics.end_time:
             self.metrics.end_time = time.time()
-            
+
         sender_name = self._get_sender_name(sender)
         if self.metrics:
             logger.info(
@@ -761,30 +787,34 @@ class _BatchProcessingMonitor(threading.Thread):
                     "batch_id": self.batch.id,
                     "sender": sender_name,
                     "success_rate": self.metrics.success_rate,
-                    "total_duration": self.metrics.total_duration
-                }
+                    "total_duration": self.metrics.total_duration,
+                },
             )
 
     def _on_pipeline_started(self, sender, **kwargs):
         """Handle pipeline started signal from subprocess"""
-        pipeline = kwargs.get('pipeline')
+        pipeline = kwargs.get("pipeline")
         if pipeline:
             self.active_pipelines.add(pipeline)
-            self.pipeline_start_times[pipeline] = kwargs.get('timestamp', time.time())
-            
+            self.pipeline_start_times[pipeline] = kwargs.get("timestamp", time.time())
+
             if self.metrics:
                 self.metrics.started += 1
                 self.metrics.active = len(self.active_pipelines)
-                
+
                 # Emit metrics updatep
                 self._emit_metrics_updated()
-                
+
             sender_name = self._get_sender_name(sender)
             logger.info(
                 f"❕❕Pipeline started: {pipeline} from {sender_name} (Active: {len(self.active_pipelines)})",
-                extra={"pipeline_id": pipeline.id, "sender": sender_name, "active_count": len(self.active_pipelines)}
+                extra={
+                    "pipeline_id": pipeline.id,
+                    "sender": sender_name,
+                    "active_count": len(self.active_pipelines),
+                },
             )
-    
+
     def _on_metrics_updated(self, sender, **kwargs):
         metrics = kwargs.get("metrics")
         active_count = kwargs.get("active_count")
@@ -801,11 +831,11 @@ class _BatchProcessingMonitor(threading.Thread):
         execution_context = kwargs.get("execution_context")
         if not execution_context:
             logger.warning("❗️Execution context not found after pipeline ended.")
-        
+
         if pipeline := execution_context.pipeline:
             self.active_pipelines.discard(pipeline)
 
-            #Calculate Duration
+            # Calculate Duration
             start_time = self.pipeline_start_times.pop(pipeline, None)
             duration = None
             if start_time:
@@ -816,16 +846,20 @@ class _BatchProcessingMonitor(threading.Thread):
             if self.metrics:
                 success = True
 
-                if execution_context and hasattr(execution_context, "get_latest_execution_context"):
+                if execution_context and hasattr(
+                    execution_context, "get_latest_execution_context"
+                ):
                     try:
-                        latest_context = execution_context.get_latest_execution_context()
+                        latest_context = (
+                            execution_context.get_latest_execution_context()
+                        )
                         success = not latest_context.execution_failed()
                     except Exception as e:
                         success = not kwargs.get("exception")
                         logger.debug(f"exception was raised: {e}")
                 else:
                     success = not kwargs.get("exception")
-                
+
                 if success:
                     self.metrics.completed += 1
                 else:
@@ -842,58 +876,61 @@ class _BatchProcessingMonitor(threading.Thread):
 
             logger.info(
                 f"❕❕Pipeline {status}: {pipeline} from {sender_name}{duration_str}",
-                extra={"pipeline_id": pipeline.id, "sender": sender_name, "success": success, "duration": duration}
+                extra={
+                    "pipeline_id": pipeline.id,
+                    "sender": sender_name,
+                    "success": success,
+                    "duration": duration,
+                },
             )
-    
+
     def _handle_wrapper_lifecycle_event(self, message_data: typing.Dict) -> None:
         """Handle wrapper-specific lifecycle events"""
         event_type = message_data.get("event_type")
         wrapper_id = message_data.get("wrapper_id")
         pipeline_id = message_data.get("pipeline_id")
         execution_state = message_data.get("execution_state")
-        
-        
+
         logger.info(
             f"❕❕Wrapper lifecycle event: {event_type} - {execution_state}",
             extra={
                 "wrapper_id": wrapper_id,
                 "pipeline_id": pipeline_id,
-                "event_type": event_type
-            }
+                "event_type": event_type,
+            },
         )
 
         if event_type == "pipeline_execution_start":
             pipeline_execution_start.emit(
-                sender=self.batch.__class__,
-                pipeline=message_data.get("pipeline")
+                sender=self.batch.__class__, pipeline=message_data.get("pipeline")
             )
         elif event_type == "pipeline_execution_end":
             pipeline_execution_end.emit(
                 sender=self.batch.__class__,
-                execution_context=message_data.get("execution_context")
+                execution_context=message_data.get("execution_context"),
             )
         # Handle specific wrapper events if needed
         elif event_type == "wrapper_started":
             logger.info(
                 "❕❕Wrapper started event received",
                 extra={
-                "wrapper_id": wrapper_id,
-                "pipeline_id": pipeline_id,
-                "event_type": event_type
-                }
+                    "wrapper_id": wrapper_id,
+                    "pipeline_id": pipeline_id,
+                    "event_type": event_type,
+                },
             )
         elif event_type == "wrapper_finished":
             execution_duration = message_data.get("execution_duration")
             if execution_duration:
                 logger.info(
                     f"❕❕Wrapper {wrapper_id} finished in {execution_duration:.2f}s",
-                    extra={"wrapper_id": wrapper_id, "duration": execution_duration}
+                    extra={"wrapper_id": wrapper_id, "duration": execution_duration},
                 )
         elif event_type == "wrapper_failed":
             error_message = message_data.get("error_message", "Unknown wrapper error")
             logger.error(
                 f"❕❕Wrapper failed: {error_message}",
-                extra={"wrapper_id": wrapper_id, "pipeline_id": pipeline_id}
+                extra={"wrapper_id": wrapper_id, "pipeline_id": pipeline_id},
             )
 
     @staticmethod
@@ -907,13 +944,13 @@ class _BatchProcessingMonitor(threading.Thread):
                 parent_process_signal = import_string(signal.__instance_import_str__)
                 parent_process_signal.emit(sender=sender, **data)
         except Exception:
-                logger.exception("❗️Exception raised while processing signal %s", signal)
+            logger.exception("❗️Exception raised while processing signal %s", signal)
 
     def shutdown(self, timeout: float = 5.0) -> None:
         """Gracefully shutdown the monitoring thread"""
         # Emit batch finished signal before shutdown
         self._emit_batch_finished()
-        
+
         self._cleanup_signal_listeners()
         self._shutdown_flag.set()
 
@@ -922,7 +959,11 @@ class _BatchProcessingMonitor(threading.Thread):
             if self.metrics:
                 self.metrics.start_time = time.time()
                 # Estimate total pipeline
-                self.metrics.total_pipelines = len(self.batch._field_batch_op_map) if self.batch._field_batch_op_map else 1
+                self.metrics.total_pipelines = (
+                    len(self.batch._field_batch_op_map)
+                    if self.batch._field_batch_op_map
+                    else 1
+                )
 
                 self._emit_batch_started()
 
@@ -933,7 +974,7 @@ class _BatchProcessingMonitor(threading.Thread):
                         break
                     # Process different message types properly
                     message_type = signal_data.get("message_type")
-                    
+
                     if message_type == "pipeline_signal":
                         # Handle forwarded pipeline signals from subprocess
                         self.construct_signal(signal_data)
@@ -1003,6 +1044,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
 
         self._field_batch_op_map: typing.Dict[InputDataField, typing.Iterator] = {}
         self._configured_pipelines: typing.Set[Pipeline] = set()
+        self._configured_pipelines_count: int = 0
 
         self._signals_queue = None
 
@@ -1134,51 +1176,28 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             args[field_name] = getattr(self, field_name, None)
         return args
 
-    # def _init_pipelines(self) -> None:
-    #     """
-    #     Initializes and configures processing pipelines, handling both batch and non-batch operations.
-    #     """
-    #     template = self.get_pipeline_template()
-    #
-    #     if not self._field_batch_op_map:
-    #         self._gather_and_init_field_batch_iterators()
-    #
-    #     non_batch_kwargs = self._prepare_args_for_non_batch_fields()
-    #
-    #     if not self._field_batch_op_map:
-    #         # Configure only one pipeline
-    #         self._configured_pipelines.add(template(**non_batch_kwargs))
-    #         return
-    #
-    #     for kwargs in self._execute_field_batch_processors(self._field_batch_op_map):
-    #         if any([value for value in kwargs.values()]):
-    #             kwargs.update(non_batch_kwargs)
-    #             pipeline = template(**kwargs)
-    #             self._configured_pipelines.add(pipeline)
-
     def execute(self):
         """
         Initializes, configures processing pipelines and executes them.
         """
-        # self._init_pipelines()
-
         template = self.get_pipeline_template()
 
         if not self._field_batch_op_map:
             self._gather_and_init_field_batch_iterators()
 
         non_batch_kwargs = self._prepare_args_for_non_batch_fields()
-        
-        if len(non_batch_kwargs) == 0 and not self._field_batch_op_map:
+
+        if not non_batch_kwargs:
             raise PipelineConfigurationError(
-                message=f"Starting batch execution of pipeline '{self.pipeline_template}' failed. " 
+                message=f"Starting batch execution of pipeline '{self.pipeline_template}' failed. "
                 f"No pipeline were configured.",
-                code="not_configured_pipeline"
+                code="not_configured_pipeline",
             )
-        
+
         self.status = BatchPipelineStatus.RUNNING
 
         if not self._field_batch_op_map:
+            self._configured_pipelines_count += 1
             # execute pipeline here
             pipeline = template(**non_batch_kwargs)
             pipeline.start(force_rerun=True)
@@ -1189,7 +1208,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
                 try:
                     data = fut.result()
                     event = _BatchResult(*data)
-                except TimeoutError as exc:
+                except TimeoutError:
                     return
                 except CancelledError as exc:
                     exception = exc
@@ -1217,12 +1236,13 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             with ProcessPoolExecutor(
                 max_workers=conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
             ) as executor:
-
-                for kwargs in self._execute_field_batch_processors(self._field_batch_op_map):
+                for kwargs in self._execute_field_batch_processors(
+                    self._field_batch_op_map
+                ):
                     if any([value for value in kwargs.values()]):
                         kwargs.update(non_batch_kwargs)
                         pipeline = template(**kwargs)
-                        
+
                         future = executor.submit(
                             self._pipeline_executor,
                             pipeline=pipeline,
@@ -1231,6 +1251,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
                         )
 
                         future.add_done_callback(partial(_process_futures, batch=self))
+                        self._configured_pipelines_count += 1
 
             self._signals_queue.put(None)
             self._monitor_thread.join()
@@ -1271,7 +1292,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             focus_on_signals=focus_on_signals,
             signals_queue=signals_queue,
             import_string_fn=import_string,
-            logger=logger
+            logger=logger,
         )
         return wrapper.run()
         # return pipeline, exception
