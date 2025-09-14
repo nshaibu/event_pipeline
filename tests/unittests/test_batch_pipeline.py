@@ -140,10 +140,9 @@ class TestBatchPipeline(unittest.TestCase):
     def test_empty_batch(self):
         """Test handling of empty batch"""
         batch = self.batch_cls(data=[])
-        breakpoint()
         with self.assertRaises(Exception):
             batch.execute()
-        self.assertEqual(len(batch._configured_pipelines_count), 0)
+        self.assertEqual(batch._configured_pipelines_count, 0)
 
     @pytest.mark.skip("Hanging fix it later")
     def test_signal_handling(self):
