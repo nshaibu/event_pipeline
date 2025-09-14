@@ -1,12 +1,14 @@
-import pytest
-import unittest
 import multiprocessing as mp
-from typing import List, Iterator
+import unittest
+from typing import Iterator, List
 from unittest.mock import Mock, patch
+
+import pytest
+
 from event_pipeline import EventBase
-from event_pipeline.pipeline import BatchPipeline, Pipeline, BatchPipelineStatus
-from event_pipeline.fields import InputDataField
 from event_pipeline.exceptions import ImproperlyConfigured
+from event_pipeline.fields import InputDataField
+from event_pipeline.pipeline import BatchPipeline, BatchPipelineStatus, Pipeline
 
 
 class Start(EventBase):
@@ -63,7 +65,7 @@ class TestBatchPipeline(unittest.TestCase):
         batch.execute()
 
         # Check if all pipelines were executed
-        self.assertEqual(len(batch._configured_pipelines), 2)  # 2 batches of 2 items
+        self.assertEqual(batch._configured_pipelines_count, 2)  # 2 batches of 2 items
         self.assertEqual(batch.status, BatchPipelineStatus.RUNNING)
 
     def test_single_pipeline_execution(self):
@@ -72,7 +74,7 @@ class TestBatchPipeline(unittest.TestCase):
         batch.execute()
 
         # Should only create one pipeline
-        self.assertEqual(len(batch._configured_pipelines), 1)
+        self.assertEqual(batch._configured_pipelines_count, 1)
 
     @patch("event_pipeline.pipeline.ProcessPoolExecutor")
     def test_parallel_execution(self, mock_executor):
@@ -138,9 +140,10 @@ class TestBatchPipeline(unittest.TestCase):
     def test_empty_batch(self):
         """Test handling of empty batch"""
         batch = self.batch_cls(data=[])
+        breakpoint()
         with self.assertRaises(Exception):
             batch.execute()
-        self.assertEqual(len(batch._configured_pipelines), 0)
+        self.assertEqual(len(batch._configured_pipelines_count), 0)
 
     @pytest.mark.skip("Hanging fix it later")
     def test_signal_handling(self):
