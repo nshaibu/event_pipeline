@@ -14,6 +14,9 @@ from .publisher import MetricsPublisher
 
 logger = logging.getLogger(__name__)
 
+if typing.TYPE_CHECKING:
+    from event_pipeline.pipeline import PipelineExecutionMetrics
+
 
 @dataclass
 class EventMetrics(ObjectIdentityMixin):
@@ -106,6 +109,13 @@ class AbstractTelemetryLogger(ABC):
         self,
     ) -> typing.Union[ResultSet, typing.Dict[Pipeline_Id, ResultSet]]:
         """Get all collected metrics"""
+        pass
+
+    @abstractmethod
+    def add_pipeline_metrics(
+        self, pipeline_execution_metrics: "PipelineExecutionMetrics"
+    ):
+        """add and publish pipeline metrics"""
         pass
 
 
@@ -206,7 +216,7 @@ class StandardTelemetryLogger(AbstractTelemetryLogger):
             metric = self._metrics.get(event_name=name, task_id=task_id)
 
             metric.retry_count += 1
-            logger.debug(f"Retry #{metric.retry_count} " f"for task {task_id}")
+            logger.debug(f"Retry #{metric.retry_count} for task {task_id}")
 
     def get_metrics(self, **kwargs) -> typing.Optional[EventMetrics]:
         """Get metrics for a specific task"""
@@ -218,6 +228,14 @@ class StandardTelemetryLogger(AbstractTelemetryLogger):
         """Get all collected metrics"""
         with self._lock:
             return self._metrics.copy()
+
+    def add_pipeline_metrics(self, metrics: "PipelineExecutionMetrics") -> None:
+        """publish pipeline metrics"""
+        for publisher in self._publishers:
+            try:
+                publisher.publish_batch_pipeline_metrics(metrics)
+            except Exception as e:
+                logger.error(f"❗️Failed to publish metrics: {e}")
 
 
 class DefaultBatchTelemetryLogger(AbstractTelemetryLogger):
@@ -319,7 +337,7 @@ class DefaultBatchTelemetryLogger(AbstractTelemetryLogger):
             pipeline_metrics = self._metrics[pipeline_id]
             metrics = pipeline_metrics.get(event_name=name, task_id=task_id)
             metrics.retry_count += 1
-            logger.debug(f"Retry #{metrics.retry_count} " f"for task {task_id}")
+            logger.debug(f"Retry #{metrics.retry_count} for task {task_id}")
 
     def get_metrics(self, **kwargs) -> ResultSet:
         """Get metrics for a specific task"""
@@ -331,3 +349,11 @@ class DefaultBatchTelemetryLogger(AbstractTelemetryLogger):
         """Get all collected metrics"""
         with self._lock:
             return self._metrics.copy()
+
+    def add_pipeline_metrics(self, metrics: "PipelineExecutionMetrics") -> None:
+        """publish pipeline metrics"""
+        for publisher in self._publishers:
+            try:
+                publisher.publish_batch_pipeline_metrics(metrics)
+            except Exception as e:
+                logger.error(f"❗️Failed to publish metrics: {e}")
