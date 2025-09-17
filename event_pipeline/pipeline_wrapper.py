@@ -79,9 +79,6 @@ class PipelineWrapper:
                 module.connect(listener=signal_handler, sender=None)
                 self._connected_signals.append(module)
 
-            #                if self._logger:
-            #                    self._logger.info(f"❕Connected to signal: {signal_str}")
-
             except Exception as e:
                 if self._logger:
                     self._logger.warning(
@@ -250,9 +247,7 @@ class PipelineWrapper:
                     extra={"pipeline_id": getattr(self.pipeline, "id", None)},
                 )
 
-            # initialize signals
             self._connect_signals()
-            # self.execution_state = PipelineExecutionState.INITIALIZED
 
             # execute pipeline
             self._handle_pipeline_execution()

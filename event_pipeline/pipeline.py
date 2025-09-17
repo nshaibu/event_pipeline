@@ -1269,7 +1269,6 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             logger=logger,
         )
         return wrapper.run()
-        # return pipeline, exception
 
     def close(self, timeout=2):
         """Clean up resources"""
