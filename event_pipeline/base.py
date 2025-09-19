@@ -66,14 +66,14 @@ class RetryPolicy:
 class _RetryMixin:
 
     retry_policy: typing.Union[
-        typing.Optional[RetryPolicy], typing.Dict[str, typing.Any]
+        typing.Optional[RetryPolicy], typing.Dict[str, typing.Any], None
     ] = None
 
     def __init__(self, *args, **kwargs):
         self._retry_count = 0
         super().__init__(*args, **kwargs)
 
-    def get_retry_policy(self) -> RetryPolicy:
+    def get_retry_policy(self) -> typing.Union[RetryPolicy, None]:
         if isinstance(self.retry_policy, dict):
             self.retry_policy = RetryPolicy(**self.retry_policy)
         return self.retry_policy
@@ -457,7 +457,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         previous_result: typing.Union[typing.List[EventResult], EMPTY] = EMPTY,
         stop_condition: StopCondition = StopCondition.NEVER,
         run_bypass_event_checks: bool = False,
-        options: "Options" = None,
+        options: typing.Optional["Options"] = None,
         **kwargs,
     ):
         """
@@ -671,7 +671,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
         if isinstance(execution_result, Exception):
             execution_result = (
-                execution_result.exception
+                getattr(execution_result, "exception", execution_result)
                 if execution_result.__class__ == MaxRetryError
                 else execution_result
             )

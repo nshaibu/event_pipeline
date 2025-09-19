@@ -2,7 +2,7 @@ import os
 import json
 import typing
 from datetime import datetime
-from collections.abc import MutableSet
+from collections.abc import MutableSet, Hashable
 from dataclasses import asdict
 from pydantic_mini.typing import is_builtin_type
 from pydantic_mini import BaseModel, MiniAnnotated, Attrib
@@ -16,7 +16,7 @@ __all__ = ["EventResult", "ResultSet"]
 
 T = typing.TypeVar("T", bound="ResultSet")
 
-Result = typing.TypeVar("Result", bound="ObjectIdentityMixin")
+Result = typing.TypeVar("Result", bound=Hashable)
 
 
 class EventResult(BackendIntegrationMixin, BaseModel):
@@ -170,9 +170,12 @@ class ResultSet(MutableSet):
         "isnull",
     }
 
-    def __init__(self, results: typing.List[Result]) -> None:
+    def __init__(self, results: typing.Optional[typing.List[Result]] = None) -> None:
         self._content: typing.Dict[str, Result] = {}
         self._context_types: typing.Set[EntityContentType] = set()
+
+        if results is None:
+            results = []
 
         for result in results:
             self._content[self.get_hash(result)] = result
@@ -247,7 +250,9 @@ class ResultSet(MutableSet):
         if len(qs) == 0:
             raise KeyError(f"No result found matching filters: {filters}")
         if len(qs) > 1:
-            raise MultiValueError(f"More than one result found for filters {filters}: {len(qs)}!=1")
+            raise MultiValueError(
+                f"More than one result found for filters {filters}: {len(qs)}!=1"
+            )
         return qs[0]
 
     def filter(self, **filter_params) -> "ResultSet":
@@ -393,7 +398,9 @@ class ResultSet(MutableSet):
         """
         actual_value = self._get_field_value(obj, field_path.split("__"))
 
-        if operator in ("startswith", "endswith", "icontains") and not isinstance(actual_value, str):
+        if operator in ("startswith", "endswith", "icontains") and not isinstance(
+            actual_value, str
+        ):
             return False
 
         # Handle None case for all operators except isnull

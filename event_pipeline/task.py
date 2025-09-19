@@ -8,7 +8,8 @@ from collections import deque
 from threading import Condition
 from concurrent.futures import Executor, wait, Future
 from enum import Enum, unique
-from pydantic_mini import BaseModel, MiniAnnotated, Attrib
+
+# from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from .base import (
     EventBase,
     # EventExecutionEvaluationState,
@@ -41,55 +42,58 @@ from .signal.signals import (
 )
 from .mixins import ObjectIdentityMixin
 from .import_utils import import_string
+from .parser.options import Options
+from .parser.operator import PipeType
 from .result_evaluators import EventEvaluator, EventEvaluationResult
 
 logger = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
     from .pipeline import Pipeline
-    from .parser.ast import AssignmentExpressionGroup
+
+    # from .parser.ast import AssignmentExpressionGroup
 
 
 def attach_signal_emitter(signal: SoftSignal, **signal_kwargs) -> None:
     signal.emit(**signal_kwargs)
 
 
-class Options(BaseModel):
-    retry_attempts: typing.Optional[int]
-    executor: typing.Optional[str]
-    executor_config: MiniAnnotated[dict, Attrib(default_factory=dict)]
-    extras: MiniAnnotated[dict, Attrib(default_factory=dict)]
-    execution_evaluation_state: typing.Optional[str]
-    stop_on_exception: typing.Optional[bool]
-    stop_on_success: typing.Optional[bool]
-    stop_on_error: typing.Optional[bool]
-    run_bypass_event_checks: typing.Optional[bool]
-
-    @classmethod
-    def from_assignment_expression_group(
-        cls, assigment_expression_group: "AssignmentExpressionGroup"
-    ) -> "Options":
-        fields = [
-            "retry_attempts",
-            "executor",
-            "executor_config",
-            "extras",
-            "execution_evaluation_state",
-            "stop_on_exception",
-            "stop_on_success",
-            "stop_on_error",
-            "run_bypass_event_checks",
-        ]
-        assignment_dict = {}
-        for assignment in assigment_expression_group.assignment_groups():
-            if assignment.variable in fields:
-                assignment_dict[assignment.variable] = assignment.value
-            else:
-                if "extras" not in assignment.variable:
-                    assignment_dict["extras"] = {}
-                assignment_dict["extras"][assignment.variable] = assignment.value
-
-        return cls.loads(assignment_dict, _format="dict")
+# class Options(BaseModel):
+#     retry_attempts: typing.Optional[int]
+#     executor: typing.Optional[str]
+#     executor_config: MiniAnnotated[dict, Attrib(default_factory=dict)]
+#     extras: MiniAnnotated[dict, Attrib(default_factory=dict)]
+#     execution_evaluation_state: typing.Optional[str]
+#     stop_on_exception: typing.Optional[bool]
+#     stop_on_success: typing.Optional[bool]
+#     stop_on_error: typing.Optional[bool]
+#     run_bypass_event_checks: typing.Optional[bool]
+#
+#     @classmethod
+#     def from_assignment_expression_group(
+#         cls, assigment_expression_group: "AssignmentExpressionGroup"
+#     ) -> "Options":
+#         fields = [
+#             "retry_attempts",
+#             "executor",
+#             "executor_config",
+#             "extras",
+#             "execution_evaluation_state",
+#             "stop_on_exception",
+#             "stop_on_success",
+#             "stop_on_error",
+#             "run_bypass_event_checks",
+#         ]
+#         assignment_dict = {}
+#         for assignment in assigment_expression_group.assignment_groups():
+#             if assignment.variable in fields:
+#                 assignment_dict[assignment.variable] = assignment.value
+#             else:
+#                 if "extras" not in assignment.variable:
+#                     assignment_dict["extras"] = {}
+#                 assignment_dict["extras"][assignment.variable] = assignment.value
+#
+#         return cls.loads(assignment_dict, _format="dict")
 
 
 class ExecutionState(Enum):
@@ -732,36 +736,6 @@ class ExtraPipelineTaskConfig:
         return list(self._descriptors.values())
 
 
-@unique
-class PipeType(Enum):
-    POINTER = "pointer"
-    PIPE_POINTER = "pipe_pointer"
-    PARALLELISM = "parallelism"
-    RETRY = "retry"
-
-    def token(self):
-        if self == self.POINTER:
-            return "->"
-        elif self == self.PIPE_POINTER:
-            return "|->"
-        elif self == self.PARALLELISM:
-            return "||"
-        elif self == self.RETRY:
-            return "*"
-
-    @classmethod
-    def get_pipe_type_enum(cls, pipe_str: str) -> typing.Optional["PipeType"]:
-        if pipe_str == cls.PIPE_POINTER.token():
-            return cls.PIPE_POINTER
-        elif pipe_str == cls.PARALLELISM.token():
-            return cls.PARALLELISM
-        elif pipe_str == cls.RETRY.token():
-            return cls.RETRY
-        elif pipe_str == cls.POINTER.token():
-            return cls.POINTER
-        return None
-
-
 class PipelineTask(ObjectIdentityMixin):
     """
     Represents a task in a pipeline, with event-driven behavior and conditional execution flows.
@@ -886,7 +860,7 @@ class PipelineTask(ObjectIdentityMixin):
 
     def get_parallel_nodes(self):
         if not self.is_parallel_execution_node:
-            return
+            return None
 
         parallel_tasks = deque()
         task = self

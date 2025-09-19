@@ -129,6 +129,9 @@ class ExecutableASTGenerator(ASTVisitorInterface):
         if node.type == ast.BlockType.ASSIGNMENT:
             return self.visit_assignment_block(node)
         elif node.type == ast.BlockType.CONDITIONAL:
+            if typing.TYPE_CHECKING:
+                node = typing.cast(ast.ConditionalNode, node)
+
             return self.visit_conditional(node)
         elif node.type == ast.BlockType.GROUP:
             return self.visit_group_block(node)
@@ -149,6 +152,8 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     ) -> typing.Dict[str, typing.Any]:
         assign = {}
         for statement in node.statements:
+            if typing.TYPE_CHECKING:
+                statement = typing.cast(ast.AssignmentNode, statement)
             assign.update(self.visit_assignment(statement))
         return assign
 

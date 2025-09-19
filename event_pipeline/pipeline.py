@@ -31,7 +31,10 @@ from .signal.signals import (
 
 # from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState Old imports
 from event_pipeline.task import PipelineTask
-from event_pipeline.runners.execution_data import ExecutionContext as EventExecutionContext, ExecutionState
+from event_pipeline.runners.execution_data import (
+    ExecutionContext as EventExecutionContext,
+    ExecutionState,
+)
 from event_pipeline.parser.operator import PipeType
 
 from .constants import (
@@ -204,11 +207,14 @@ class PipelineMeta(type):
 
     @classmethod
     @lru_cache
-    def find_pointy_file(cls, pipeline_path: str, class_name: str) -> str:
+    def find_pointy_file(
+        cls, pipeline_path: str, class_name: str
+    ) -> typing.Union[str, None]:
         if os.path.isfile(pipeline_path):
             return pipeline_path
         elif os.path.isdir(pipeline_path):
             return cls.directory_walk(pipeline_path, f"{class_name}.pty")
+        return None
 
     @classmethod
     def directory_walk(cls, dir_path: str, file_name: str):
@@ -218,6 +224,7 @@ class PipelineMeta(type):
                     return os.path.join(root, name)
             for vdir in dirs:
                 cls.directory_walk(os.path.join(root, vdir), file_name)
+        return None
 
 
 class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
@@ -412,7 +419,7 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
             if not field.has_batch_operation:
                 yield name, field
 
-    def get_pipeline_tree(self) -> Tree:
+    def get_pipeline_tree(self) -> typing.Optional[Tree]:
         """
         Constructs and returns the pipeline's execution tree.
 
@@ -450,6 +457,7 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
                     data=TreeExtraData(pipe_type=node.get_pointer_type_to_this_event()),
                 )
             return tree
+        return None
 
     def draw_ascii_graph(self):
         """
@@ -692,6 +700,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     def _check_memory_usage(self):
         """Monitor memory usage and adjust batch size if needed"""
         import psutil
+
         memory_percent = psutil.Process().memory_percent()
         if memory_percent > self.max_memory_percent:
             self._adjust_batch_size()
@@ -699,7 +708,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     def _adjust_batch_size(self):
         """Dynamically adjust batch size based on memory usage"""
         for field in self._field_batch_op_map:
-            if hasattr(field, 'batch_size'):
+            if hasattr(field, "batch_size"):
                 field.batch_size = max(1, field.batch_size // 2)
 
     def _gather_field_batch_methods(

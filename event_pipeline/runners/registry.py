@@ -6,8 +6,12 @@ from event_pipeline.exceptions import ExecutorNotFound
 class ExecutorRegistry:
     """Registry for available executors with validation"""
 
-    def __init__(self):
+    def __init__(self, task_profiles):
         self._executors: typing.Dict[str, typing.Type[Executor]] = {}
+        self._options_executors: typing.Dict[str, typing.Type[Executor]] = {}
+
+    def fetch_executors(self):
+        pass
 
     def register(self, executor_class: typing.Type[Executor]) -> None:
         if not issubclass(executor_class, Executor):

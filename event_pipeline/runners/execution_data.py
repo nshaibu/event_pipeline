@@ -167,6 +167,9 @@ class ExecutionContext(ObjectIdentityMixin):
         event = ""  # PipelineTask.resolve_event_name(event_name)
         result = ResultSet([])
 
+        def filter_condition(context: ExecutionContext, term: str) -> bool:
+            task_profiles = context.task_profiles
+
         for context in head:
             if event in [task.event for task in context.task_profiles]:
                 result.add(context)

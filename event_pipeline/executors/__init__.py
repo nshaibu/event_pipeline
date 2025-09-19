@@ -5,4 +5,11 @@ from .grpc_executor import GRPCExecutor
 from .remote_executor import RemoteExecutor
 from .rpc_executor import XMLRPCExecutor
 
-__all__ = ["ThreadPoolExecutor", "ProcessPoolExecutor", "DefaultExecutor", "XMLRPCExecutor", "RemoteExecutor", "GRPCExecutor"]
+__all__ = [
+    "ThreadPoolExecutor",
+    "ProcessPoolExecutor",
+    "DefaultExecutor",
+    "XMLRPCExecutor",
+    "RemoteExecutor",
+    "GRPCExecutor",
+]

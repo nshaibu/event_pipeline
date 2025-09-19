@@ -186,6 +186,16 @@ class ResultEvaluationStrategies:
     ) -> PercentageSuccessThresholdStrategy:
         return PercentageSuccessThresholdStrategy(percentage)
 
+    def __getattr__(self, name: str) -> ExecutionResultEvaluationStrategyBase:
+        evaluator_name, factor = name.split("_")
+        if factor is not None:
+            factor = int(factor)
+            if evaluator_name == PercentageSuccessThresholdStrategy.__name__:
+                return PercentageSuccessThresholdStrategy(factor)
+            elif evaluator_name == MinimumSuccessThresholdStrategy.__name__:
+                return MinimumSuccessThresholdStrategy(factor)
+        return self.__getattribute__(name)
+
 
 class EventEvaluator:
 

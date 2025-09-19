@@ -21,7 +21,11 @@ class PipeType(Enum):
         return None
 
     @classmethod
-    def get_pipe_type_enum(cls, pipe_str: str) -> typing.Optional["PipeType"]:
+    def get_pipe_type_enum(
+        cls, pipe_str: typing.Union[str, "PipeType"]
+    ) -> typing.Optional["PipeType"]:
+        if isinstance(pipe_str, PipeType):
+            return pipe_str
         if pipe_str == cls.PIPE_POINTER.token():
             return cls.PIPE_POINTER
         elif pipe_str == cls.PARALLELISM.token():

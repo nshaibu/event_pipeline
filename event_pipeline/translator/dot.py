@@ -1,5 +1,6 @@
 import typing
 from functools import lru_cache
+
 try:
     from StringIO import StringIO
 except ImportError:

@@ -1,31 +1,51 @@
 import asyncio
 import typing
-from concurrent.futures import Future as MpFuture
-from event_pipeline.result import EventResult, ResultSet
+
+from event_pipeline.result import ResultSet
+from event_pipeline.result_evaluators import (
+    EventEvaluationResult,
+    EventEvaluator,
+    ExecutionResultEvaluationStrategyBase,
+)
 
 
 class ResultProcessor:
     """Handles result processing and aggregation"""
 
-    def __init__(self, evaluator_factory: "EvaluatorFactory"):
-        self._evaluator_factory = evaluator_factory
+    def __init__(self, evaluator: EventEvaluator):
+        self._evaluator = evaluator
 
-    async def process_futures(self, futures: typing.List[asyncio.Future]) -> ResultSet:
+    @classmethod
+    async def process_futures(
+        cls, futures: typing.List[asyncio.Future]
+    ) -> typing.Tuple[ResultSet, ResultSet]:
         """Process futures and handle exceptions consistently"""
-        results = ResultSet([])
-        errors = []
+        results = ResultSet()
+        errors = ResultSet()
 
         for result in await asyncio.gather(*futures, return_exceptions=True):
             try:
-                results.add(result)
+                if isinstance(result, Exception):
+                    errors.add(result)
+                else:
+                    results.add(result)
             except Exception as e:
-                errors.append(e)
+                errors.add(e)
 
-        return results
+        return results, errors
 
     def evaluate_execution(
-        self, results: ProcessedResults, strategy: EvaluationStrategy
-    ) -> EvaluationResult:
+        self,
+        results: ResultSet,
+        strategy: typing.Optional[ExecutionResultEvaluationStrategyBase] = None,
+    ) -> EventEvaluationResult:
         """Evaluate execution results using specified strategy"""
-        evaluator = self._evaluator_factory.create(strategy)
-        return evaluator.evaluate(results)
+        old_strategy = None
+        if strategy is not None:
+            old_strategy = self._evaluator.strategy
+            self._evaluator.change_strategy(strategy)
+
+        evaluation_result = self._evaluator.evaluate(results)
+        if old_strategy:
+            self._evaluator.change_strategy(old_strategy)
+        return evaluation_result
