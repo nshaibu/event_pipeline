@@ -880,6 +880,7 @@ class PipelineTask(ObjectIdentityMixin):
                 return self.parent_node.get_parallel_execution_parent_node()
             else:
                 return self
+        return None
 
     def get_event_klass(self):
         return self.resolve_event_name(self.event)
@@ -1090,6 +1091,7 @@ class PipelineTask(ObjectIdentityMixin):
         target = self.extra_config.get_descriptor_config(descriptor)
         if target:
             return target.task
+        return None
 
     @classmethod
     def bf_traversal(cls, node: "PipelineTask"):
