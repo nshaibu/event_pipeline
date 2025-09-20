@@ -14,6 +14,7 @@ hdfs>=2.7.0
 grpcio>=1.60.0
 grpcio-tools<=1.70.0   # >=1.60.0
 cloudpickle>=3.0.0
+psutil==7.1.0
 psycopg==3.2.5
 psycopg-binary==3.2.5
 psycopg-pool==3.2.6
