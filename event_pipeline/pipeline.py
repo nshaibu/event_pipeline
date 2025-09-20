@@ -986,8 +986,7 @@ class _BatchProcessingMonitor(threading.Thread):
                         # This covers any older message formats that might still be in use
                         self.construct_signal(signal_data)
                 except Exception as e:
-                    if not self._shutdown_flag.is_set():
-                        logger.warning(f"❗️Error processing message in monitor: {e}")
+                    logger.warning(f"❗️Error processing message in monitor: {e}")
         finally:
             # Emit batch finished signal
             # self._emit_batch_finished()
@@ -1014,7 +1013,15 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     listen_to_signals: typing.List[str] = SoftSignal.registered_signals()
 
     __signature__ = None
+    
+    max_workers: int = None
+    
+    timeout: float = None
 
+    memory_limit: int = None
+
+    max_memory_percent: float = 90.00
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -1067,6 +1074,16 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             raise ImproperlyConfigured(
                 "Batch processor error. Batch processor must be iterable and generators"
             )
+    
+    @property
+    def get_executor_config(self):
+        return {
+            "max_workers": self.max_workers or conf.MAX_BATCH_PROCESSING_WORKERS,
+            "timeout": self.timeout,
+            "mp_context": mp.get_context("spawn"),
+            "memory_limit": self.memory_limit,
+            "max_memory_percent": self.max_memory_percent
+        }
 
     def _check_memory_usage(self):
         """Monitor memory usage and adjust batch size if needed"""
@@ -1227,8 +1244,10 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             self._monitor_thread.start()
 
             with ProcessPoolExecutor(
-                max_workers=conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
+                max_workers=self.max_workers or conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
             ) as executor:
+                # call memory check method to do resizing when memory percent limit is been reached
+                self._check_memory_usage()
                 for kwargs in self._execute_field_batch_processors(
                     self._field_batch_op_map
                 ):
