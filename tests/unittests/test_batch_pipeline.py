@@ -9,6 +9,7 @@ from event_pipeline import EventBase
 from event_pipeline.exceptions import ImproperlyConfigured
 from event_pipeline.fields import InputDataField
 from event_pipeline.pipeline import BatchPipeline, BatchPipelineStatus, Pipeline
+from event_pipeline.conf import ConfigLoader
 
 
 class Start(EventBase):
@@ -159,6 +160,52 @@ class TestBatchPipeline(unittest.TestCase):
             batch.execute()
             # Verify signal queue was created
             self.assertIsNotNone(batch._signals_queue)
+
+    @patch('psutil.Process')
+    def test_memory_check_and_adjustment(self, mock_process):
+        """Test memory usage checking and batch size adjustment"""
+        batch = self.batch_cls(data=[1, 2, 3, 4])
+        field = next(batch.get_fields())[1]
+        field.batch_size = 4
+        batch._field_batch_op_map = {field: iter([1, 2, 3, 4])}
+        batch.max_memory_percent = 90.0
+        
+        # Test when memory is below threshold
+        mock_process.return_value.memory_percent.return_value = 85.0
+        batch._check_memory_usage()
+        self.assertEqual(field.batch_size, 4)
+        
+        # Test when memory exceeds threshold
+        mock_process.return_value.memory_percent.return_value = 95.0
+        batch._check_memory_usage()
+        self.assertEqual(field.batch_size, 2)
+        
+        # Test minimum batch size
+        mock_process.return_value.memory_percent.return_value = 95.0
+        batch._check_memory_usage()
+        self.assertEqual(field.batch_size, 1)
+
+    def test_executor_config(self):
+        """Test executor configuration settings"""
+        batch = self.batch_cls(data=[1, 2, 3, 4])
+        conf = ConfigLoader.get_lazily_loaded_config()
+        
+        # Test default config
+        config = batch.get_executor_config
+        self.assertEqual(config['max_workers'], conf.MAX_BATCH_PROCESSING_WORKERS)
+        self.assertIsNone(config['timeout'])
+        self.assertEqual(config['max_memory_percent'], 90.00)
+        
+        # Test with custom settings
+        batch.max_workers = 4
+        batch.timeout = 30.0
+        batch.max_memory_percent = 85.0
+        config = batch.get_executor_config
+        
+        self.assertEqual(config['max_workers'], 4)
+        self.assertEqual(config['timeout'], 30.0)
+        self.assertEqual(config['max_memory_percent'], 85.0)
+        self.assertIsNotNone(config['mp_context'])
 
     def tearDown(self):
         # Clean up any resources
