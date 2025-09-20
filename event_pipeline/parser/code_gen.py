@@ -57,8 +57,12 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     def visit_binop(
         self, node: ast.BinOpNode
     ) -> typing.Union[TaskProtocol, TaskGroupingProtocol]:
-        left_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = self._visit_node(node.left)
-        right_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = self._visit_node(node.right)
+        left_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = (
+            self._visit_node(node.left)
+        )
+        right_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = (
+            self._visit_node(node.right)
+        )
 
         if isinstance(
             left_instance, (TaskProtocol, TaskGroupingProtocol)
@@ -125,6 +129,9 @@ class ExecutableASTGenerator(ASTVisitorInterface):
         if node.type == ast.BlockType.ASSIGNMENT:
             return self.visit_assignment_block(node)
         elif node.type == ast.BlockType.CONDITIONAL:
+            if typing.TYPE_CHECKING:
+                node = typing.cast(ast.ConditionalNode, node)
+
             return self.visit_conditional(node)
         elif node.type == ast.BlockType.GROUP:
             return self.visit_group_block(node)
@@ -134,7 +141,7 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     def visit_group_block(self, node: ast.BlockNode):
         raise NotImplementedError("Not Supported yet")
 
-    def visit_literal(self, node: ast.LiteralNode):
+    def visit_literal(self, node: ast.LiteralNode) -> typing.Union[int, str, float]:
         return node.value
 
     def visit_assignment(self, node: ast.AssignmentNode):
@@ -145,6 +152,8 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     ) -> typing.Dict[str, typing.Any]:
         assign = {}
         for statement in node.statements:
+            if typing.TYPE_CHECKING:
+                statement = typing.cast(ast.AssignmentNode, statement)
             assign.update(self.visit_assignment(statement))
         return assign
 
@@ -158,6 +167,10 @@ class ExecutableASTGenerator(ASTVisitorInterface):
         # create instance of expression group
         instance = self.grouping_template(expression_chain_groups)
         self._current_task = instance
+        if node.options:
+            instance.options = Options.from_dict(
+                self.visit_assignment_block(node.options)
+            )
         return instance
 
     def visit_conditional(self, node: ast.ConditionalNode):
@@ -196,5 +209,7 @@ class ExecutableASTGenerator(ASTVisitorInterface):
 
         return parent
 
-    def generate(self) -> TaskProtocol:
-        pass
+    def generate(self) -> typing.Optional[TaskProtocol]:
+        if self._current_task is None:
+            return None
+        return self._current_task.get_root()
