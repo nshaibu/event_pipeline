@@ -1,0 +1,5 @@
+# Sample Pointy-lang file
+Extract -> ValidateSchema -> (
+  1-> CleanData -> LoadDB * 3 -> (1-> SuccessNotify, 0-> FailureAlert),
+  0-> LogError -> AlertTeam
+)

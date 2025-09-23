@@ -1,0 +1,35 @@
+{
+  "name": "pointy-lang",
+  "displayName": "Pointy-lang",
+  "description": "Syntax highlighting for Pointy-lang (.pty) \u2014 highlights events, operators, and configuration.",
+  "version": "0.1.0",
+  "publisher": "nshaibu",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "pointy",
+        "aliases": [
+          "Pointy",
+          "pointy-lang"
+        ],
+        "extensions": [
+          ".pty"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pointy",
+        "scopeName": "source.pointy",
+        "path": "./syntaxes/pointy.tmLanguage.json"
+      }
+    ]
+  }
+}
