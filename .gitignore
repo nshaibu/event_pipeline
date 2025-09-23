@@ -176,3 +176,4 @@ cython_debug/
 .pypirc
 
 pointy_test.py
+executor.md
