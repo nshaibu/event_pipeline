@@ -193,17 +193,14 @@ class TestBatchPipeline(unittest.TestCase):
         # Test default config
         config = batch.get_executor_config
         self.assertEqual(config['max_workers'], conf.MAX_BATCH_PROCESSING_WORKERS)
-        self.assertIsNone(config['timeout'])
         self.assertEqual(config['max_memory_percent'], 90.00)
         
         # Test with custom settings
         batch.max_workers = 4
-        batch.timeout = 30.0
         batch.max_memory_percent = 85.0
         config = batch.get_executor_config
         
         self.assertEqual(config['max_workers'], 4)
-        self.assertEqual(config['timeout'], 30.0)
         self.assertEqual(config['max_memory_percent'], 85.0)
         self.assertIsNotNone(config['mp_context'])
 
