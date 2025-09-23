@@ -318,10 +318,10 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
                 again even if it has already completed. Defaults to False.
 
         Return:
-            EventExecutionContext: The execution context of the pipeline. It is a linked list with ability to
+            EventExecutionContext: The execution context of the pipeline. It is a linked list with the ability to
             traverse the various execution contexts for each of the events within the pipeline.
-            The context can be filter base on the event name using the method `filter_by_event`.
-            It is also iterable and thus your can loop over it
+            The context can be filtered based on the event name using the method `filter_by_event`.
+            It is also iterable, and thus you can loop over it
             `for context in pipeline.start(): pass`
 
         Raises:
