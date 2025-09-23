@@ -1016,8 +1016,6 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     
     max_workers: int = None
     
-    timeout: float = None
-
     memory_limit: int = None
 
     max_memory_percent: float = 90.00
@@ -1079,7 +1077,6 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     def get_executor_config(self):
         return {
             "max_workers": self.max_workers or conf.MAX_BATCH_PROCESSING_WORKERS,
-            "timeout": self.timeout,
             "mp_context": mp.get_context("spawn"),
             "memory_limit": self.memory_limit,
             "max_memory_percent": self.max_memory_percent
