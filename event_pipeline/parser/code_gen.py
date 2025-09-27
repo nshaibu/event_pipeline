@@ -69,7 +69,10 @@ class ExecutableASTGenerator(ASTVisitorInterface):
         ) and isinstance(right_instance, (TaskProtocol, TaskGroupingProtocol)):
             pipe_type = PipeType.get_pipe_type_enum(node.op)
             if pipe_type is None:
-                raise PointyParseError(f"AST is malformed {ast}")
+                logger.debug("No pipe type for %s", node.op)
+                raise PointyParseError(
+                    f"AST is malformed {ast}. No pipe type for {node.op} found."
+                )
 
             if left_instance.is_conditional:
                 left_instance.sink_node = right_instance
@@ -95,6 +98,7 @@ class ExecutableASTGenerator(ASTVisitorInterface):
                 node_instance = right_instance
 
             if node_instance is None:
+                logger.debug("No node instance for %s", left_instance)
                 raise PointyParseError(
                     f"AST is malformed {ast}. Descriptor operation must have a valid task node"
                 )
@@ -130,7 +134,7 @@ class ExecutableASTGenerator(ASTVisitorInterface):
             return self.visit_assignment_block(node)
         elif node.type == ast.BlockType.CONDITIONAL:
             if typing.TYPE_CHECKING:
-                node = typing.cast(ast.ConditionalNode, node)
+                node = typing.cast(ast.ConditionalNode, typing.cast(ast.ASTNode, node))
 
             return self.visit_conditional(node)
         elif node.type == ast.BlockType.GROUP:
@@ -206,6 +210,10 @@ class ExecutableASTGenerator(ASTVisitorInterface):
                         logger.warning(
                             f"Failed to add descriptor {instance.descriptor} for event {node}"
                         )
+            else:
+                logger.warning(
+                    f"Failed to add descriptor for conditional event {statement}"
+                )
 
         return parent
 
