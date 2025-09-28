@@ -162,28 +162,33 @@ class TestBatchPipeline(unittest.TestCase):
             self.assertIsNotNone(batch._signals_queue)
 
     @patch('psutil.Process')
-    def test_memory_check_and_adjustment(self, mock_process):
-        """Test memory usage checking and batch size adjustment"""
-        batch = self.batch_cls(data=[1, 2, 3, 4])
+    def test_memory_management(self, mock_process):
+        """Test memory management and batch size adjustment"""
+        batch = self.batch_cls(data=list(range(100)))
         field = next(batch.get_fields())[1]
-        field.batch_size = 4
-        batch._field_batch_op_map = {field: iter([1, 2, 3, 4])}
+        field.batch_size = 20
+        batch._field_batch_op_map = {field: iter(range(100))}
         batch.max_memory_percent = 90.0
-        
-        # Test when memory is below threshold
-        mock_process.return_value.memory_percent.return_value = 85.0
-        batch._check_memory_usage()
-        self.assertEqual(field.batch_size, 4)
-        
-        # Test when memory exceeds threshold
+
+        # Test normal memory usage scenario
+        mock_process.return_value.memory_percent.return_value = 80.0
+        batch.check_memory_usage()
+        self.assertEqual(field.batch_size, 20)
+
+        # Test high memory usage scenario - should reduce by 20%
         mock_process.return_value.memory_percent.return_value = 95.0
-        batch._check_memory_usage()
-        self.assertEqual(field.batch_size, 2)
-        
-        # Test minimum batch size
+        batch.check_memory_usage()
+        self.assertEqual(field.batch_size, 16)
+
+        # Test successive memory pressure - another 20% reduction
         mock_process.return_value.memory_percent.return_value = 95.0
-        batch._check_memory_usage()
-        self.assertEqual(field.batch_size, 1)
+        batch.check_memory_usage()
+        self.assertEqual(field.batch_size, 12)
+
+        # Test minimum batch size limit
+        for _ in range(10):
+            batch.check_memory_usage()
+        self.assertEqual(field.batch_size, 1)   
 
     def test_executor_config(self):
         """Test executor configuration settings"""
