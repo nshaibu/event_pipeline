@@ -189,6 +189,23 @@ class TestBatchPipeline(unittest.TestCase):
         for _ in range(10):
             batch.check_memory_usage()
         self.assertEqual(field.batch_size, 1)   
+    
+    @patch('psutil.Process')
+    def test_memory_check_in_executor(self, mock_process):
+        """Test memory checking during execution"""
+        batch = self.batch_cls(data=list(range(100)))
+        
+        mock_process.return_value.memory_percent.return_value = 95.0
+        
+        with patch.object(batch, '_adjust_batch_size') as mock_adjust:
+            batch.check_memory_usage()
+            mock_adjust.assert_called_once()
+            
+        # Test no adjustment needed
+        mock_process.return_value.memory_percent.return_value = 85.0
+        with patch.object(batch, '_adjust_batch_size') as mock_adjust:
+            batch.check_memory_usage()
+            mock_adjust.assert_not_called()
 
     def test_executor_config(self):
         """Test executor configuration settings"""
