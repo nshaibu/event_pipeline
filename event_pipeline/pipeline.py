@@ -1096,6 +1096,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
         for _field in self._field_batch_op_map:
             if hasattr(_field, "batch_size"):
                 _field.batch_size = max(1, int(_field.batch_size * 0.8)) # 20% reduction in batch size
+        logger.info("❕batch size has been adjusted")
 
     def _gather_field_batch_methods(
         self, field: InputDataField, batch_processor: BATCH_PROCESSOR_TYPE
