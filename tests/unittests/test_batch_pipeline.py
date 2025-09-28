@@ -1,3 +1,5 @@
+import time
+import itertools
 import multiprocessing as mp
 import unittest
 from typing import Iterator, List
@@ -8,7 +10,7 @@ import pytest
 from event_pipeline import EventBase
 from event_pipeline.exceptions import ImproperlyConfigured
 from event_pipeline.fields import InputDataField
-from event_pipeline.pipeline import BatchPipeline, BatchPipelineStatus, Pipeline
+from event_pipeline.pipeline import BatchPipeline, BatchPipelineStatus, Pipeline, _BatchProcessingMonitor
 from event_pipeline.conf import ConfigLoader
 
 
@@ -206,6 +208,32 @@ class TestBatchPipeline(unittest.TestCase):
         with patch.object(batch, '_adjust_batch_size') as mock_adjust:
             batch.check_memory_usage()
             mock_adjust.assert_not_called()
+
+    @patch('psutil.Process')
+    def test_batch_monitor_memory_check(self, mock_process):
+        """Test memory monitoring in BatchProcessingMonitor during execution"""
+        batch = self.batch_cls(data=list(range(10)))
+        
+        mock_process.return_value.memory_percent.side_effect = itertools.cycle([85.0, 95.0, 95.0, 85.0])
+        
+        field = next(batch.get_fields())[1]
+        original_batch_size = field.batch_size = 10
+        batch._field_batch_op_map = {field: iter(range(10))}
+        
+        monitor = _BatchProcessingMonitor(batch)
+        try:
+            monitor.start()
+            
+            time.sleep(0.1)
+            
+            self.assertLess(field.batch_size, original_batch_size)
+            
+        finally:
+            monitor._shutdown_flag.set()
+            monitor.join(timeout=1.0)
+            
+            if monitor.is_alive():
+                monitor._cleanup_signal_listeners()
 
     def test_executor_config(self):
         """Test executor configuration settings"""
