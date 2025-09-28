@@ -968,6 +968,7 @@ class _BatchProcessingMonitor(threading.Thread):
                 self._emit_batch_started()
 
             while not self._shutdown_flag.is_set():
+                self.batch.check_memory_usage()
                 try:
                     signal_data = self.batch.signals_queue.get(timeout=1.0)
                     if signal_data is None:
@@ -1082,7 +1083,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             "max_memory_percent": self.max_memory_percent
         }
 
-    def _check_memory_usage(self):
+    def check_memory_usage(self):
         """Monitor memory usage and adjust batch size if needed"""
         import psutil
 
@@ -1092,9 +1093,9 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
 
     def _adjust_batch_size(self):
         """Dynamically adjust batch size based on memory usage"""
-        for field in self._field_batch_op_map:
-            if hasattr(field, "batch_size"):
-                field.batch_size = max(1, field.batch_size // 2)
+        for _field in self._field_batch_op_map:
+            if hasattr(_field, "batch_size"):
+                _field.batch_size = max(1, int(_field.batch_size * 0.8)) # 20% reduction in batch size
 
     def _gather_field_batch_methods(
         self, field: InputDataField, batch_processor: BATCH_PROCESSOR_TYPE
@@ -1244,7 +1245,6 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
                 max_workers=self.max_workers or conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
             ) as executor:
                 # call memory check method to do resizing when memory percent limit is been reached
-                self._check_memory_usage()
                 for kwargs in self._execute_field_batch_processors(
                     self._field_batch_op_map
                 ):
