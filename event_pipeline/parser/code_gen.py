@@ -107,7 +107,8 @@ class ExecutableASTGenerator(ASTVisitorInterface):
             if node.op == PipeType.RETRY.token():
                 if node_instance.options is None:
                     node_instance.options = Options()
-                node_instance.options.retry_attempts += descriptor_value
+                # override the retry_attempts since * has high precedence
+                node_instance.options.retry_attempts = descriptor_value
                 return node_instance
 
             node_instance = node_instance.get_root()

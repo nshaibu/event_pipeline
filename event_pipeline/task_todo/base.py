@@ -38,6 +38,9 @@ class TaskBase(ObjectIdentityMixin):
     def __setstate__(self, state):
         self.__dict__.update(state)
 
+    def get_id(self) -> str:
+        return self.id
+
     @property
     def descriptor(self) -> int:
         return self._descriptor

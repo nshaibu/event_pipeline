@@ -23,6 +23,9 @@ class TaskProtocolMixin(typing.Protocol):
 
     condition_node: "ConditionalNode"
 
+    def get_id(self) -> str:
+        """Return task id"""
+
     @property
     def descriptor(self) -> int: ...
 
@@ -48,3 +51,9 @@ class TaskProtocolMixin(typing.Protocol):
     def is_parallel_execution_node(self) -> bool: ...
 
     def get_root(self) -> "TaskProtocol": ...
+
+    def get_task_pointer_type(self) -> typing.Optional["PipeType"]: ...
+
+    def get_parent_node_for_parallel_execution(
+        self,
+    ) -> typing.Optional["TaskProtocol"]: ...
