@@ -968,6 +968,7 @@ class _BatchProcessingMonitor(threading.Thread):
                 self._emit_batch_started()
 
             while not self._shutdown_flag.is_set():
+                self.batch.check_memory_usage()
                 try:
                     signal_data = self.batch.signals_queue.get(timeout=1.0)
                     if signal_data is None:
@@ -986,8 +987,7 @@ class _BatchProcessingMonitor(threading.Thread):
                         # This covers any older message formats that might still be in use
                         self.construct_signal(signal_data)
                 except Exception as e:
-                    if not self._shutdown_flag.is_set():
-                        logger.warning(f"❗️Error processing message in monitor: {e}")
+                    logger.warning(f"❗️Error processing message in monitor: {e}")
         finally:
             # Emit batch finished signal
             # self._emit_batch_finished()
@@ -1014,7 +1014,13 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     listen_to_signals: typing.List[str] = SoftSignal.registered_signals()
 
     __signature__ = None
+    
+    max_workers: int = None
+    
+    memory_limit: int = None
 
+    max_memory_percent: float = 90.00
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -1067,8 +1073,17 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             raise ImproperlyConfigured(
                 "Batch processor error. Batch processor must be iterable and generators"
             )
+    
+    @property
+    def get_executor_config(self):
+        return {
+            "max_workers": self.max_workers or conf.MAX_BATCH_PROCESSING_WORKERS,
+            "mp_context": mp.get_context("spawn"),
+            "memory_limit": self.memory_limit,
+            "max_memory_percent": self.max_memory_percent
+        }
 
-    def _check_memory_usage(self):
+    def check_memory_usage(self):
         """Monitor memory usage and adjust batch size if needed"""
         import psutil
 
@@ -1078,9 +1093,10 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
 
     def _adjust_batch_size(self):
         """Dynamically adjust batch size based on memory usage"""
-        for field in self._field_batch_op_map:
-            if hasattr(field, "batch_size"):
-                field.batch_size = max(1, field.batch_size // 2)
+        for _field in self._field_batch_op_map:
+            if hasattr(_field, "batch_size"):
+                _field.batch_size = max(1, int(_field.batch_size * 0.8)) # 20% reduction in batch size
+        logger.info("❕batch size has been adjusted")
 
     def _gather_field_batch_methods(
         self, field: InputDataField, batch_processor: BATCH_PROCESSOR_TYPE
@@ -1227,8 +1243,9 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
             self._monitor_thread.start()
 
             with ProcessPoolExecutor(
-                max_workers=conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
+                max_workers=self.max_workers or conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
             ) as executor:
+                # call memory check method to do resizing when memory percent limit is been reached
                 for kwargs in self._execute_field_batch_processors(
                     self._field_batch_op_map
                 ):
