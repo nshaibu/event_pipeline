@@ -1,8 +1,10 @@
 import typing
 import logging
-from concurrent.futures import Executor
-
+import asyncio
+from concurrent.futures import Future
 from .base import FlowBase
+from event_pipeline.base import ExecutorInitializerConfig
+from event_pipeline.executors import BaseExecutor
 
 
 if typing.TYPE_CHECKING:
@@ -21,7 +23,7 @@ class SingleFlow(FlowBase):
         super().__model_init__(*args, **kwargs)
         self.task_profile = self.task_profiles[0]
 
-    async def get_flow_executor(self, *args, **kwargs) -> typing.Type[Executor]:
+    async def get_flow_executor(self, *args, **kwargs) -> typing.Type[BaseExecutor]:
         """
         Get the executor class for this flow.
         Args:
@@ -36,8 +38,45 @@ class SingleFlow(FlowBase):
         event_class = self.task_profile.get_event_class()
         return event_class.get_executor_class()
 
-    async def get_flow_executor_config(self, **kwargs) -> typing.Dict[str, typing.Any]:
-        pass
+    async def run(self) -> Future:
+        """
+        Execute the flow until it completes.
+        Returns:
+            Future object representing the result of the flow.
+        Exceptions:
+            ValueError: if the executor or the execution config is invalid.
+            RuntimeError: if the event submission or execution fails
+            BrokenPipeError: if the internal queue of the executor is broken.
+        """
+        try:
+            executor_class, executor_config = await asyncio.gather(
+                self.get_flow_executor(self.task_profile),
+                self.get_flow_executor_config(self.task_profile),
+                return_exceptions=True,
+            )
 
-    async def run(self) -> None:
-        pass
+            self.validate_executor_class_and_config(executor_class, executor_config)
+
+            event, event_call_kwargs = self.get_initialized_event(self.task_profile)
+
+            if typing.TYPE_CHECKING:
+                executor_class = typing.cast(typing.Type[BaseExecutor], executor_class)
+                executor_config = typing.cast(
+                    ExecutorInitializerConfig, executor_config
+                )
+
+            async with executor_class(**executor_config.to_dict()) as executor:
+                future = await self._submit_event_to_executor(
+                    executor, event, event_call_kwargs
+                )
+
+            return future
+        except ValueError as e:
+            logger.error(f"Configuration error in run(): {e}")
+            raise
+        except RuntimeError as e:
+            logger.error(f"Executor runtime error in run(): {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in run(): {e}")
+            raise RuntimeError(f"Failed to execute event: {e}")

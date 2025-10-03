@@ -10,6 +10,7 @@ from event_pipeline.signal.signals import (
     event_execution_aborted,
     event_execution_cancelled,
 )
+from event_pipeline.parser.operator import PipeType
 
 if typing.TYPE_CHECKING:
     from event_pipeline.pipeline import Pipeline
@@ -106,7 +107,7 @@ class ExecutionContext(ObjectIdentityMixin):
         Reverse traversal can be done by walking backward from the tail using the linked structure.
     """
 
-    task_profiles: typing.List[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]
+    task_profiles: typing.Deque[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]
     pipeline: "Pipeline"
     state: ExecutionState = field(
         default_factory=lambda: ExecutionState(ExecutionStatus.PENDING)
@@ -180,3 +181,36 @@ class ExecutionContext(ObjectIdentityMixin):
 
     def set_state(self, state: typing.Dict[str, typing.Any]):
         self.__dict__.update(state)
+
+    def get_last_task_in_task_profile_chain(
+        self,
+    ) -> typing.Union["TaskProtocol", "TaskGroupingProtocol", None]:
+        """
+        Retrieves the last task profile in the chain of task profiles.
+
+        This method examines the list of task profiles to identify the last task in
+        a pipeline. If there is only one task profile, it returns that profile directly.
+        For multiple task profiles, it iterates through each profile and checks the
+        pointer type associated with the event.
+
+        Specifically, it looks for a task profile whose pointer type indicates parallelism
+        (PipeType.PARALLELISM) and ensures that its on-success pipe type is not parallelism.
+
+        This helps in identifying the last task in a sequence when tasks are executed in parallel
+        followed by a task that depends on the success of those parallel tasks.
+
+        Returns:
+            PipelineTask: The last task profile in the chain or the single task profile
+                           if only one exists.
+        """
+        if len(self.task_profiles) == 1:
+            return self.task_profiles[0]
+
+        for task_profile in self.task_profiles:
+            pointer_to_task = task_profile.get_task_pointer_type()
+            if (
+                pointer_to_task == PipeType.PARALLELISM
+                and task_profile.condition_node.on_success_pipe != PipeType.PARALLELISM
+            ):
+                return task_profile
+        return None

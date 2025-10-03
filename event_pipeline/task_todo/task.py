@@ -1,5 +1,4 @@
 import typing
-
 from .base import TaskBase
 from event_pipeline.base import EventBase
 from event_pipeline.parser.protocols import (
