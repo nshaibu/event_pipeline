@@ -1,3 +1,12 @@
+from event_pipeline.parser.protocols import TaskProtocol
+
+
+class ExecutionCoordinator:
+
+    def __init__(self, task_protocol: TaskProtocol):
+        self.task_protocol = task_protocol
+
+
 # class ExecutionCoordinator:
 #     """Coordinates the execution of tasks without managing state directly"""
 #

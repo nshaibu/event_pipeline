@@ -12,7 +12,10 @@ from event_pipeline.mixins import ObjectIdentityMixin
 from event_pipeline.base import ExecutorInitializerConfig
 from event_pipeline.parser.operator import PipeType
 from event_pipeline.runners.execution_data import ExecutionContext
-from event_pipeline.utils import build_event_arguments_from_pipeline
+from event_pipeline.utils import (
+    build_event_arguments_from_pipeline,
+    get_function_call_args,
+)
 from event_pipeline.parser.protocols import TaskGroupingProtocol, TaskProtocol
 
 if typing.TYPE_CHECKING:
@@ -152,6 +155,20 @@ class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
                     logger.warning(str(e))
         return None
 
+    @staticmethod
+    def parse_executor_initialisation_configuration(
+        executor: typing.Type[BaseExecutor], execution_config: ExecutorInitializerConfig
+    ) -> typing.Dict[str, typing.Any]:
+        """
+        Parse the executor initialization configuration
+        Args:
+            executor: The executor to initialise.
+            execution_config: The execution configuration to parse.
+        Returns:
+            The parsed executor initialization configuration.
+        """
+        return get_function_call_args(executor.__init__, execution_config.to_dict())
+
     @abstractmethod
     async def get_flow_executor(self, *args, **kwargs) -> typing.Type[BaseExecutor]:
         raise NotImplementedError()
@@ -161,6 +178,8 @@ class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
         Get the init configuration for executor
         Args:
             task_profile: The task profile to get the executor config from.
+        Returns:
+              ExecutorInitializerConfig: The init configuration for executor
         """
         options_config = None
 

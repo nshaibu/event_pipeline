@@ -65,7 +65,11 @@ class SingleFlow(FlowBase):
                     ExecutorInitializerConfig, executor_config
                 )
 
-            async with executor_class(**executor_config.to_dict()) as executor:
+            config = self.parse_executor_initialisation_configuration(
+                executor_class, executor_config
+            )
+
+            async with executor_class(**config) as executor:
                 future = await self._submit_event_to_executor(
                     executor, event, event_call_kwargs
                 )

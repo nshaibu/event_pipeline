@@ -93,7 +93,11 @@ class ParallelFlow(FlowBase):
 
             event_config = self.gather_parallel_events()
 
-            async with executor_class(**executor_config.to_dict()) as executor:
+            config = self.parse_executor_initialisation_configuration(
+                executor_class, executor_config
+            )
+
+            async with executor_class(**config) as executor:
                 future = await self._map_events_to_executor(
                     executor, event_execution_config=event_config
                 )
