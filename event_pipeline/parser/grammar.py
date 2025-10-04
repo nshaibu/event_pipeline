@@ -23,6 +23,19 @@ tokens = pointy_lexer.tokens
 precedence = (("left", "RETRY", "POINTER", "PPOINTER", "PARALLEL"),)
 
 
+"""
+| expression_groupings POINTER expression
+                | expression POINTER expression_groupings
+                | descriptor POINTER expression_groupings
+                | expression_groupings PPOINTER expression
+                | expression PPOINTER expression_groupings
+                | descriptor PPOINTER expression_groupings
+                | expression_groupings PARALLEL expression_groupings
+                | expression_groupings PARALLEL expression
+                | expression PARALLEL expression_groupings
+"""
+
+
 def p_program(p):
     """
     program : expression
@@ -37,15 +50,6 @@ def p_expression(p):
                 | expression PARALLEL expression
                 | descriptor POINTER expression
                 | descriptor PPOINTER expression
-                | expression_groupings POINTER expression
-                | expression POINTER expression_groupings
-                | descriptor POINTER expression_groupings
-                | expression_groupings PPOINTER expression
-                | expression PPOINTER expression_groupings
-                | descriptor PPOINTER expression_groupings
-                | expression_groupings PARALLEL expression_groupings
-                | expression_groupings PARALLEL expression
-                | expression PARALLEL expression_groupings
                 | factor RETRY task
                 | task RETRY factor
                 | expression_groupings RETRY factor
@@ -64,6 +68,7 @@ def p_expression_term(p):
 def p_task(p):
     """
     term : task
+        | expression_groupings
     """
     p[0] = p[1]
 
@@ -164,13 +169,12 @@ def p_assignment_expression_group(p):
 def p_expression_groupings(p):
     """
     expression_groupings : LCURLY_BRACKET expression RCURLY_BRACKET
-                            | expression_groupings assigment_expression_group
+                            | LCURLY_BRACKET expression RCURLY_BRACKET LBRACKET assigment_expression_group RBRACKET
     """
     if len(p) == 4:
         p[0] = ExpressionGroupingNode([p[2]])
     else:
-        p[1].options = p[2]
-        p[0] = p[1]
+        p[0] = ExpressionGroupingNode([p[2]], options=p[5])
 
 
 def p_error(p):

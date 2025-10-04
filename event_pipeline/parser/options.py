@@ -28,7 +28,7 @@ class ResultEvaluationStrategy(StrEnum):
 
 def resolve_str_to_enum(
     enum_klass: typing.Type[Enum], value: str, use_lower_case: bool = False
-) -> typing.Union[typing.Type[Enum], str]:
+) -> typing.Union[Enum, str]:
     """Resolve enum value to enum class"""
     if not isinstance(value, str):
         return value

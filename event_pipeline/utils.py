@@ -24,6 +24,7 @@ except ImportError:
 
 from .exceptions import ImproperlyConfigured
 from .constants import EMPTY, BATCH_PROCESSOR_TYPE
+from event_pipeline.executors import ProcessPoolExecutor, BaseExecutor
 
 if typing.TYPE_CHECKING:
     from .base import EventBase
@@ -351,3 +352,12 @@ def create_client_ssl_context(
         context.load_cert_chain(certfile=client_cert_path, keyfile=client_key_path)
 
     return context
+
+
+def is_multiprocessing_executor(executor_class: typing.Type[BaseExecutor]) -> bool:
+    """Check if an executor is multiprocessing executor."""
+    if not issubclass(executor_class, BaseExecutor):
+        return False
+    return executor_class == ProcessPoolExecutor or getattr(
+        executor_class, "support_parallel_execution", False
+    )
