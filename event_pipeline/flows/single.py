@@ -1,7 +1,6 @@
 import typing
 import logging
 import asyncio
-from concurrent.futures import Future
 from .base import FlowBase
 from event_pipeline.base import ExecutorInitializerConfig
 from event_pipeline.executors import BaseExecutor
@@ -38,7 +37,7 @@ class SingleFlow(FlowBase):
         event_class = self.task_profile.get_event_class()
         return event_class.get_executor_class()
 
-    async def run(self) -> Future:
+    async def run(self) -> asyncio.Future:
         """
         Execute the flow until it completes.
         Returns:

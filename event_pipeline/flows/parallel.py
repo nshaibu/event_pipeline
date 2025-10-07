@@ -111,4 +111,4 @@ class ParallelFlow(FlowBase):
             raise
         except Exception as e:
             logger.error(f"Unexpected error in run(): {e}")
-            raise RuntimeError(f"Failed to execute event: {e}")
+            raise RuntimeError(f"Failed to execute events: {e}")

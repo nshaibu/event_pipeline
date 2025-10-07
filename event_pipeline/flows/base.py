@@ -11,7 +11,7 @@ from event_pipeline.import_utils import import_string
 from event_pipeline.mixins import ObjectIdentityMixin
 from event_pipeline.base import ExecutorInitializerConfig
 from event_pipeline.parser.operator import PipeType
-from event_pipeline.runners.execution_data import ExecutionContext
+from event_pipeline.execution.context import ExecutionContext
 from event_pipeline.utils import (
     build_event_arguments_from_pipeline,
     get_function_call_args,
@@ -44,7 +44,7 @@ class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
 
     #  The profile of the tasks to be executed
     task_profiles: MiniAnnotated[
-        typing.Set[typing.Union["TaskProtocol", "TaskGroupingProtocol"]],
+        typing.Set[typing.Union[TaskProtocol, TaskGroupingProtocol]],
         Attrib(default_factory=set, pre_formatter=format_task_profiles, min_length=1),
     ]
 
@@ -56,7 +56,7 @@ class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
         super().__init__(*args, **kwargs)
 
     def add_task_profile(
-        self, task_profile: typing.Union["TaskProtocol", "TaskGroupingProtocol"]
+        self, task_profile: typing.Union[TaskProtocol, TaskGroupingProtocol]
     ) -> None:
         """
         Add a task profile to this flow.
@@ -65,7 +65,7 @@ class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
         """
         self.task_profiles.add(task_profile)
 
-    def configure_event(self, event: "Event", task_profile: "TaskProtocol") -> None:
+    def configure_event(self, event: "Event", task_profile: TaskProtocol) -> None:
         """
         Configure event for this flow.
         Args:

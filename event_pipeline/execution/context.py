@@ -2,7 +2,6 @@ import typing
 import time
 from enum import Enum
 from dataclasses import dataclass, field
-
 from event_pipeline.mixins import ObjectIdentityMixin
 from event_pipeline.result import ResultSet, EventResult
 from event_pipeline.exceptions import PipelineError
