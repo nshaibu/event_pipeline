@@ -211,7 +211,7 @@ class SoftSignal(ObjectIdentityMixin):
 
 
 pipeline_pre_init = SoftSignal(
-    "pipeline_pre_init", provide_args=["cls", "args", "kwargs"]
+    "pipeline_pre_init", provide_args=["args", "kwargs"]
 )
 pipeline_post_init = SoftSignal("pipeline_post_init", provide_args=["pipeline"])
 
