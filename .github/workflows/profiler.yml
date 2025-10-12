@@ -1,0 +1,43 @@
+# File: .github/workflows/profile.yml
+name: Profile Framework
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies and snakeviz
+        run: |
+          # Install your library's dependencies. 
+          # Adjust the command based on your project setup (e.g., install -e . or pip install -r requirements.txt).
+          pip install -e . 
+          pip install snakeviz
+
+      - name: Run linear pipeline profile and capture .prof file
+        # The -o flag is used with cProfile to write the profile data to a file.
+        # Your custom profiler script must use cProfile internally and be able to dump a .prof file.
+        # This assumes your profiler.py script is structured to capture cProfile data when not visualizing.
+        run: python3 profiling/profiler.py -t linear_pr
+
+      - name: Generate snakeviz report
+        # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
+        run: snakeviz stats.prof > profile_report.html
+        env:
+          PROFILER_OUTPUT_FILE: stats.prof
+
+      - name: Upload profile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-report-linear-pr
+          path: profile_report.html
