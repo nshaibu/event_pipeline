@@ -12,9 +12,9 @@ if __name__ == "__main__":
 
     name = "Kwabena"
     age = 30
-    stats_txt_file = "stats.txt"
-    stats_prof_file = "stats.prof"
-    profiling_dir = "profiling"
+    stats_txt_file = "profile_results.txt"
+    stats_prof_file = "profile_results.prof"
+    profiling_dir = "./"
 
     pipeline_constructors = {
         PipelineType.LINEAR.value: lambda: LinearPipeline([name], age),
