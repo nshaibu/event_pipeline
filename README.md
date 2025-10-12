@@ -9,6 +9,7 @@
 [![Status](https://img.shields.io/pypi/status/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
 [![Latest](https://img.shields.io/pypi/v/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
 [![PyV](https://img.shields.io/pypi/pyversions/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
+[![codecov](https://codecov.io/github/nshaibu/event_pipeline/graph/badge.svg?token=N9OEAI3EDB)](https://codecov.io/github/nshaibu/event_pipeline)
 
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
