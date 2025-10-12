@@ -31,7 +31,7 @@ jobs:
 
       - name: Generate snakeviz report
         # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
-        run: snakeviz profile_results.prof > profile_report.html
+        run: snakeviz --browser profile_results.prof > profile_report.html
         env:
           PROFILER_OUTPUT_FILE: profile_results.prof
 
