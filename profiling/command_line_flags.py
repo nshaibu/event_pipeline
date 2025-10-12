@@ -24,6 +24,12 @@ parser.add_argument(
     default=False,
     help="This is the type of pipeline that's being run, whether a linear,decision_tree, parallel or batch",
 )
+parser.add_argument(
+    "-w",
+    "--result_file",
+    default=None,
+    help="The output file path for the profiler"
+)
 
 
 args = parser.parse_args()
