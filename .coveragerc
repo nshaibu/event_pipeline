@@ -10,6 +10,7 @@ omit =
     */__init__.py
     # Ignore a specific file
     event_pipeline/arts.py
+    event_pipeline/scripts/*
     examples/*
     # Ignore a virtual environment directory
     venv/*
