@@ -1,0 +1,15 @@
+[run]
+source = event_pipeline/
+
+omit =
+    # Ignore the 'tests' directory
+    tests/*
+    # Ignore the 'migrations' directory, useful for Django
+    */migrations/*
+    # Ignore all __init__.py files
+    */__init__.py
+    # Ignore a specific file
+    event_pipeline/arts.py
+    examples/*
+    # Ignore a virtual environment directory
+    venv/*
