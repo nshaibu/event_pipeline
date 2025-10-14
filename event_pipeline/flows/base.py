@@ -268,7 +268,7 @@ class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
             )
             futures.append(future)
 
-        return asyncio.gather(*futures)
+        return asyncio.gather(*futures, return_exceptions=True)
 
     @staticmethod
     def validate_executor_class_and_config(
