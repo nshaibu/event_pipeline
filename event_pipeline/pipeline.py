@@ -774,6 +774,7 @@ class _BatchProcessingMonitor(threading.Thread):
 
     def _on_batch_finished(self, sender, **kwargs):
         """Handle batch finished signal"""
+        # TODO update the failed count of metrics if pipeline is not executed.
         if self.metrics and not self.metrics.end_time:
             self.metrics.end_time = time.time()
 
@@ -967,7 +968,7 @@ class _BatchProcessingMonitor(threading.Thread):
 
                 self._emit_batch_started()
 
-            while not self._shutdown_flag.is_set():
+            while True:
                 self.batch.check_memory_usage()
                 try:
                     signal_data = self.batch.signals_queue.get(timeout=1.0)
@@ -1239,31 +1240,34 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
 
             self._monitor_thread = _BatchProcessingMonitor(self)
 
+            try:
             # let's start monitoring the execution
-            self._monitor_thread.start()
+                self._monitor_thread.start()
 
-            with ProcessPoolExecutor(
-                max_workers=self.max_workers or conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
-            ) as executor:
+                with ProcessPoolExecutor(
+                    max_workers=self.max_workers or conf.MAX_BATCH_PROCESSING_WORKERS, mp_context=mp_context
+                ) as executor:
                 # call memory check method to do resizing when memory percent limit is been reached
-                for kwargs in self._execute_field_batch_processors(
-                    self._field_batch_op_map
-                ):
-                    if any([value for value in kwargs.values()]):
-                        kwargs.update(non_batch_kwargs)
-                        pipeline = template(**kwargs)
+                    for kwargs in self._execute_field_batch_processors(
+                        self._field_batch_op_map
+                    ):
+                        if any([value for value in kwargs.values()]):
+                            kwargs.update(non_batch_kwargs)
+                            pipeline = template(**kwargs)
 
-                        future = executor.submit(
-                            self._pipeline_executor,
-                            pipeline=pipeline,
-                            focus_on_signals=self.listen_to_signals,
-                            signals_queue=self._signals_queue,
-                        )
-                        self._configured_pipelines_count += 1
-                        future.add_done_callback(partial(_process_futures, batch=self))
-
-            self._signals_queue.put(None)
-            self._monitor_thread.join()
+                            future = executor.submit(
+                                self._pipeline_executor,
+                                pipeline=pipeline,
+                                focus_on_signals=self.listen_to_signals,
+                                signals_queue=self._signals_queue,
+                            )
+                            self._configured_pipelines_count += 1
+                            future.add_done_callback(partial(_process_futures, batch=self))
+            except Exception as e:
+                logger.error(f"❗️error occurred while initialising and executing pipelines {e}")
+            finally:
+                self._signals_queue.put(None)
+                self._monitor_thread.join()
 
         if self._configured_pipelines_count == 0:
             raise PipelineConfigurationError(
