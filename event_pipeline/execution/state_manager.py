@@ -1,28 +1,211 @@
-import asyncio
+import typing
+from enum import Enum
+from dataclasses import dataclass, field
+from multiprocessing import Manager, Lock as MPLock
+from threading import Lock as ThreadLock
+from contextlib import contextmanager
+from event_pipeline.result import ResultSet, EventResult
+from event_pipeline.exceptions import PipelineError
 
 
-class ExecutionStateManager:
-    """Thread-safe state management"""
+class ExecutionStatus(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    ABORTED = "aborted"
+    FAILED = "failed"
 
-    def __init__(self):
-        self._lock = asyncio.Lock()
-        self._states: dict[str, ExecutionState] = {}
 
-    async def get_state(self, context_id: str) -> ExecutionState:
-        async with self._lock:
-            return self._states.get(context_id, ExecutionState(ExecutionStatus.PENDING))
+@dataclass
+class ExecutionState:
+    status: ExecutionStatus = field(default=ExecutionStatus.PENDING)
+    errors: typing.List[PipelineError] = field(default_factory=list)
+    results: ResultSet[EventResult] = field(default_factory=lambda: ResultSet())
 
-    async def update_state(self, context_id: str, new_state: ExecutionState) -> None:
-        async with self._lock:
-            self._states[context_id] = new_state
+    def to_dict(self) -> dict:
+        """Serialize state for IPC"""
+        return {
+            "status": self.status.value,
+            "errors": self.errors,
+            "results": self.results,
+        }
 
-    async def transition_to(
-        self, context_id: str, status: ExecutionStatus
-    ) -> ExecutionState:
-        async with self._lock:
-            current = self._states.get(
-                context_id, ExecutionState(ExecutionStatus.PENDING)
-            )
-            new_state = current.with_status(status)
-            self._states[context_id] = new_state
-            return new_state
+    @classmethod
+    def from_dict(cls, data: dict) -> "ExecutionState":
+        """Deserialize state from IPC"""
+        return cls(
+            status=ExecutionStatus(data["status"]),
+            errors=data["errors"],
+            results=data["results"],
+        )
+
+
+class StateManager:
+
+    _instance = None
+    _instance_lock = ThreadLock()
+
+    def __new__(cls):
+        # Thread-safe singleton with double-checked locking
+        if cls._instance is None:
+            with cls._instance_lock:
+                if cls._instance is None:
+                    instance = super().__new__(cls)
+                    instance._initialize()
+                    cls._instance = instance
+        return cls._instance
+
+    def _initialize(self):
+        """Initialize the manager - called once during singleton creation"""
+        self._manager = Manager()
+
+        # Store states in shared dict - direct memory access
+        self._states = self._manager.dict()
+
+        # Each state_id gets its own lock
+        self._locks = self._manager.dict()
+
+        # Reference counting for safe cleanup
+        self._ref_counts = self._manager.dict()
+
+        # Lock to protect state/lock creation
+        self._creation_lock = self._manager.Lock()
+
+    def create_state(self, state_id: str, initial_state: ExecutionState) -> None:
+        """
+        Create a new state with its own dedicated lock.
+        Thread-safe and idempotent - safe to call multiple times.
+        """
+        with self._creation_lock:
+            if state_id not in self._states:
+                self._states[state_id] = initial_state.to_dict()
+                self._locks[state_id] = self._manager.Lock()
+                self._ref_counts[state_id] = 0
+
+            # Increment reference count
+            self._ref_counts[state_id] = self._ref_counts[state_id] + 1
+
+    def get_state(self, state_id: str) -> ExecutionState:
+        """
+        Retrieve state from shared memory - no pickling overhead.
+        This is a fast, direct memory read.
+        """
+        if state_id not in self._states:
+            raise KeyError(f"State {state_id} not found")
+        return ExecutionState.from_dict(self._states[state_id])
+
+    def update_state(self, state_id: str, state: ExecutionState) -> None:
+        """
+        Update state in shared memory - minimal overhead.
+        Must be called within a lock context for thread safety.
+        """
+        if state_id not in self._states:
+            raise KeyError(f"State {state_id} not found")
+        self._states[state_id] = state.to_dict()
+
+    def update_status(self, state_id: str, new_status: ExecutionStatus) -> None:
+        """
+        Optimized status-only update - avoids full state serialization.
+        Must be called within a lock context.
+        """
+        if state_id not in self._states:
+            raise KeyError(f"State {state_id} not found")
+        state_dict = self._states[state_id]
+        state_dict["status"] = new_status.value
+        self._states[state_id] = state_dict
+
+    def append_error(self, state_id: str, error: typing.Any) -> None:
+        """
+        Optimized error append - modifies shared memory directly.
+        Must be called within a lock context.
+        """
+        if state_id not in self._states:
+            raise KeyError(f"State {state_id} not found")
+        state_dict = self._states[state_id]
+        state_dict["errors"].append(error)
+        self._states[state_id] = state_dict
+
+    def append_result(self, state_id: str, result: typing.Any) -> None:
+        """
+        Optimized result append - modifies shared memory directly.
+        Must be called within a lock context.
+        """
+        if state_id not in self._states:
+            raise KeyError(f"State {state_id} not found")
+        state_dict = self._states[state_id]
+        state_dict["results"].append(result)
+        self._states[state_id] = state_dict
+
+    @contextmanager
+    def acquire(self, state_id: str):
+        """
+        Context manager for acquiring ONLY this state's lock.
+        Other states are completely unaffected.
+        """
+        if state_id not in self._locks:
+            raise KeyError(f"Lock for state {state_id} not found")
+        lock = self._locks[state_id]
+        lock.acquire()
+        try:
+            yield
+        finally:
+            lock.release()
+
+    def release_state(self, state_id: str, force: bool = False):
+        """
+        Decrement reference count and optionally remove state.
+        State is only removed when reference count reaches 0 or force=True.
+        """
+        if state_id not in self._states:
+            return
+
+        with self._creation_lock:
+            if force:
+                self._remove_state_unsafe(state_id)
+            else:
+                current_count = self._ref_counts.get(state_id, 0)
+                if current_count > 0:
+                    self._ref_counts[state_id] = current_count - 1
+
+                if self._ref_counts[state_id] == 0:
+                    self._remove_state_unsafe(state_id)
+
+    def _remove_state_unsafe(self, state_id: str):
+        """Internal method to remove state - must be called within _creation_lock"""
+        if state_id in self._states:
+            del self._states[state_id]
+        if state_id in self._locks:
+            del self._locks[state_id]
+        if state_id in self._ref_counts:
+            del self._ref_counts[state_id]
+
+    def remove_state(self, state_id: str):
+        """Clean up state and its dedicated lock"""
+        self.release_state(state_id, force=False)
+
+    def get_ref_count(self, state_id: str) -> int:
+        """Get the number of active references to a state"""
+        return self._ref_counts.get(state_id, 0)
+
+    def get_active_states(self) -> typing.List[str]:
+        """Get list of all state_ids in shared memory"""
+        return list(self._states.keys())
+
+    def clear_all_states(self):
+        """
+        Remove all states from shared memory.
+        WARNING: Only use this when you're sure no processes are using the states.
+        """
+        with self._creation_lock:
+            self._states.clear()
+            self._locks.clear()
+            self._ref_counts.clear()
+
+    def __del__(self):
+        """Cleanup when manager is destroyed"""
+        try:
+            if hasattr(self, "_manager"):
+                self._manager.shutdown()
+        except:
+            pass  # Ignore errors during cleanup

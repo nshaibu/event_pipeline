@@ -1,10 +1,10 @@
 import typing
 import time
-from enum import Enum
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from event_pipeline.pipeline import Pipeline
 from event_pipeline.mixins import ObjectIdentityMixin
 from event_pipeline.result import ResultSet, EventResult
-from event_pipeline.exceptions import PipelineError
 from event_pipeline.signal.signals import (
     event_execution_aborted,
     event_execution_cancelled,
@@ -12,16 +12,8 @@ from event_pipeline.signal.signals import (
 from event_pipeline.parser.operator import PipeType
 
 if typing.TYPE_CHECKING:
-    from event_pipeline.pipeline import Pipeline
+    from .state_manager import StateManager, ExecutionState, ExecutionStatus
     from event_pipeline.parser.protocols import TaskProtocol, TaskGroupingProtocol
-
-
-class ExecutionStatus(Enum):
-    PENDING = "pending"
-    EXECUTING = "executing"
-    CANCELLED = "cancelled"
-    FINISHED = "finished"
-    ABORTED = "aborted"
 
 
 @dataclass
@@ -34,40 +26,6 @@ class ExecutionMetrics:
     @property
     def duration(self) -> float:
         return self.end_time - self.start_time if self.end_time else 0.0
-
-
-@dataclass
-class ExecutionState:
-    """Execution state"""
-
-    status: ExecutionStatus = field(default=ExecutionStatus.PENDING)
-    errors: typing.List[PipelineError] = field(default_factory=list)
-    results: ResultSet[EventResult] = field(default_factory=lambda: ResultSet([]))
-
-    def cancel(self, execution_context: "ExecutionContext") -> None:
-        """
-        Cancels the execution context. This method must acquire
-        the lock before executing it.
-        """
-        self.status = ExecutionStatus.CANCELLED
-        event_execution_cancelled.emit(
-            sender=execution_context.__class__,
-            task_profiles=execution_context.task_profiles,
-            execution_context=self,
-            state=self,
-        )
-
-    def abort(self, execution_context: "ExecutionContext") -> None:
-        """
-        Aborts the execution context. This method must acquire the lock before executing it.
-        """
-        self.status = ExecutionStatus.ABORTED
-        event_execution_aborted.emit(
-            sender=execution_context.__class__,
-            task_profiles=execution_context.task_profiles,
-            execution_context=self,
-            state=self,
-        )
 
 
 @dataclass
@@ -86,7 +44,6 @@ class ExecutionContext(ObjectIdentityMixin):
     Attributes:
         task_profiles: The specific PipelineTask that is being executed.
         pipeline: The Pipeline that orchestrates the execution of the task.
-        state: State of the execution of task.
 
     Details:
         Represents the execution context of the pipeline as a bidirectional (doubly-linked) list.
@@ -107,16 +64,113 @@ class ExecutionContext(ObjectIdentityMixin):
     """
 
     task_profiles: typing.Deque[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]
-    pipeline: "Pipeline"
-    state: ExecutionState = field(
-        default_factory=lambda: ExecutionState(ExecutionStatus.PENDING)
-    )
+    pipeline: Pipeline
     metrics: ExecutionMetrics = field(default_factory=lambda: ExecutionMetrics())
     previous_context: typing.Optional["ExecutionContext"] = None
     next_context: typing.Optional["ExecutionContext"] = None
 
+    _state_manager: typing.ClassVar[typing.Optional["StateManager"]] = None
+
     def __post_init__(self, *args, **kwargs):
+        from .state_manager import StateManager
+
         super().__init__(*args, **kwargs)
+
+        # Initialize shared state manager
+        if self.__class__._state_manager is None:
+            self.__class__._state_manager = StateManager()
+
+        # Create state in shared memory with its own lock
+        initial_state = ExecutionState(ExecutionStatus.PENDING)
+        self._state_manager.create_state(self.state_id, initial_state)
+
+    @property
+    def state_id(self) -> str:
+        return self.id
+
+    @property
+    def state(self) -> ExecutionState:
+        """
+        Get current state from shared memory.
+        """
+        return self._state_manager.get_state(self.state_id)
+
+    @contextmanager
+    def lock(self):
+        """
+        Acquire lock for THIS context only.
+        Other contexts run in parallel without blocking.
+        """
+        with self._state_manager.acquire(self.state_id):
+            yield
+
+    def update_status(self, new_status: ExecutionStatus) -> None:
+        with self.lock():
+            self._state_manager.update_status(self.state_id, new_status)
+
+    def add_error(self, error: Exception) -> None:
+        with self.lock():
+            self._state_manager.append_error(self.state_id, error)
+
+    def add_result(self, result: EventResult) -> None:
+        with self.lock():
+            self._state_manager.append_result(self.state_id, result)
+
+    def cancel(self) -> None:
+        """
+        Cancel execution - only locks THIS context.
+        Other contexts continue running unaffected.
+        """
+        with self.lock():
+            self._state_manager.update_status(self.state_id, ExecutionStatus.CANCELLED)
+            # Emit event
+            event_execution_cancelled.emit(
+                sender=self.__class__,
+                task_profiles=self.task_profiles.copy(),
+                execution_context=self,
+                state=ExecutionStatus.CANCELLED,
+            )
+
+    def abort(self) -> None:
+        """
+        Abort execution - only locks THIS context.
+        Other contexts continue running unaffected.
+        """
+        with self.lock():
+            self._state_manager.update_status(self.state_id, ExecutionStatus.ABORTED)
+            # Emit event
+            event_execution_aborted.emit(
+                sender=self.__class__,
+                task_profiles=self.task_profiles.copy(),
+                execution_context=self,
+                state=ExecutionStatus.ABORTED,
+            )
+
+    def get_state_snapshot(self) -> ExecutionState:
+        """Get a thread-safe copy of current state."""
+        with self.lock():
+            return self.state
+
+    def bulk_update(
+        self,
+        status: typing.Optional[ExecutionStatus] = None,
+        errors: typing.Optional[typing.List[Exception]] = None,
+        results: typing.Optional[typing.List[EventResult]] = None,
+    ) -> None:
+        """Efficient bulk update"""
+        with self.lock():
+            state = self.state
+            if status is not None:
+                state.status = status
+            if errors is not None:
+                state.errors.extend(errors)
+            if results is not None:
+                (
+                    state.results.extend(results)
+                    if isinstance(state.results, list)
+                    else None
+                )
+            self._state_manager.update_state(self.state_id, state)
 
     def __iter__(self):
         current = self
@@ -130,7 +184,7 @@ class ExecutionContext(ObjectIdentityMixin):
     def is_multitask(self) -> bool:
         return len(self.task_profiles) > 1
 
-    def get_execution_context_head(self) -> "ExecutionContext":
+    def get_head_context(self) -> "ExecutionContext":
         """
         Returns the execution context head of the execution context.
         :return: ExecutionContext head of the execution context.
@@ -145,7 +199,7 @@ class ExecutionContext(ObjectIdentityMixin):
         Returns the latest execution context.
         :return: ExecutionContext
         """
-        current = self.get_execution_context_head()
+        current = self.get_head_context()
         while current.next_context:
             current = current.next_context
         return current
@@ -165,7 +219,7 @@ class ExecutionContext(ObjectIdentityMixin):
         """
         head = self.get_execution_context_head()
         event = ""  # PipelineTask.resolve_event_name(event_name)
-        result = ResultSet([])
+        result = ResultSet()
 
         def filter_condition(context: ExecutionContext, term: str) -> bool:
             task_profiles = context.task_profiles
@@ -174,12 +228,6 @@ class ExecutionContext(ObjectIdentityMixin):
             if event in [task.event for task in context.task_profiles]:
                 result.add(context)
         return result
-
-    def get_state(self) -> typing.Dict[str, typing.Any]:
-        return self.__dict__
-
-    def set_state(self, state: typing.Dict[str, typing.Any]):
-        self.__dict__.update(state)
 
     def get_last_task_in_task_profile_chain(
         self,
@@ -213,3 +261,15 @@ class ExecutionContext(ObjectIdentityMixin):
             ):
                 return task_profile
         return None
+
+    def cleanup(self):
+        """Clean up shared memory resources"""
+        self._state_manager.release_state(self.state_id)
+
+    def __del__(self):
+        """Ensure cleanup on garbage collection"""
+        try:
+            if hasattr(self, "state_id") and self.state_id:
+                self._state_manager.release_state(self.state_id)
+        except:
+            pass  # Ignore errors during cleanup

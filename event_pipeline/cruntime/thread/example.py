@@ -7,7 +7,7 @@ def cpu_bound_task(n):
     """Simulates a CPU-bound task"""
     result = 0
     for i in range(n):
-        result += i ** 2
+        result += i**2
     return result
 
 
