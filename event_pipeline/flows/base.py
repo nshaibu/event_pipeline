@@ -1,8 +1,10 @@
 import typing
 import logging
 import asyncio
+from collections import deque
 from abc import ABC, abstractmethod
-from pydantic_mini import BaseModel, MiniAnnotated, Attrib
+from dataclasses import InitVar
+from pydantic_mini import BaseModel
 from event_pipeline.constants import EMPTY
 from event_pipeline.signal import SoftSignal
 from event_pipeline.signal.signals import event_execution_start, event_execution_end
@@ -11,6 +13,7 @@ from event_pipeline.import_utils import import_string
 from event_pipeline.mixins import ObjectIdentityMixin
 from event_pipeline.base import ExecutorInitializerConfig
 from event_pipeline.parser.operator import PipeType
+from event_pipeline.typing import TaskType
 from event_pipeline.execution.context import ExecutionContext
 from event_pipeline.utils import (
     build_event_arguments_from_pipeline,
@@ -38,21 +41,19 @@ def format_task_profiles(
     return task_profiles
 
 
-class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
+class BaseFlow(BaseModel, ObjectIdentityMixin, ABC):
     # The execution context for this flow
     context: ExecutionContext
 
     #  The profile of the tasks to be executed
-    task_profiles: MiniAnnotated[
-        typing.Set[typing.Union[TaskProtocol, TaskGroupingProtocol]],
-        Attrib(default_factory=set, pre_formatter=format_task_profiles, min_length=1),
-    ]
+    task_profiles: typing.Optional[typing.Deque[TaskType]]
 
     class Config:
         disable_type_check = False
         disable_all_validations = False
 
     def __model_init__(self, *args, **kwargs) -> None:
+        self.task_profiles = typing.cast(typing.Deque, self.context.task_profiles)
         super().__init__(*args, **kwargs)
 
     def add_task_profile(
@@ -63,6 +64,8 @@ class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
         Args:
             task_profile: The task profile to add.
         """
+        if self.task_profiles is None:
+            self.task_profiles = deque([task_profile])
         self.task_profiles.add(task_profile)
 
     def configure_event(self, event: "Event", task_profile: TaskProtocol) -> None:
@@ -116,9 +119,10 @@ class FlowBase(ObjectIdentityMixin, BaseModel, ABC):
             pointer_type = task_profile.get_task_pointer_type()
 
         if pointer_type == PipeType.PIPE_POINTER:
-            if self.previous_context:
+            # TODO: get result from context state
+            if self.context.previous_context:
                 event_init_args["previous_result"] = (
-                    self.previous_context.execution_result
+                    self.context.previous_context.execution_result
                 )
             else:
                 event_init_args["previous_result"] = EMPTY

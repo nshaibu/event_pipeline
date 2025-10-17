@@ -1,7 +1,7 @@
 import typing
 import asyncio
 import logging
-from .base import FlowBase
+from .base import BaseFlow
 from event_pipeline import Event
 from event_pipeline.base import ExecutorInitializerConfig
 from event_pipeline.executors import BaseExecutor, ProcessPoolExecutor
@@ -11,7 +11,7 @@ from event_pipeline.utils import is_multiprocessing_executor
 logger = logging.getLogger(__name__)
 
 
-class ParallelFlow(FlowBase):
+class ParallelFlow(BaseFlow):
     """Class for parallel execution flows"""
 
     @staticmethod

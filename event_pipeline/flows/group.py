@@ -1,6 +1,6 @@
-from .base import FlowBase
+from .base import BaseFlow
 
 
-class GroupFlow(FlowBase):
+class GroupFlow(BaseFlow):
     async def run(self):
         pass

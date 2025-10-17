@@ -1,11 +1,16 @@
 import typing
+import asyncio
+import logging
 from enum import Enum
 from dataclasses import dataclass, field
 from multiprocessing import Manager, Lock as MPLock
 from threading import Lock as ThreadLock
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor, Future as MPFuture
 from event_pipeline.result import ResultSet, EventResult
 from event_pipeline.exceptions import PipelineError
+
+logger = logging.getLogger(__name__)
 
 
 class ExecutionStatus(Enum):
@@ -43,8 +48,9 @@ class ExecutionState:
 
 class StateManager:
 
-    _instance = None
+    _instance: typing.Optional["StateManager"] = None
     _instance_lock = ThreadLock()
+    _executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=1)
 
     def __new__(cls):
         # Thread-safe singleton with double-checked locking
@@ -72,6 +78,18 @@ class StateManager:
         # Lock to protect state/lock creation
         self._creation_lock = self._manager.Lock()
 
+    @classmethod
+    def get_instance(cls) -> "StateManager":
+        """Returns the singleton instance."""
+        if not cls._instance:
+            cls.__new__(cls)
+        return cls._instance
+
+    def _run_in_executor(self, func, *args, **kwargs) -> MPFuture:
+        """Helper to run a blocking function in the executor."""
+        loop = asyncio.get_running_loop()
+        return loop.run_in_executor(self._executor, func, *args, **kwargs)
+
     def create_state(self, state_id: str, initial_state: ExecutionState) -> None:
         """
         Create a new state with its own dedicated lock.
@@ -89,7 +107,6 @@ class StateManager:
     def get_state(self, state_id: str) -> ExecutionState:
         """
         Retrieve state from shared memory - no pickling overhead.
-        This is a fast, direct memory read.
         """
         if state_id not in self._states:
             raise KeyError(f"State {state_id} not found")
@@ -201,6 +218,11 @@ class StateManager:
             self._states.clear()
             self._locks.clear()
             self._ref_counts.clear()
+
+    def shutdown(self):
+        """Shuts down the manager's server process."""
+        self._manager.shutdown()
+        logger.info("StateManager shut down.")
 
     def __del__(self):
         """Cleanup when manager is destroyed"""

@@ -1,7 +1,7 @@
 import typing
 import logging
 import asyncio
-from .base import FlowBase
+from .base import BaseFlow
 from event_pipeline.base import ExecutorInitializerConfig
 from event_pipeline.executors import BaseExecutor
 
@@ -13,7 +13,7 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SingleFlow(FlowBase):
+class SingleFlow(BaseFlow):
     """Setup for execution flow of a single event"""
 
     task_profile: typing.Optional[TaskProtocol] = None

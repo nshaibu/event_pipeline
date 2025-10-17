@@ -1,5 +1,8 @@
 import typing
 import time
+from collections import deque
+from pydantic_mini import BaseModel, MiniAnnotated, Attrib
+from pydantic_mini.exceptions import ValidationError as PydanticMiniError
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from event_pipeline.pipeline import Pipeline
@@ -10,10 +13,11 @@ from event_pipeline.signal.signals import (
     event_execution_cancelled,
 )
 from event_pipeline.parser.operator import PipeType
+from event_pipeline.typing import TaskType
+from event_pipeline.parser.protocols import TaskProtocol, TaskGroupingProtocol
 
 if typing.TYPE_CHECKING:
     from .state_manager import StateManager, ExecutionState, ExecutionStatus
-    from event_pipeline.parser.protocols import TaskProtocol, TaskGroupingProtocol
 
 
 @dataclass
@@ -28,8 +32,22 @@ class ExecutionMetrics:
         return self.end_time - self.start_time if self.end_time else 0.0
 
 
-@dataclass
-class ExecutionContext(ObjectIdentityMixin):
+def preformat_task_profile(
+    task_profiles: typing.Union[
+        TaskType, typing.List[TaskType], typing.Deque[TaskType]
+    ],
+) -> typing.Deque[TaskType]:
+    if isinstance(task_profiles, (TaskProtocol, TaskGroupingProtocol)):
+        return deque([task_profiles])
+    elif isinstance(task_profiles, (list, tuple)):
+        return deque(task_profiles)
+    elif isinstance(task_profiles, deque):
+        return task_profiles
+    # TODO: descriptive error message
+    raise PydanticMiniError("invalid task format")
+
+
+class ExecutionContext(ObjectIdentityMixin, BaseModel):
     """
     Represents the execution context for a particular event in the pipeline.
 
@@ -57,13 +75,16 @@ class ExecutionContext(ObjectIdentityMixin):
                 pass
 
         To access specific ends of the context queue:
-        - Use `get_execution_context_head()` to retrieve the head (starting context).
+        - Use `get_head_context()` to retrieve the head (starting context).
         - Use `get_tail_context()` to retrieve the tail (ending context).
 
         Reverse traversal can be done by walking backward from the tail using the linked structure.
     """
 
-    task_profiles: typing.Deque[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]
+    task_profiles: MiniAnnotated[
+        typing.Deque[typing.Union["TaskProtocol", "TaskGroupingProtocol"]],
+        Attrib(pre_formatter=preformat_task_profile),
+    ]
     pipeline: Pipeline
     metrics: ExecutionMetrics = field(default_factory=lambda: ExecutionMetrics())
     previous_context: typing.Optional["ExecutionContext"] = None
@@ -71,7 +92,11 @@ class ExecutionContext(ObjectIdentityMixin):
 
     _state_manager: typing.ClassVar[typing.Optional["StateManager"]] = None
 
-    def __post_init__(self, *args, **kwargs):
+    class Config:
+        disable_type_check = True
+        disable_all_validations = True
+
+    def __model_init__(self, *args, **kwargs):
         from .state_manager import StateManager
 
         super().__init__(*args, **kwargs)
@@ -217,7 +242,7 @@ class ExecutionContext(ObjectIdentityMixin):
         :param event_name: Case-insensitive event name.
         :return: ResultSet with the filtered execution context.
         """
-        head = self.get_execution_context_head()
+        head = self.get_head_context()
         event = ""  # PipelineTask.resolve_event_name(event_name)
         result = ResultSet()
 
