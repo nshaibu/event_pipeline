@@ -1,6 +1,18 @@
 import typing
 from io import IOBase
-from more_itertools import batched
+from itertools import islice
+
+try:
+    from more_itertools import batched
+except ImportError:
+
+    def batched(iterable, n):
+        if n < 1:
+            raise ValueError("n must be at least one")
+        it = iter(iterable)
+        while batch := tuple(islice(it, n)):
+            yield batch
+
 
 DEFAULT_BATCH_SIZE = 100
 

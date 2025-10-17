@@ -31,5 +31,8 @@ from .base import (
     RetryPolicy,
     ExecutorInitializerConfig,
 )
-from .result_evaluators import *
+
+Event = EventBase
+
+from .result_evaluators import ResultEvaluationStrategies
 from .pipeline import Pipeline

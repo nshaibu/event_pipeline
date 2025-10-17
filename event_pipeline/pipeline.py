@@ -28,7 +28,15 @@ from .signal.signals import (
     pipeline_shutdown,
     pipeline_stop,
 )
-from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState
+
+# from .task import PipelineTask, EventExecutionContext, PipeType, ExecutionState Old imports
+from event_pipeline.task import PipelineTask
+from event_pipeline.runners.execution_data import (
+    ExecutionContext as EventExecutionContext,
+    ExecutionState,
+)
+from event_pipeline.parser.operator import PipeType
+
 from .constants import (
     PIPELINE_FIELDS,
     PIPELINE_STATE,
@@ -199,11 +207,14 @@ class PipelineMeta(type):
 
     @classmethod
     @lru_cache
-    def find_pointy_file(cls, pipeline_path: str, class_name: str) -> str:
+    def find_pointy_file(
+        cls, pipeline_path: str, class_name: str
+    ) -> typing.Union[str, None]:
         if os.path.isfile(pipeline_path):
             return pipeline_path
         elif os.path.isdir(pipeline_path):
             return cls.directory_walk(pipeline_path, f"{class_name}.pty")
+        return None
 
     @classmethod
     def directory_walk(cls, dir_path: str, file_name: str):
@@ -213,6 +224,7 @@ class PipelineMeta(type):
                     return os.path.join(root, name)
             for vdir in dirs:
                 cls.directory_walk(os.path.join(root, vdir), file_name)
+        return None
 
 
 class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
@@ -306,10 +318,10 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
                 again even if it has already completed. Defaults to False.
 
         Return:
-            EventExecutionContext: The execution context of the pipeline. It is a linked list with ability to
+            EventExecutionContext: The execution context of the pipeline. It is a linked list with the ability to
             traverse the various execution contexts for each of the events within the pipeline.
-            The context can be filter base on the event name using the method `filter_by_event`.
-            It is also iterable and thus your can loop over it
+            The context can be filtered based on the event name using the method `filter_by_event`.
+            It is also iterable, and thus you can loop over it
             `for context in pipeline.start(): pass`
 
         Raises:
@@ -407,7 +419,7 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
             if not field.has_batch_operation:
                 yield name, field
 
-    def get_pipeline_tree(self) -> Tree:
+    def get_pipeline_tree(self) -> typing.Optional[Tree]:
         """
         Constructs and returns the pipeline's execution tree.
 
@@ -445,6 +457,7 @@ class Pipeline(ObjectIdentityMixin, ScheduleMixin, metaclass=PipelineMeta):
                     data=TreeExtraData(pipe_type=node.get_pointer_type_to_this_event()),
                 )
             return tree
+        return None
 
     def draw_ascii_graph(self):
         """
@@ -687,6 +700,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     def _check_memory_usage(self):
         """Monitor memory usage and adjust batch size if needed"""
         import psutil
+
         memory_percent = psutil.Process().memory_percent()
         if memory_percent > self.max_memory_percent:
             self._adjust_batch_size()
@@ -694,7 +708,7 @@ class BatchPipeline(ObjectIdentityMixin, ScheduleMixin):
     def _adjust_batch_size(self):
         """Dynamically adjust batch size based on memory usage"""
         for field in self._field_batch_op_map:
-            if hasattr(field, 'batch_size'):
+            if hasattr(field, "batch_size"):
                 field.batch_size = max(1, field.batch_size // 2)
 
     def _gather_field_batch_methods(
