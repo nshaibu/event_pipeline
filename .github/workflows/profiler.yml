@@ -33,16 +33,13 @@ jobs:
         # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
         run: |
           if [ -f profile_results_linear.prof ]; then
-            snakeviz -s ./profile_results_linear.prof &
-            sleep 5
-            curl http://127.0.0.1:8080/snakeviz/ > profile_report_linear.html
-            pkill -f "snakeviz"
+           python3 -c "import pstats; p = pstats.Stats('profile_results_linear.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
           fi
         env:
-          PROFILER_OUTPUT_FILE: profile_results_linear.prof
+          PROFILER_OUTPUT_FILE: profile_results_linear.txt
 
       - name: Upload profile artifact for linear pipeline
         uses: actions/upload-artifact@v4
