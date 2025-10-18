@@ -29,17 +29,16 @@ jobs:
         # The -o flag is used with cProfile to write the profile data to a file.
         run: python3 profiling/profiler.py -t linear -o profile_results_linear.prof
 
-      - name: Generate snakeviz report for linear pipeline
-        # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
+      - name: Generate text report for linear pipeline
         run: |
           if [ -f profile_results_linear.prof ]; then
-           python3 -c "import pstats; p = pstats.Stats('profile_results_linear.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear.txt
+            python3 -c "import pstats; p = pstats.Stats('profile_results_linear.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
           fi
         env:
-          PROFILER_OUTPUT_FILE: profile_results_linear.txt
+          PROFILER_OUTPUT_FILE: profile_results_linear.prof
 
       - name: Upload profile artifact for linear pipeline
         uses: actions/upload-artifact@v4
@@ -47,13 +46,19 @@ jobs:
           name: profile-report-linear-pr
           path: profile_report_linear.txt
 
+      - name: Upload .prof artifact for linear pipeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-data-linear
+          path: profile_results_linear.prof
+
       - name: Run linear pipeline with result piping and capture .prof file for PR
         run: python3 profiling/profiler.py -t linear_pr -o profile_results_linear_pr.prof
 
-      - name: Generate snakeviz report for linear pipeline with result piping
+      - name: Generate text report for linear pipeline with result piping
         run: |
           if [ -f profile_results_linear_pr.prof ]; then
-            snakeviz --browser profile_results_linear_pr.prof > profile_report_linear_pr.html
+              python3 -c "import pstats; p = pstats.Stats('profile_results_linear_pr.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear_pr.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
@@ -65,7 +70,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: profile-report-linear-pr
-          path: profile_report_linear_pr.html
+          path: profile_report_linear_pr.txt
+      
+      - name: Upload .prof artifact for linear pipeline with result piping
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-data-linear-pr
+          path: profile_results_linear_pr.prof
 
       - name: Run parallel pipeline and capture .prof file
         run: python3 profiling/profiler.py -t parallel -o profile_results_parallel.prof
@@ -73,7 +84,7 @@ jobs:
       - name: Generate snakeviz report for parallel pipeline
         run: |
           if [ -f profile_results_parallel.prof ]; then
-            snakeviz --browser profile_results_parallel.prof > profile_report_parallel.html
+              python3 -c "import pstats; p = pstats.Stats('profile_results_parallel.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_parallel.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
@@ -85,7 +96,40 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: profile-report-parallel
-          path: profile_report_parallel.html
+          path: profile_report_parallel.txt
+
+      - name: Upload .prof artifact for parallel pipeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-data-parallel
+          path: profile_results_parallel.prof
+
+
+      - name: Run decision tree pipeline and capture .prof file
+        run: python3 profiling/profiler.py -t decision_tree -o profile_results_decision_tree.prof
+
+      - name: Generate text report for decision tree pipeline
+        run: |
+          if [ -f profile_results_decision_tree.prof ]; then
+              python3 -c "import pstats; p = pstats.Stats('profile_results_decision_tree.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_decision_tree.txt
+          else
+            echo "Profile file not found. Skipping snakeviz."
+            exit 1
+          fi
+        env:
+          PROFILER_OUTPUT_FILE: profile_results_decision_tree.prof
+      
+      - name: Upload profile artifact for decision tree pipeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-report-decision-tree
+          path: profile_report_decision_tree.txt
+
+      - name: Upload .prof artifact for decision tree pipeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-data-decision-tree
+          path: profile_results_decision_tree.prof
 
       - name: Run batch pipeline and capture .prof file
         run: python3 profiling/profiler.py -t batch -o profile_results_batch.prof
@@ -93,7 +137,7 @@ jobs:
       - name: Generate snakeviz report for batch pipeline
         run: |
           if [ -f profile_results_batch.prof ]; then
-            snakeviz --browser profile_results_batch.prof > profile_report_batch.html
+              python3 -c "import pstats; p = pstats.Stats('profile_results_batch.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_batch.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
@@ -105,4 +149,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: profile-report-batch
-          path: profile_report_batch.html
+          path: profile_report_batch.txt
+
+      - name: Upload .prof artifact for batch pipeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-data-batch
+          path: profile_results_batch.prof
