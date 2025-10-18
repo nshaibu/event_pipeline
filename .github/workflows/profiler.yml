@@ -33,7 +33,7 @@ jobs:
         # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
         run: |
           if [ -f profile_results_linear.prof ]; then
-            python3 profiling/profiler.py -t html_report -i profile_results_linear.prof -hr profile_report_linear.html
+            python3 profiling/profiler.py -t html_report -i profile_results_linear.prof -r profile_report_linear.html
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
