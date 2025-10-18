@@ -1,4 +1,4 @@
-<div style="display:flex; align-items:center;">
+<div style="display:flex; justify-content:center; align-items:center;">
     <img alt="nexus" src="img/nexus.svg" width="280" height="280" style="padding-bottom:0!important;margin-bottom:0!important;" />
 </div>
 
@@ -320,7 +320,7 @@ This is the graphical representation of the above pipeline
 
 To draw your pipeline:
 ```python
-# instantiate your pipeline clas
+# instantiate your pipeline class
 pipeline = MyPipeline()
 
 # draw ascii representation
