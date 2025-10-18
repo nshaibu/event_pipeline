@@ -7,15 +7,15 @@ Nexus
 =====
 
 .. image:: ../../img/nexus.svg
-   :height: 60px
-   :width: 60px
+   :height: 100px
+   :width: 100px
    :align: left
    :alt: pipeline
 
 |build-status| |code-style| |status| |latest| |pyv| |prs|
 
-.. |build-status| image:: https://github.com/nshaibu/event_pipeline/actions/workflows/python_package.yml/badge.svg
-   :target: https://github.com/nshaibu/event_pipeline/actions
+.. |build-status| image:: https://github.com/nshaibu/nexus/actions/workflows/python_package.yml/badge.svg
+   :target: https://github.com/nshaibu/nexus/actions
 
 .. |code-style| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
