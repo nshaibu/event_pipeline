@@ -1,5 +1,5 @@
 <div style="display:flex; align-items:center;">
-    <img alt="pipeline" src="img/nexus.svg" width="250" height="250" style="margin-right:2px; vertical-align:middle; display:inline-block;" />
+    <img alt="nexus" src="img/nexus.svg" width="280" height="280" style="margin-right:auto; margin-left: auto;" />
 </div>
 
 
