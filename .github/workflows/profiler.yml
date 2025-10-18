@@ -56,7 +56,7 @@ jobs:
 
       - name: Generate text report for linear pipeline with result piping
         run: |
-          if [ -f profile_results_linear_pr_{{ github.job }}.prof ]; then
+          if [ -f profile_results_linear_pr_${{ github.job }}.prof ]; then
               python3 -c "import pstats; p = pstats.Stats('profile_results_linear_pr_${{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear_pr_${{ github.job }}.txt
           else
             echo "Profile file not found. Skipping snakeviz."
