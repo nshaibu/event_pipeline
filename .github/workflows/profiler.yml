@@ -31,7 +31,14 @@ jobs:
 
       - name: Generate snakeviz report for linear pipeline
         # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
-        run: snakeviz --browser profile_results_linear.prof > profile_report_linear.html
+        run: |
+          if [ -f profile_results_linear.prof ]; then
+            snakeviz --browser profile_results_linear.prof > profile_report_linear.html
+          else
+            echo "Profile file not found. Skipping snakeviz."
+            ls -la
+            exit 1
+          fi
         env:
           PROFILER_OUTPUT_FILE: profile_results_linear.prof
 
@@ -45,7 +52,13 @@ jobs:
         run: python3 profiling/profiler.py -t linear_pr -o profile_results_linear_pr.prof
 
       - name: Generate snakeviz report for linear pipeline with result piping
-        run: snakeviz --browser profile_results_linear_pr.prof > profile_report_linear_pr.html
+        run: |
+          if [ -f profile_results_linear_pr.prof ]; then
+            snakeviz --browser profile_results_linear_pr.prof > profile_report_linear_pr.html
+          else
+            echo "Profile file not found. Skipping snakeviz."
+            exit 1
+          fi
         env:
           PROFILER_OUTPUT_FILE: profile_results_linear_pr.prof
 
@@ -59,7 +72,13 @@ jobs:
         run: python3 profiling/profiler.py -t parallel -o profile_results_parallel.prof
 
       - name: Generate snakeviz report for parallel pipeline
-        run: snakeviz --browser profile_results_parallel.prof > profile_report_parallel.html
+        run: |
+          if [ -f profile_results_parallel.prof ]; then
+            snakeviz --browser profile_results_parallel.prof > profile_report_parallel.html
+          else
+            echo "Profile file not found. Skipping snakeviz."
+            exit 1
+          fi
         env:
           PROFILER_OUTPUT_FILE: profile_results_parallel.prof
 
@@ -73,7 +92,13 @@ jobs:
         run: python3 profiling/profiler.py -t batch -o profile_results_batch.prof
 
       - name: Generate snakeviz report for batch pipeline
-        run: snakeviz --browser profile_results_batch.prof > profile_report_batch.html
+        run: |
+          if [ -f profile_results_batch.prof ]; then
+            snakeviz --browser profile_results_batch.prof > profile_report_batch.html
+          else
+            echo "Profile file not found. Skipping snakeviz."
+            exit 1
+          fi
         env:
           PROFILER_OUTPUT_FILE: profile_results_batch.prof
 
