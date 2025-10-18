@@ -29,19 +29,25 @@ jobs:
         # The -o flag is used with cProfile to write the profile data to a file.
         run: python3 profiling/profiler.py -t linear -o profile_results_linear.prof
 
-      - name: Generate snakeviz report for linear pipeline
-        # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
+      - name: Convert profile file to static HTML
+        id: snakeviz
         run: |
-          if [ -f profile_results_linear.prof ]; then
-            ls -la
-            snakeviz --browser profile_results_linear.prof > profile_report_linear.html
-          else
-            echo "Profile file not found. Skipping snakeviz."
-            ls -la
-            exit 1
-          fi
+            python -c "import snakeviz.stats, os; s = snakeviz.stats.Stats('profile_results_linear.prof'); s.prepare_pstats(); html = s.create_html(s.get_icicle_data(s.sortkey)); with open('profile_report_linear.html', 'w') as f: f.write(html)"
         env:
           PROFILER_OUTPUT_FILE: profile_results_linear.prof
+
+#      - name: Generate snakeviz report for linear pipeline
+#        # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
+#        run: |
+#          if [ -f profile_results_linear.prof ]; then
+#            snakeviz --browser profile_results_linear.prof > profile_report_linear.html
+#          else
+#            echo "Profile file not found. Skipping snakeviz."
+#            ls -la
+#            exit 1
+#          fi
+#        env:
+#          PROFILER_OUTPUT_FILE: profile_results_linear.prof
 
       - name: Upload profile artifact for linear pipeline
         uses: actions/upload-artifact@v4
