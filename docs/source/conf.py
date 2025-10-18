@@ -6,10 +6,10 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Event Pipeline"
-copyright = "2025, Nafiu Shaibu"
+project = "Nexus"
+copyright = "2025, Nexus"
 author = "Nafiu Shaibu"
-release = "1.1.dev6"
+release = "2.0.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

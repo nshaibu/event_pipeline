@@ -1,12 +1,12 @@
 Contributing
 ============
 
-This section provides guidelines for contributing to the Event Pipeline project.
+This section provides guidelines for contributing to the Nexus project.
 
 Getting Started
 -------------
 
-We welcome contributions! Here's how you can help improve the Event Pipeline library:
+We welcome contributions! Here's how you can help improve the Nexus library:
 
 1. Fork the repository
 2. Create a new branch for your changes
@@ -20,8 +20,8 @@ Development Setup
 
    .. code-block:: bash
 
-       git clone https://github.com/nshaibu/event_pipeline.git
-       cd event_pipeline
+       git clone https://github.com/nshaibu/nexus.git
+       cd nexus
 
 2. Create a virtual environment:
 
@@ -50,7 +50,7 @@ For coverage report:
 
 .. code-block:: bash
 
-    pytest --cov=event_pipeline --cov-report=html
+    pytest --cov=nexus --cov-report=html
 
 Code Style
 ---------
@@ -59,7 +59,7 @@ We use Black for code formatting:
 
 .. code-block:: bash
 
-    black event_pipeline
+    black nexus
 
 Documentation
 ------------
@@ -128,7 +128,7 @@ When reporting issues, please include:
 - Expected vs actual behavior
 - Version information:
   - Python version
-  - Event Pipeline version
+  - Nexus version
   - OS version
 - Any relevant logs or error messages
 
