@@ -35,5 +35,5 @@ cmd_parser.add_argument(
 )
 
 cmd_parser.add_argument(
-    "-r", "--html_report", action="store_true", default=None, help="Generate HTML report"
+    "-r", "--html_report", type=str, default=None, help="Generate HTML report"
 )
