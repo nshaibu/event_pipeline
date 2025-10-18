@@ -1,12 +1,12 @@
 Telemetry
 =========
 
-This section covers the telemetry capabilities in the Event Pipeline framework.
+This section covers the telemetry capabilities in the Nexus framework.
 
 Overview
 --------
 
-The Event Pipeline library includes built-in telemetry capabilities for monitoring and tracking:
+The Nexus library includes built-in telemetry capabilities for monitoring and tracking:
 
 - Event execution (timing, success/failure, retries)
 - Network operation monitoring
@@ -20,7 +20,7 @@ Enable and collect telemetry data:
 
 .. code-block:: python
 
-    from event_pipeline.telemetry import monitor_events, get_metrics
+    from nexus.telemetry import monitor_events, get_metrics
 
     # Enable telemetry collection
     monitor_events()
@@ -43,7 +43,7 @@ Monitor network operations in remote execution scenarios:
 
 .. code-block:: python
 
-    from event_pipeline.telemetry import (
+    from nexus.telemetry import (
         get_failed_network_ops,
         get_slow_network_ops
     )
@@ -72,7 +72,7 @@ Publish metrics to Elasticsearch for Kibana visualization:
 
 .. code-block:: python
 
-    from event_pipeline.telemetry import ElasticsearchPublisher
+    from nexus.telemetry import ElasticsearchPublisher
 
     es_publisher = ElasticsearchPublisher(
         hosts=["localhost:9200"],
@@ -87,7 +87,7 @@ Expose metrics for Prometheus scraping:
 
 .. code-block:: python
 
-    from event_pipeline.telemetry import PrometheusPublisher
+    from nexus.telemetry import PrometheusPublisher
 
     prometheus_publisher = PrometheusPublisher(port=9090)
     monitor_events([prometheus_publisher])
@@ -99,7 +99,7 @@ Publish metrics directly to Grafana Cloud:
 
 .. code-block:: python
 
-    from event_pipeline.telemetry import GrafanaCloudPublisher
+    from nexus.telemetry import GrafanaCloudPublisher
 
     grafana_publisher = GrafanaCloudPublisher(
         api_key="your-api-key",
@@ -114,7 +114,7 @@ Publish metrics to multiple backends simultaneously:
 
 .. code-block:: python
 
-    from event_pipeline.telemetry import CompositePublisher
+    from nexus.telemetry import CompositePublisher
 
     publisher = CompositePublisher([
         es_publisher,
@@ -168,7 +168,7 @@ Create custom publishers by implementing the MetricsPublisher interface:
 
 .. code-block:: python
 
-    from event_pipeline.telemetry import MetricsPublisher
+    from nexus.telemetry import MetricsPublisher
 
     class CustomPublisher(MetricsPublisher):
         def publish_event_metrics(self, metrics: EventMetrics) -> None:

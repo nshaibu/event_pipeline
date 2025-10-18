@@ -1,7 +1,7 @@
 Scheduling
 ==========
 
-This section covers how to schedule pipeline execution in the Event Pipeline framework.
+This section covers how to schedule pipeline execution in the Nexus framework.
 
 Overview
 --------
@@ -16,8 +16,8 @@ The framework supports CRON-style scheduling for periodic execution of pipelines
 
 .. code-block:: python
 
-    from event_pipeline import Pipeline
-    from event_pipeline.scheduler import PipelineScheduler
+    from nexus import Pipeline
+    from nexus.scheduler import PipelineScheduler
     from datetime import datetime
 
     class MyPipeline(Pipeline):

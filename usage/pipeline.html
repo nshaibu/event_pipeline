@@ -5,10 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Pipeline &#8212; Event Pipeline 1.1.dev6 documentation</title>
+    <title>Pipeline &#8212; Nexus 2.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
-    <script src="../_static/documentation_options.js?v=ddab24fe"></script>
+    <script src="../_static/documentation_options.js?v=51b770b3"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -34,11 +34,11 @@
             
   <section id="pipeline">
 <h1>Pipeline<a class="headerlink" href="#pipeline" title="Link to this heading">¶</a></h1>
-<p>This section covers everything you need to know about creating and working with pipelines in the Event Pipeline framework.</p>
+<p>This section covers everything you need to know about creating and working with pipelines in the Nexus framework.</p>
 <section id="defining-pipeline">
 <h2>Defining Pipeline<a class="headerlink" href="#defining-pipeline" title="Link to this heading">¶</a></h2>
 <p>To define a pipeline, you need to inherit from the Pipeline class and create your custom implementation:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MyPipeline</span><span class="p">(</span><span class="n">Pipeline</span><span class="p">):</span>
     <span class="c1"># Your input data fields will go here</span>
@@ -49,8 +49,8 @@
 <section id="defining-input-data-field">
 <h2>Defining Input Data Field<a class="headerlink" href="#defining-input-data-field" title="Link to this heading">¶</a></h2>
 <p>Input fields are defined using the InputDataField class or its variants. These fields represent the data that will flow through your pipeline:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputDataField</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nexus.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputDataField</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MyPipeline</span><span class="p">(</span><span class="n">Pipeline</span><span class="p">):</span>
     <span class="c1"># Define input fields as attributes</span>
@@ -162,8 +162,8 @@
 <p>For processing multiple batches of data in parallel:</p>
 <section id="creating-pipeline-template">
 <h3>Creating Pipeline Template<a class="headerlink" href="#creating-pipeline-template" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputDataField</span><span class="p">,</span> <span class="n">FileInputDataField</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nexus.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputDataField</span><span class="p">,</span> <span class="n">FileInputDataField</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Simple</span><span class="p">(</span><span class="n">Pipeline</span><span class="p">):</span>
     <span class="n">name</span> <span class="o">=</span> <span class="n">InputDataField</span><span class="p">(</span><span class="n">data_type</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
@@ -173,8 +173,8 @@
 </section>
 <section id="creating-batch-processing-class">
 <h3>Creating Batch Processing Class<a class="headerlink" href="#creating-batch-processing-class" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchPipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">SoftSignal</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nexus.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchPipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nexus.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">SoftSignal</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">SimpleBatch</span><span class="p">(</span><span class="n">BatchPipeline</span><span class="p">):</span>
     <span class="n">pipeline_template</span> <span class="o">=</span> <span class="n">Simple</span>
@@ -193,7 +193,7 @@
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="../index.html">Event Pipeline</a></h1>
+<h1 class="logo"><a href="../index.html">Nexus</a></h1>
 
 
 
@@ -256,7 +256,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &#169;2025, Nafiu Shaibu.
+      &#169;2025, Nexus.
       
       |
       Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>

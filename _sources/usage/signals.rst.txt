@@ -19,7 +19,7 @@ Initialization Signals
 
 .. code-block:: python
 
-    from event_pipeline.signal.signals import pipeline_pre_init, pipeline_post_init
+    from nexus.signal.signals import pipeline_pre_init, pipeline_post_init
 
     # Signal emitted before pipeline initialization
     # Arguments: cls, args, kwargs
@@ -34,7 +34,7 @@ Shutdown Signals
 
 .. code-block:: python
 
-    from event_pipeline.signal.signals import pipeline_shutdown, pipeline_stop
+    from nexus.signal.signals import pipeline_shutdown, pipeline_stop
 
     # Signal emitted during pipeline shutdown
     pipeline_shutdown
@@ -47,7 +47,7 @@ Execution Signals
 
 .. code-block:: python
 
-    from event_pipeline.signal.signals import (
+    from nexus.signal.signals import (
         pipeline_execution_start,
         pipeline_execution_end
     )
@@ -65,7 +65,7 @@ Event Execution Signals
 
 .. code-block:: python
 
-    from event_pipeline.signal.signals import (
+    from nexus.signal.signals import (
         event_execution_init,
         event_execution_start,
         event_execution_end,
@@ -103,8 +103,8 @@ Using the connect Method
 
 .. code-block:: python
 
-    from event_pipeline.signal.signals import pipeline_execution_start
-    from event_pipeline import Pipeline
+    from nexus.signal.signals import pipeline_execution_start
+    from nexus import Pipeline
 
     def my_listener(pipeline):
         print(f"Execution starting for pipeline: {pipeline}")
@@ -117,9 +117,9 @@ Using the @listener Decorator
 
 .. code-block:: python
 
-    from event_pipeline.decorators import listener
-    from event_pipeline.signal.signals import pipeline_pre_init
-    from event_pipeline import Pipeline
+    from nexus.decorators import listener
+    from nexus.signal.signals import pipeline_pre_init
+    from nexus import Pipeline
 
     @listener(pipeline_pre_init, sender=Pipeline)
     def my_listener(sender, signal, *args, **kwargs):

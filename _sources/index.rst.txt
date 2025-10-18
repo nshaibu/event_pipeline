@@ -1,12 +1,12 @@
-.. Event Pipeline documentation master file, created by
+.. Nexus documentation master file, created by
    sphinx-quickstart on Sat Mar  1 02:47:26 2025.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Event Pipeline
-=============
+Nexus
+=====
 
-.. image:: ../../img/pipeline.svg
+.. image:: ../../img/nexus.svg
    :height: 60px
    :width: 60px
    :align: left
@@ -20,24 +20,29 @@ Event Pipeline
 .. |code-style| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
 
-.. |status| image:: https://img.shields.io/pypi/status/event-pipeline.svg
-   :target: https://pypi.python.org/pypi/event-pipeline
+.. |status| image:: https://img.shields.io/pypi/status/nexus.svg
+   :target: https://pypi.python.org/pypi/nexus
 
-.. |latest| image:: https://img.shields.io/pypi/v/event-pipeline.svg
-   :target: https://pypi.python.org/pypi/event-pipeline
+.. |latest| image:: https://img.shields.io/pypi/v/nexus.svg
+   :target: https://pypi.python.org/pypi/nexus
 
-.. |pyv| image:: https://img.shields.io/pypi/pyversions/event-pipeline.svg
-   :target: https://pypi.python.org/pypi/event-pipeline
+.. |pyv| image:: https://img.shields.io/pypi/pyversions/nexus.svg
+   :target: https://pypi.python.org/pypi/nexus
 
 .. |prs| image:: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square
    :target: http://makeapullrequest.com
 
 Introduction
 -----------
-This library provides an easy-to-use framework for defining and managing events and pipelines. 
-It allows you to create events, process data through a series of tasks, and manage complex workflows
-with minimal overhead. The library is designed to be extensible and flexible, enabling developers to 
-easily integrate it into their projects.
+**Simplify complex process automation with a flexible, high-performance framework.**
+
+This library tackles the challenges of building reliable, scalable workflows by
+providing a clear separation between coordination and execution. It uses a declarative DSL,
+**Pointy-Lang**, to model your pipelines while managing the underlying complexity of concurrency,
+state, and task dependencies.
+
+Build resilient automation that can handle anything from simple data processing to distributed, event-driven systems.
+
 
 Features
 ~~~~~~~~
@@ -53,7 +58,7 @@ To install the library, simply use pip:
 
 .. code-block:: bash
 
-   pip install event-pipeline
+   pip install nexus
 
 Requirements
 ~~~~~~~~~~~

@@ -5,10 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Tutorials - Pointy-lang &#8212; Event Pipeline 1.1.dev6 documentation</title>
+    <title>Tutorials - Pointy-lang &#8212; Nexus 2.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
-    <script src="../_static/documentation_options.js?v=ddab24fe"></script>
+    <script src="../_static/documentation_options.js?v=51b770b3"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -55,8 +55,8 @@ Its primary purpose is to model sequences of operations, conditional branching, 
 <p>Events like <code class="docutils literal notranslate"><span class="pre">Submit</span></code>, <code class="docutils literal notranslate"><span class="pre">Validate</span></code> or <code class="docutils literal notranslate"><span class="pre">Reject</span></code> are predefined operations that are automatically resolved during pipeline execution.
 These events are defined in two main ways:</p>
 <ul class="simple">
-<li><p>By inheriting from the EventBase class inside the event_pipeline module.</p></li>
-<li><p>By decorating a Python function with the &#64;event decorator from the event_pipeline.decorators module.</p></li>
+<li><p>By inheriting from the EventBase class inside the nexus module.</p></li>
+<li><p>By decorating a Python function with the &#64;event decorator from the nexus.decorators module.</p></li>
 </ul>
 <p>Once defined, these events are automatically detected and registered into the pipeline runtime, requiring no additional configuration
 to participate in the event graph execution. When any of these event names are used within a Pointy script, they are automatically resolved
@@ -389,7 +389,7 @@ and any scenario requiring dynamic, observable execution control.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="../index.html">Event Pipeline</a></h1>
+<h1 class="logo"><a href="../index.html">Nexus</a></h1>
 
 
 
@@ -451,7 +451,7 @@ and any scenario requiring dynamic, observable execution control.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &#169;2025, Nafiu Shaibu.
+      &#169;2025, Nexus.
       
       |
       Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>

@@ -5,10 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Tutorials - Batch Processing &#8212; Event Pipeline 1.1.dev6 documentation</title>
+    <title>Tutorials - Batch Processing &#8212; Nexus 2.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
-    <script src="../_static/documentation_options.js?v=ddab24fe"></script>
+    <script src="../_static/documentation_options.js?v=51b770b3"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -43,8 +43,8 @@ that defines the structure of the pipeline, and the <cite>BatchPipeline</cite> c
 laying out the structure, input fields, and logic for your data processing pipeline.</p>
 <p>This template serves as the blueprint for executing multiple customized pipeline instances depending on the incoming data.</p>
 <p><strong>Example:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputDataField</span><span class="p">,</span> <span class="n">FileInputDataField</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nexus.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputDataField</span><span class="p">,</span> <span class="n">FileInputDataField</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Simple</span><span class="p">(</span><span class="n">Pipeline</span><span class="p">):</span>
     <span class="n">name</span> <span class="o">=</span> <span class="n">InputDataField</span><span class="p">(</span><span class="n">data_type</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
@@ -63,8 +63,8 @@ laying out the structure, input fields, and logic for your data processing pipel
 <p>Next, define the batch processing class by inheriting from the <cite>BatchPipeline</cite> class. This class is responsible for managing
 parallel execution using the pipeline template you just created.</p>
 <p><strong>Example:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchPipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">SoftSignal</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nexus.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchPipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nexus.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">SoftSignal</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">SimpleBatch</span><span class="p">(</span><span class="n">BatchPipeline</span><span class="p">):</span>
     <span class="n">pipeline_template</span> <span class="o">=</span> <span class="n">Simple</span>
@@ -157,10 +157,10 @@ unless overridden by a custom method.</p>
 </section>
 <section id="full-working-example">
 <h2>7. Full Working Example<a class="headerlink" href="#full-working-example" title="Link to this heading">¶</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputDataField</span><span class="p">,</span> <span class="n">FileInputDataField</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchPipeline</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">event_pipeline.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">SoftSignal</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nexus.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputDataField</span><span class="p">,</span> <span class="n">FileInputDataField</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nexus.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchPipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nexus.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">SoftSignal</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Simple</span><span class="p">(</span><span class="n">Pipeline</span><span class="p">):</span>
     <span class="n">name</span> <span class="o">=</span> <span class="n">InputDataField</span><span class="p">(</span><span class="n">data_type</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
@@ -207,7 +207,7 @@ With support for custom batch processors and signal-driven execution, it is both
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="../index.html">Event Pipeline</a></h1>
+<h1 class="logo"><a href="../index.html">Nexus</a></h1>
 
 
 
@@ -269,7 +269,7 @@ With support for custom batch processors and signal-driven execution, it is both
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &#169;2025, Nafiu Shaibu.
+      &#169;2025, Nexus.
       
       |
       Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
