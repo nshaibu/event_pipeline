@@ -51,6 +51,12 @@ jobs:
              uses: actions/download-artifact@v4
              with:
                name: sphinx-html
+               path: sphinx-html
+
+           - name: Show downloaded files
+             run: |
+               echo "Contents of sphinx-html:"
+               ls -la sphinx-html
 
            - name: Deploy to GitHub Pages
              uses: peaceiris/actions-gh-pages@v4
