@@ -25,8 +25,14 @@ jobs:
 
            - name: Build Sphinx documentation
              run: |
-                   cd docs
-                   make html
+               make -C docs html
+
+           - name: Check if Sphinx HTML directory exists
+             run: |
+               if [ ! -d "docs/build/html" ]; then
+                 echo "Error: docs/build/html directory does not exist. Sphinx build may have failed."
+                 exit 1
+               fi
 
            - name: Upload built docs as artifact
              uses: actions/upload-artifact@v4
