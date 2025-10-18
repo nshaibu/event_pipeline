@@ -29,5 +29,11 @@ cmd_parser.add_argument(
     "-o", "--output_file", type=str, default=None, help="The output file path for the profiler"
 )
 
+# arguments for snakeviz HTML report generation
+cmd_parser.add_argument(
+    "-i", "--input_prof_file", type=str, default=None, help="Input .prof file"
+)
 
-
+cmd_parser.add_argument(
+    "-hr", "--html_report", action="store_true", default=None, help="Generate HTML report"
+)
