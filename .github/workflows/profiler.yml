@@ -3,6 +3,8 @@ name: Profile Framework
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   profile:
@@ -23,20 +25,60 @@ jobs:
           pip install -e . 
           pip install snakeviz
 
-      - name: Run linear pipeline profile and capture .prof file
+      - name: Run linear pipeline and capture .prof file
         # The -o flag is used with cProfile to write the profile data to a file.
-        # Your custom profiler script must use cProfile internally and be able to dump a .prof file.
-        # This assumes your profiler.py script is structured to capture cProfile data when not visualizing.
-        run: python3 profiling/profiler.py -t linear_pr
+        run: python3 profiling/profiler.py -t linear -o profile_results_linear.prof
 
-      - name: Generate snakeviz report
+      - name: Generate snakeviz report for linear pipeline
         # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
-        run: snakeviz --browser profile_results.prof > profile_report.html
+        run: snakeviz --browser profile_results_linear.prof > profile_report_linear.html
         env:
-          PROFILER_OUTPUT_FILE: profile_results.prof
+          PROFILER_OUTPUT_FILE: profile_results_linear.prof
 
-      - name: Upload profile artifact
+      - name: Upload profile artifact for linear pipeline
         uses: actions/upload-artifact@v4
         with:
           name: profile-report-linear-pr
-          path: profile_report.html
+          path: profile_report_linear.html
+
+      - name: Run linear pipeline with result piping and capture .prof file for PR
+        run: python3 profiling/profiler.py -t linear_pr -o profile_results_linear_pr.prof
+
+      - name: Generate snakeviz report for linear pipeline with result piping
+        run: snakeviz --browser profile_results_linear_pr.prof > profile_report_linear_pr.html
+        env:
+          PROFILER_OUTPUT_FILE: profile_results_linear_pr.prof
+
+      - name: Upload profile artifact for linear pipeline with result piping
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-report-linear-pr
+          path: profile_report_linear_pr.html
+
+      - name: Run parallel pipeline and capture .prof file
+        run: python3 profiling/profiler.py -t parallel -o profile_results_parallel.prof
+
+      - name: Generate snakeviz report for parallel pipeline
+        run: snakeviz --browser profile_results_parallel.prof > profile_report_parallel.html
+        env:
+          PROFILER_OUTPUT_FILE: profile_results_parallel.prof
+
+      - name: Upload profile artifact for parallel pipeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-report-parallel
+          path: profile_report_parallel.html
+
+      - name: Run batch pipeline and capture .prof file
+        run: python3 profiling/profiler.py -t batch -o profile_results_batch.prof
+
+      - name: Generate snakeviz report for batch pipeline
+        run: snakeviz --browser profile_results_batch.prof > profile_report_batch.html
+        env:
+          PROFILER_OUTPUT_FILE: profile_results_batch.prof
+
+      - name: Upload profile artifact for batch pipeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-report-batch
+          path: profile_report_batch.html
