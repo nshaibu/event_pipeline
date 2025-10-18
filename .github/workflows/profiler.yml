@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: profile-report-linear-pr
-          path: profile_report_linear.html
+          path: profile_report_linear.txt
 
       - name: Run linear pipeline with result piping and capture .prof file for PR
         run: python3 profiling/profiler.py -t linear_pr -o profile_results_linear_pr.prof
