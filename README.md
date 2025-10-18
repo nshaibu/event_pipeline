@@ -1,6 +1,5 @@
-<div style="display: flex; align-items: center;">
-  <img alt="pipeline" height="60" src="img/pipeline.svg" width="60" style="margin-right: 10px; vertical-align: middle;"/>
-  <h1 style="margin: 0; vertical-align: middle;">Nexus</h1>
+<div style="display:flex; align-items:center;">
+    <img alt="pipeline" src="img/nexus.svg" width="250" height="250" style="margin-right:2px; vertical-align:middle; display:inline-block;" />
 </div>
 
 
@@ -66,10 +65,10 @@ Build resilient automation that can handle anything from simple data processing 
 - **Extensible Architecture**: Easily integrate custom event logic, task executors, and signals to fit any use case.
 
 ## Installation
-To install the library, simply use pip:
+To install the framework, simply use pip:
 
 ```bash
-pip install event-pipeline
+pip install nexus
 ```
 
 # Requirements
@@ -84,27 +83,26 @@ pip install event-pipeline
 
 # Pipeline
 
-## Defining Pipeline
+## Defining Pipelines
 
-To define a pipeline, import the Pipeline class from the nexus module and create a new class that
+To define a pipeline, import the `Pipeline` class using `from nexus import Pipeline` and create a new class that
 inherits from it. This custom class will define the behavior and structure of your pipeline.
 
 ```python
 from nexus import Pipeline
 
 class MyPipeline(Pipeline):
-    # Your input data fields will go here
+    # Define input fields as class attributes here
     pass
 
 ```
 
 ## Defining Input Data Field
-Import the `InputDataField` or another class from the fields module. 
+Import the `InputDataField` (or another field class) from the `nexus.fields` module.
 
-The InputDataField class is used to define the input fields for your pipeline. These fields are assigned as attributes 
-within your pipeline class and represent the data that will flow through the pipeline.
-Events within the pipeline can request for the values of the Input fields by including the name 
-of the field in their `process` method arguments.
+The `InputDataField` class is used to declare input fields for your pipeline. Define these fields as class attributes
+on your pipeline class; they represent the data that will flow through the pipeline. Events can access input field
+values by including the field name in their `process` method signature.
 
 ```python
 from nexus import Pipeline
@@ -116,7 +114,7 @@ class MyPipeline(Pipeline):
 
 ```
 
-## Defining Pipeline Structure
+## Defining Pipeline Structure Using Pointy language
 The next step is to define the structure and flow of your pipeline using the pointy language. 
 The pointy file provides a structured format to describe how the pipeline should execute, 
 including the order of tasks, conditions, and dependencies.
@@ -164,7 +162,12 @@ you to define sequences of operations, conditional branching, parallel execution
 expressive syntax. The language uses arrows (`->`, `||`, `|->`) to represent event flow, direction, and parallelism. 
 This documentation provides an overview of the syntax and examples of common usage.
 
+The Pointy Language DSL provides a concise and expressive way to define the structure, flow, and logic of your event-driven pipelines, making it easier to manage complex dependencies and execution paths.
+
 ### Operators
+
+The following operators are used in Pointy Language to define the flow, dependencies, and logic of your event-driven pipelines.
+
 - **Directional Operator (`->`):**
 The `->` operator is used to define a sequential flow of events. It represents the execution of one event followed by another. 
 It indicates that the first event must be completed before the second event begins.
@@ -192,14 +195,15 @@ The condition is checked after the event's execution: `0` represents failure, an
 Based on these outcomes, the next event(s) are chosen.
 ```pty
 A -> B (0 -> C, 1 -> D)  # If B fails (0), execute C; if B succeeds (1), execute D
-```
-
-- **Retry (`*`):**
-In Pointy Language, the `*` operator is used to retry an event in the case of failures or exception.
+In Pointy Language, the `*` operator is used to retry an event in the case of failures or exceptions.
+The syntax supports both postfix (`A * 3`) and prefix (`3 * A`) notation to specify the retry factor, and both forms are accepted; however, postfix notation (`A * 3`) is canonical and preferred in documentation and examples.
 The `*` operator specifies that the event should be retried a certain number of times if an exception occurs. 
 This number is known as the retry factor. The factor must be greater than 1 for the retry operation to be activated. 
 The retry operation triggers for all exceptions that occur during the execution of the event. However, it can be 
 configured to exclude certain exceptions. If specific exceptions are listed in the event configuration, 
+retries will not be attempted for those exceptions.
+If a retry policy has already been set for the event, the `*` operator will override the maximum retry count defined earlier. 
+This means that the retry factor specified by * will take precedence, even if there was a previous retry limit in place.
 retries will not be attempted for those exceptions.
 If a retry policy has already been set for the event, the `*` operator will override the maximum retry count defined earlier. 
 This means that the retry factor specified by * will take precedence, even if there was a previous retry limit in place.
