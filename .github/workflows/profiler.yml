@@ -33,7 +33,7 @@ jobs:
         # snakeviz is run with --browser to force it to output to stdout, then redirected to a file.
         run: |
           if [ -f profile_results_linear.prof ]; then
-            snakeviz -s profile_results_linear.prof &
+            snakeviz -s ./profile_results_linear.prof &
             sleep 5
             curl http://127.0.0.1:8080 > profile_report_linear.html
             pkill -f "snakeviz"
