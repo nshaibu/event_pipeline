@@ -229,7 +229,9 @@ help determine the flow of execution.
   conditional logic in your workflow. The user can assign any condition to these descriptors, allowing for more complex 
   branching logic. Each of these descriptors can be assigned to events based on custom conditions defined by the user.
 
-For example:
+**Example of mapping a custom condition to a descriptor in code:**
+
+Suppose you want to use descriptor `3` to represent a custom condition, such as "input value is greater than 100". You can map this in your event or pipeline configuration as follows:
 
 ```pty
 A -> B (0 -> C, 1 -> D, 3 -> E)  # Use descriptor 3 to define a custom condition for event E

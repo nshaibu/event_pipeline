@@ -1,10 +1,12 @@
 import cProfile
 import os
+import sys
+import argparse
 import pstats
 from pathlib import Path
 from pstats import SortKey
 
-from command_line_flags import PipelineType, args
+from command_line_flags import PipelineType, cmd_parser
 from pipelines import (
     BatchPipelineType,
     DecisionTreePipeline,
@@ -13,13 +15,25 @@ from pipelines import (
     ParallelPipeline,
 )
 
-if __name__ == "__main__":
+name = "Kwabena"
+age = 30
 
-    name = "Kwabena"
-    age = 30
-    stats_txt_file = "profile_results.txt"
-    stats_prof_file = "profile_results.prof"
-    profiling_dir = "./"
+if __name__ == "__main__":
+    try:
+        args = cmd_parser.parse_args(sys.argv[1:])
+    except argparse.ArgumentError as e:
+        print(f"Argument parsing error: {e}")
+        sys.exit(1)
+    except SystemExit:
+        print("Exiting program due to argument parsing issue.")
+        sys.exit(1)
+
+    execution_type = args.type
+    stats_prof_file = args.output_file
+    run_in_web_browser = args.run_in_web_browser
+    
+    if stats_prof_file is None:
+        stats_prof_file = "profile_results.prof"
 
     pipeline_constructors = {
         PipelineType.LINEAR.value: lambda: LinearPipeline([name], age),
@@ -34,15 +48,18 @@ if __name__ == "__main__":
     }
 
     pipeline = pipeline_constructors.get(
-        args.type, lambda: LinearPipeline([name], age)
+        execution_type, lambda: LinearPipeline([name], age)
     )()
-    cProfile.run("pipeline.start()", str(Path(profiling_dir, stats_txt_file)))
+    
+    cProfile.run("pipeline.start()", stats_prof_file)
 
-    p = pstats.Stats(str(Path(profiling_dir, stats_txt_file)))
+    p = pstats.Stats(stats_prof_file)
 
     p.sort_stats(SortKey.CUMULATIVE).print_stats(
-        "event_pipeline"
-    ).strip_dirs().dump_stats(str(Path(profiling_dir, stats_prof_file)))
+        "nuxes"
+    ).strip_dirs().dump_stats(stats_prof_file)
 
-    if args.run_in_web_browser:
-        os.system("snakeviz" + str(Path(profiling_dir, stats_prof_file)))
+    if run_in_web_browser:
+        os.system("snakeviz " + stats_prof_file)
+
+    sys.exit(0)
