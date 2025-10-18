@@ -1,7 +1,7 @@
 import pytest
 import zlib
 import cloudpickle
-from event_pipeline.executors.message import TaskMessage
+from nexus.executors.message import TaskMessage
 
 
 def test_task_message_serialization_and_deserialization():

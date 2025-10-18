@@ -1,15 +1,14 @@
-<div style="display: flex; align-items: center;">
-  <img alt="pipeline" height="60" src="img/pipeline.svg" width="60" style="margin-right: 10px; vertical-align: middle;"/>
-  <h1 style="margin: 0; vertical-align: middle;">Event Pipeline</h1>
+<div style="display:flex; justify-content:center; align-items:center;">
+    <img alt="nexus" src="img/nexus.svg" width="280" height="280" style="padding-bottom:0!important;margin-bottom:0!important;" />
 </div>
 
 
-[![Build Status](https://github.com/nshaibu/event_pipeline/actions/workflows/python_package.yml/badge.svg)](https://github.com/nshaibu/event_pipeline/actions)
+[![Build Status](https://github.com/nshaibu/nexus/actions/workflows/python_package.yml/badge.svg)](https://github.com/nshaibu/nexus/actions)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Status](https://img.shields.io/pypi/status/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
 [![Latest](https://img.shields.io/pypi/v/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
 [![PyV](https://img.shields.io/pypi/pyversions/event-pipeline.svg)](https://pypi.python.org/pypi/event-pipeline)
-[![codecov](https://codecov.io/github/nshaibu/event_pipeline/graph/badge.svg?token=N9OEAI3EDB)](https://codecov.io/github/nshaibu/event_pipeline)
+[![codecov](https://codecov.io/github/nshaibu/nexus/graph/badge.svg?token=N9OEAI3EDB)](https://codecov.io/github/nshaibu/nexus)
 
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
@@ -66,10 +65,10 @@ Build resilient automation that can handle anything from simple data processing 
 - **Extensible Architecture**: Easily integrate custom event logic, task executors, and signals to fit any use case.
 
 ## Installation
-To install the library, simply use pip:
+To install the framework, simply use pip:
 
 ```bash
-pip install event-pipeline
+pip install nexus
 ```
 
 # Requirements
@@ -84,31 +83,30 @@ pip install event-pipeline
 
 # Pipeline
 
-## Defining Pipeline
+## Defining Pipelines
 
-To define a pipeline, import the Pipeline class from the event_pipeline module and create a new class that
+To define a pipeline, import the `Pipeline` class using `from nexus import Pipeline` and create a new class that
 inherits from it. This custom class will define the behavior and structure of your pipeline.
 
 ```python
-from event_pipeline import Pipeline
+from nexus import Pipeline
 
 class MyPipeline(Pipeline):
-    # Your input data fields will go here
+    # Define input fields as class attributes here
     pass
 
 ```
 
 ## Defining Input Data Field
-Import the `InputDataField` or another class from the fields module. 
+Import the `InputDataField` (or another field class) from the `nexus.fields` module.
 
-The InputDataField class is used to define the input fields for your pipeline. These fields are assigned as attributes 
-within your pipeline class and represent the data that will flow through the pipeline.
-Events within the pipeline can request for the values of the Input fields by including the name 
-of the field in their `process` method arguments.
+The `InputDataField` class is used to declare input fields for your pipeline. Define these fields as class attributes
+on your pipeline class; they represent the data that will flow through the pipeline. Events can access input field
+values by including the field name in their `process` method signature.
 
 ```python
-from event_pipeline import Pipeline
-from event_pipeline.fields import InputDataField
+from nexus import Pipeline
+from nexus.fields import InputDataField
 
 class MyPipeline(Pipeline):
     # Define input fields as attributes
@@ -116,13 +114,13 @@ class MyPipeline(Pipeline):
 
 ```
 
-## Defining Pipeline Structure
+## Defining Pipeline Structure Using Pointy language
 The next step is to define the structure and flow of your pipeline using the pointy language. 
 The pointy file provides a structured format to describe how the pipeline should execute, 
 including the order of tasks, conditions, and dependencies.
 
 ```pty
-Fetch->Process->Execute->SaveToDB->Return
+Fetch -> Process -> Execute -> SaveToDB -> Return
 ```
 
 The pointy file `.pty` describes the flow of tasks and their dependencies, allowing you to build dynamic 
@@ -164,7 +162,12 @@ you to define sequences of operations, conditional branching, parallel execution
 expressive syntax. The language uses arrows (`->`, `||`, `|->`) to represent event flow, direction, and parallelism. 
 This documentation provides an overview of the syntax and examples of common usage.
 
+The Pointy Language DSL provides a concise and expressive way to define the structure, flow, and logic of your event-driven pipelines, making it easier to manage complex dependencies and execution paths.
+
 ### Operators
+
+The following operators are used in Pointy Language to define the flow, dependencies, and logic of your event-driven pipelines.
+
 - **Directional Operator (`->`):**
 The `->` operator is used to define a sequential flow of events. It represents the execution of one event followed by another. 
 It indicates that the first event must be completed before the second event begins.
@@ -192,14 +195,15 @@ The condition is checked after the event's execution: `0` represents failure, an
 Based on these outcomes, the next event(s) are chosen.
 ```pty
 A -> B (0 -> C, 1 -> D)  # If B fails (0), execute C; if B succeeds (1), execute D
-```
-
-- **Retry (`*`):**
-In Pointy Language, the `*` operator is used to retry an event in the case of failures or exception.
+In Pointy Language, the `*` operator is used to retry an event in the case of failures or exceptions.
+The syntax supports both postfix (`A * 3`) and prefix (`3 * A`) notation to specify the retry factor, and both forms are accepted; however, postfix notation (`A * 3`) is canonical and preferred in documentation and examples.
 The `*` operator specifies that the event should be retried a certain number of times if an exception occurs. 
 This number is known as the retry factor. The factor must be greater than 1 for the retry operation to be activated. 
 The retry operation triggers for all exceptions that occur during the execution of the event. However, it can be 
 configured to exclude certain exceptions. If specific exceptions are listed in the event configuration, 
+retries will not be attempted for those exceptions.
+If a retry policy has already been set for the event, the `*` operator will override the maximum retry count defined earlier. 
+This means that the retry factor specified by * will take precedence, even if there was a previous retry limit in place.
 retries will not be attempted for those exceptions.
 If a retry policy has already been set for the event, the `*` operator will override the maximum retry count defined earlier. 
 This means that the retry factor specified by * will take precedence, even if there was a previous retry limit in place.
@@ -225,7 +229,9 @@ help determine the flow of execution.
   conditional logic in your workflow. The user can assign any condition to these descriptors, allowing for more complex 
   branching logic. Each of these descriptors can be assigned to events based on custom conditions defined by the user.
 
-For example:
+**Example of mapping a custom condition to a descriptor in code:**
+
+Suppose you want to use descriptor `3` to represent a custom condition, such as "input value is greater than 100". You can map this in your event or pipeline configuration as follows:
 
 ```pty
 A -> B (0 -> C, 1 -> D, 3 -> E)  # Use descriptor 3 to define a custom condition for event E
@@ -316,7 +322,7 @@ This is the graphical representation of the above pipeline
 
 To draw your pipeline:
 ```python
-# instantiate your pipeline clas
+# instantiate your pipeline class
 pipeline = MyPipeline()
 
 # draw ascii representation
@@ -355,8 +361,8 @@ contexts, depending on the data you plan to process.
 
 ***Example:***
 ```python
-from event_pipeline import Pipeline
-from event_pipeline.fields import InputDataField, FileInputDataField
+from nexus import Pipeline
+from nexus.fields import InputDataField, FileInputDataField
 
 class Simple(Pipeline):
     name = InputDataField(data_type=list, batch_size=5)
@@ -375,8 +381,8 @@ the parallel execution of the pipeline template you just created.
 ***Example:***
 
 ```python
-from event_pipeline.pipeline import BatchPipeline
-from event_pipeline.signal import SoftSignal
+from nexus.pipeline import BatchPipeline
+from nexus.signal import SoftSignal
 
 class SimpleBatch(BatchPipeline):
     pipeline_template = Simple
@@ -433,8 +439,8 @@ Batch Pipeline with Parallel Execution
 Here’s a full example that demonstrates the creation and configuration of a batch processing pipeline:
 
 ```python
-from event_pipeline import Pipeline
-from event_pipeline.pipeline import BatchPipeline, InputDataField, SoftSignal
+from nexus import Pipeline
+from nexus.pipeline import BatchPipeline, InputDataField, SoftSignal
 
 class Simple(Pipeline):
     name = InputDataField(data_type=list, batch_size=5)
@@ -473,7 +479,7 @@ To define an event, you need to inherit from the EventBase class and override th
 This process method defines the logic for how the event is executed.
 
 ```python
-from event_pipeline import EventBase
+from nexus import EventBase
 
 class MyEvent(EventBase):
     def process(self, *args, **kwargs):
@@ -538,7 +544,7 @@ behavior of the executor:
 Here’s an example of how to use the ExecutorInitializerConfig class to configure an executor for event processing:
 
 ```python
-from event_pipeline import ExecutorInitializerConfig
+from nexus import ExecutorInitializerConfig
 
 # Configuring an executor with a specific number of workers, max tasks per worker, and thread name prefix
 config = ExecutorInitializerConfig(
@@ -601,7 +607,7 @@ The decorator allows you to configure the executor, just like in class-based eve
 providing flexibility for execution.
 
 ```python
-from event_pipeline.decorators import event
+from nexus.decorators import event
 
 # Define a function-based event using the @event decorator
 @event()
@@ -614,7 +620,7 @@ The event decorator allows you to define an event as a simple function. You can 
 executor for the event's execution using parameters like max_workers, max_tasks_per_child, and thread_name_prefix.
 
 ```python
-from event_pipeline.decorators import event
+from nexus.decorators import event
 from concurrent.futures import ThreadPoolExecutor
 
 # Define a function-based event using the @event decorator
@@ -654,7 +660,7 @@ in managing workflows.
 Here's how you can set the execution evaluation state in your event class:
 
 ```python
-from event_pipeline import EventBase, EventExecutionEvaluationState
+from nexus import EventBase, EventExecutionEvaluationState
 
 class MyEvent(EventBase):
     execution_evaluation_state = EventExecutionEvaluationState.SUCCESS_ON_ALL_EVENTS_SUCCESS
@@ -692,7 +698,7 @@ settings. The retry policy can also be defined as a dictionary.
 For example:
 
 ```python
-from event_pipeline.base import RetryPolicy
+from nexus.base import RetryPolicy
 
 # Define a custom retry policy
 retry_policy = RetryPolicy(
@@ -726,7 +732,7 @@ Here’s how you can assign the retry policy to your event class:
 
 ```python
 import typing
-from event_pipeline import EventBase
+from nexus import EventBase
 
 
 class MyEvent(EventBase):
@@ -848,8 +854,8 @@ To leverage the signaling framework, you can connect listeners to these signals.
 called when a specific signal is emitted. Here's how to connect a listener:
 
 ```python
-from event_pipeline.signal.signals import pipeline_execution_start
-from event_pipeline import Pipeline
+from nexus.signal.signals import pipeline_execution_start
+from nexus import Pipeline
 
 def my_listener(pipeline):
     print(f"Execution starting for pipeline: {pipeline}")
@@ -859,9 +865,9 @@ pipeline_execution_start.connect(my_listener, sender=Pipeline)
 ``` 
 ***Or***
 ```python
-from event_pipeline.decorators import listener
-from event_pipeline.signal.signals import pipeline_pre_init
-from event_pipeline import Pipeline
+from nexus.decorators import listener
+from nexus.signal.signals import pipeline_pre_init
+from nexus import Pipeline
 
 @listener(pipeline_pre_init, sender=Pipeline)
 def my_lister(sender, signal, *args, **kwargs):
@@ -885,7 +891,7 @@ The event-pipeline library includes built-in telemetry capabilities for monitori
 To enable telemetry collection in your pipeline:
 
 ```python
-from event_pipeline.telemetry import monitor_events, get_metrics
+from nexus.telemetry import monitor_events, get_metrics
 
 # Enable telemetry collection
 monitor_events()
@@ -914,7 +920,7 @@ The telemetry module automatically tracks:
 For pipelines using remote execution, the telemetry module provides detailed network operation metrics:
 
 ```python
-from event_pipeline.telemetry import get_failed_network_ops, get_slow_network_ops
+from nexus.telemetry import get_failed_network_ops, get_slow_network_ops
 
 # Get metrics for failed network operations
 failed_ops = get_failed_network_ops()
@@ -946,7 +952,7 @@ The telemetry module supports publishing metrics to various monitoring systems t
 Publishes metrics to Elasticsearch, allowing visualization in Kibana:
 
 ```python
-from event_pipeline.telemetry import ElasticsearchPublisher
+from nexus.telemetry import ElasticsearchPublisher
 
 es_publisher = ElasticsearchPublisher(
     hosts=["localhost:9200"],
@@ -959,7 +965,7 @@ monitor_events([es_publisher])
 Exposes metrics for Prometheus scraping, compatible with Grafana:
 
 ```python
-from event_pipeline.telemetry import PrometheusPublisher
+from nexus.telemetry import PrometheusPublisher
 
 prometheus_publisher = PrometheusPublisher(port=9090)
 monitor_events([prometheus_publisher])
@@ -969,7 +975,7 @@ monitor_events([prometheus_publisher])
 Publishes metrics directly to Grafana Cloud:
 
 ```python
-from event_pipeline.telemetry import GrafanaCloudPublisher
+from nexus.telemetry import GrafanaCloudPublisher
 
 grafana_publisher = GrafanaCloudPublisher(
     api_key="your-api-key",
@@ -982,7 +988,7 @@ monitor_events([grafana_publisher])
 Publish metrics to multiple backends simultaneously:
 
 ```python
-from event_pipeline.telemetry import CompositePublisher
+from nexus.telemetry import CompositePublisher
 
 publisher = CompositePublisher([
     es_publisher,
@@ -1032,7 +1038,7 @@ This will install the optional dependencies needed for each publisher:
 You can create custom publishers by implementing the MetricsPublisher interface:
 
 ```python
-from event_pipeline.telemetry import MetricsPublisher
+from nexus.telemetry import MetricsPublisher
 
 class CustomPublisher(MetricsPublisher):
     def publish_event_metrics(self, metrics: EventMetrics) -> None:

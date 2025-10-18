@@ -1,5 +1,5 @@
-from event_pipeline import Pipeline
-from event_pipeline.fields import InputDataField
+from nexus import Pipeline
+from nexus.fields import InputDataField
 
 
 class BroadcastPipeline(Pipeline):

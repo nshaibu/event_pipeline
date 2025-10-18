@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from event_pipeline.mixins.utils.connector import (
+from nexus.mixins.utils.connector import (
     ConnectionMode,
     ConnectorManagerFactory,
     SingleConnectorManager,
@@ -32,7 +32,7 @@ class TestConnectorManagerFactory(unittest.TestCase):
         self.assertIsInstance(manager, PooledConnectorManager)
 
     @patch(
-        "event_pipeline.mixins.utils.connector.ConnectorManagerFactory._detect_connection_mode"
+        "nexus.mixins.utils.connector.ConnectorManagerFactory._detect_connection_mode"
     )
     def test_create_manager_auto_detect(self, mock_detect_mode):
         mock_connector_class = MagicMock()

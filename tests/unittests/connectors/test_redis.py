@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from event_pipeline.backends.connectors.redis import RedisConnector
+from nexus.backends.connectors.redis import RedisConnector
 
 
 @pytest.fixture
@@ -8,7 +8,7 @@ def redis_connector():
     return RedisConnector(host="localhost", port=6379, db=0)
 
 
-@patch("event_pipeline.backends.connectors.redis.Redis")
+@patch("nexus.backends.connectors.redis.Redis")
 def test_connect(mock_redis, redis_connector):
     mock_instance = MagicMock()
     mock_redis.return_value = mock_instance
@@ -21,7 +21,7 @@ def test_connect(mock_redis, redis_connector):
     assert connection == mock_instance
 
 
-@patch("event_pipeline.backends.connectors.redis.Redis")
+@patch("nexus.backends.connectors.redis.Redis")
 def test_disconnect(mock_redis, redis_connector):
     mock_instance = MagicMock()
     mock_instance.close = MagicMock()
@@ -33,7 +33,7 @@ def test_disconnect(mock_redis, redis_connector):
     assert redis_connector._cursor is None
 
 
-@patch("event_pipeline.backends.connectors.redis.Redis")
+@patch("nexus.backends.connectors.redis.Redis")
 def test_is_connected(mock_redis, redis_connector):
     mock_instance = MagicMock()
     redis_connector._cursor = mock_instance

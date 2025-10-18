@@ -1,7 +1,7 @@
 import os
 
-from event_pipeline.pipeline import Pipeline
-from event_pipeline.fields import FileInputDataField, InputDataField
+from nexus.pipeline import Pipeline
+from nexus.fields import FileInputDataField, InputDataField
 
 
 class SentimentAnalysisPipeline(Pipeline):

@@ -2,7 +2,7 @@ from concurrent.futures import Future
 
 import pytest
 
-from event_pipeline.executors import default_executor
+from nexus.executors import default_executor
 
 
 def test_default_executor():

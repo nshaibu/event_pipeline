@@ -1,5 +1,5 @@
-from event_pipeline import EventBase
-from event_pipeline.base import RetryPolicy
+from nexus import EventBase
+from nexus.base import RetryPolicy
 import logging
 import httpx
 from .custom_exception import (

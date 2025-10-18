@@ -1,5 +1,5 @@
-from event_pipeline import EventBase
-from event_pipeline.executors.rpc_executor import XMLRPCExecutor
+from nexus import EventBase
+from nexus.executors.rpc_executor import XMLRPCExecutor
 
 
 class ComputeTask(EventBase):
