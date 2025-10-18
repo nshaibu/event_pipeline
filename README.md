@@ -1,5 +1,5 @@
 <div style="display:flex; align-items:center;">
-    <img alt="nexus" src="img/nexus.svg" width="280" height="280" style="margin-right:auto; margin-left: auto;" />
+    <img alt="nexus" src="img/nexus.svg" width="280" height="280" style="padding-bottom:0!important;margin-bottom:0!important;" />
 </div>
 
 
