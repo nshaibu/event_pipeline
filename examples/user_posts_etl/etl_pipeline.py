@@ -1,7 +1,7 @@
-from event_pipeline.pipeline import Pipeline
-from event_pipeline.fields import InputDataField
-from event_pipeline.signal.signals import pipeline_execution_start
-from event_pipeline.decorators import listener
+from nexus.pipeline import Pipeline
+from nexus.fields import InputDataField
+from nexus.signal.signals import pipeline_execution_start
+from nexus.decorators import listener
 from .events import LoadData, ProcessData, GraphData
 
 

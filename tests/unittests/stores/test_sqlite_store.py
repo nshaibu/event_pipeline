@@ -3,8 +3,8 @@ import pickle
 from unittest.mock import MagicMock
 from pydantic_mini import BaseModel
 
-from event_pipeline.backends.stores.sqlite_store import SqliteStoreBackend
-from event_pipeline.exceptions import (
+from nexus.backends.stores.sqlite_store import SqliteStoreBackend
+from nexus.exceptions import (
     ObjectDoesNotExist,
     ObjectExistError,
     SqlOperationError,

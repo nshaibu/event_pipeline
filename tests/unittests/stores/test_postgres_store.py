@@ -3,7 +3,7 @@ import pickle
 from unittest.mock import MagicMock
 from pydantic_mini import BaseModel
 
-from event_pipeline.backends.stores.postgres_store import PostgresStoreBackend
+from nexus.backends.stores.postgres_store import PostgresStoreBackend
 
 
 class MockRecord(BaseModel):
@@ -22,7 +22,7 @@ def postgres_store():
     from unittest.mock import patch, MagicMock
 
     with patch(
-        "event_pipeline.backends.connectors.postgres.PostgresConnector", autospec=True
+        "nexus.backends.connectors.postgres.PostgresConnector", autospec=True
     ) as mock_connector_class:
         mock_instance = MagicMock()
         mock_instance.connect.return_value = MagicMock()

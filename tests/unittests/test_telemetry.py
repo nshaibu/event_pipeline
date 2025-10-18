@@ -1,15 +1,15 @@
 import time
 import unittest
 
-from event_pipeline import EventBase
-from event_pipeline.executors.remote_executor import RemoteExecutor
-from event_pipeline.telemetry import (get_failed_events,
+from nexus import EventBase
+from nexus.executors.remote_executor import RemoteExecutor
+from nexus.telemetry import (get_failed_events,
                                       get_failed_network_ops, get_metrics,
                                       get_retry_stats, get_slow_events,
                                       get_slow_network_ops, monitor_events)
-from event_pipeline.telemetry.factory import TelemetryLoggerFactory
-from event_pipeline.telemetry.logger import StandardTelemetryLogger
-from event_pipeline.telemetry.network import network_telemetry
+from nexus.telemetry.factory import TelemetryLoggerFactory
+from nexus.telemetry.logger import StandardTelemetryLogger
+from nexus.telemetry.network import network_telemetry
 
 
 # TODO: add tests for batch pipeline cases

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from event_pipeline.translator.dot import generate_dot_from_task_state, PipeType
+from nexus.translator.dot import generate_dot_from_task_state, PipeType
 
 
 def test_generate_dot_from_task_state_simple():

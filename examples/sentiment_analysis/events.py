@@ -1,12 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from pathlib import Path
 
-from event_pipeline import EventBase
+from nexus import EventBase
 import json
 from typing import List, Tuple, Dict, Any, Union
 from textblob import TextBlob
 import matplotlib.pyplot as plt
-from event_pipeline.base import RetryPolicy
+from nexus.base import RetryPolicy
 from .custom_exceptions import DataFileError, EmailNotificationError, JsonDataError
 import yagmail
 import traceback

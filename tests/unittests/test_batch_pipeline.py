@@ -7,11 +7,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from event_pipeline import EventBase
-from event_pipeline.exceptions import ImproperlyConfigured
-from event_pipeline.fields import InputDataField
-from event_pipeline.pipeline import BatchPipeline, BatchPipelineStatus, Pipeline, _BatchProcessingMonitor
-from event_pipeline.conf import ConfigLoader
+from nexus import EventBase
+from nexus.exceptions import ImproperlyConfigured
+from nexus.fields import InputDataField
+from nexus.pipeline import BatchPipeline, BatchPipelineStatus, Pipeline, _BatchProcessingMonitor
+from nexus.conf import ConfigLoader
 
 
 class Start(EventBase):
@@ -79,7 +79,7 @@ class TestBatchPipeline(unittest.TestCase):
         # Should only create one pipeline
         self.assertEqual(batch._configured_pipelines_count, 1)
 
-    @patch("event_pipeline.pipeline.ProcessPoolExecutor")
+    @patch("nexus.pipeline.ProcessPoolExecutor")
     def test_parallel_execution(self, mock_executor):
         """Test parallel execution of multiple pipelines"""
         mock_executor.return_value.__enter__.return_value = Mock()

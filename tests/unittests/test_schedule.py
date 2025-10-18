@@ -4,8 +4,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
-from event_pipeline.mixins.schedule import ScheduleMixin, _PipeLineJob
-from event_pipeline.exceptions import ValidationError
+from nexus.mixins.schedule import ScheduleMixin, _PipeLineJob
+from nexus.exceptions import ValidationError
 
 
 class MockPipeline:
@@ -73,10 +73,10 @@ def test_validate_trigger_args_valid(schedule_mixin_instance):
     trigger_args = {"run_date": "2023-01-01"}
 
     with patch(
-        "event_pipeline.utils.get_function_call_args", return_value=trigger_args
+        "nexus.utils.get_function_call_args", return_value=trigger_args
     ):
         with patch(
-            "event_pipeline.utils.get_expected_args", return_value={"run_date": None}
+            "nexus.utils.get_expected_args", return_value={"run_date": None}
         ):
             # Should not raise ValidationError
             schedule_mixin_instance._validate_trigger_args(trigger, trigger_args)
@@ -87,10 +87,10 @@ def test_validate_trigger_args_invalid(schedule_mixin_instance):
     trigger_args = {}
 
     with patch(
-        "event_pipeline.utils.get_function_call_args", return_value=trigger_args
+        "nexus.utils.get_function_call_args", return_value=trigger_args
     ):
         with patch(
-            "event_pipeline.utils.get_expected_args", return_value={"run_date": None}
+            "nexus.utils.get_expected_args", return_value={"run_date": None}
         ):
             with pytest.raises(ValidationError) as exc_info:
                 schedule_mixin_instance._validate_trigger_args(trigger, trigger_args)

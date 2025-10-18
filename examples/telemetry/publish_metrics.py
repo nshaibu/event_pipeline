@@ -6,15 +6,15 @@ This example shows how to:
 3. Integrate metrics publishing with events
 """
 
-from event_pipeline import EventBase
-from event_pipeline.telemetry import (
+from nexus import EventBase
+from nexus.telemetry import (
     monitor_events,
     ElasticsearchPublisher,
     PrometheusPublisher,
     GrafanaCloudPublisher,
     CompositePublisher,
 )
-from event_pipeline.executors.remote_executor import RemoteExecutor
+from nexus.executors.remote_executor import RemoteExecutor
 
 
 class MetricsPublishingEvent(EventBase):

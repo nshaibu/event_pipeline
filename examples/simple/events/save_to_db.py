@@ -1,6 +1,6 @@
 import typing
 
-from event_pipeline import EventBase
+from nexus import EventBase
 
 
 class SaveToDB(EventBase):

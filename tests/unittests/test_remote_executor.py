@@ -8,8 +8,8 @@ import pickle
 import queue
 from unittest.mock import Mock, patch
 from concurrent.futures import Future
-from event_pipeline.manager.remote_manager import RemoteTaskManager
-from event_pipeline.executors.remote_executor import RemoteExecutor, TaskMessage
+from nexus.manager.remote_manager import RemoteTaskManager
+from nexus.executors.remote_executor import RemoteExecutor, TaskMessage
 
 
 class MockContextManager:
@@ -36,19 +36,19 @@ class TestRemoteExecutorWithSSL(unittest.TestCase):
     def setUpClass(cls):
         cls.cert_dir = BASE_DIR
         cls.server_cert = os.path.join(
-            cls.cert_dir, "event_pipeline/scripts/certificates/server.crt"
+            cls.cert_dir, "nexus/scripts/certificates/server.crt"
         )
         cls.server_key = os.path.join(
-            cls.cert_dir, "event_pipeline/scripts/certificates/server.key"
+            cls.cert_dir, "nexus/scripts/certificates/server.key"
         )
         cls.client_cert = os.path.join(
-            cls.cert_dir, "event_pipeline/scripts/certificates/client.crt"
+            cls.cert_dir, "nexus/scripts/certificates/client.crt"
         )
         cls.client_key = os.path.join(
-            cls.cert_dir, "event_pipeline/scripts/certificates/client.key"
+            cls.cert_dir, "nexus/scripts/certificates/client.key"
         )
         cls.ca_cert = os.path.join(
-            cls.cert_dir, "event_pipeline/scripts/certificates/ca.crt"
+            cls.cert_dir, "nexus/scripts/certificates/ca.crt"
         )
 
     def setUp(self):
@@ -198,7 +198,7 @@ class TestRemoteExecutor(unittest.TestCase):
     def tearDown(self):
         self.executor.shutdown()
 
-    @patch("event_pipeline.executors.remote_executor.socket.create_connection")
+    @patch("nexus.executors.remote_executor.socket.create_connection")
     def test_create_secure_connection_without_encryption(self, mock_create_connection):
         mock_socket = Mock()
         mock_create_connection.return_value = mock_socket
@@ -209,8 +209,8 @@ class TestRemoteExecutor(unittest.TestCase):
             (self.host, self.port), self.executor._timeout
         )
 
-    @patch("event_pipeline.executors.remote_executor.ssl.create_default_context")
-    @patch("event_pipeline.executors.remote_executor.socket.create_connection")
+    @patch("nexus.executors.remote_executor.ssl.create_default_context")
+    @patch("nexus.executors.remote_executor.socket.create_connection")
     def test_create_secure_connection_with_encryption(
         self, mock_create_connection, mock_ssl_context
     ):
@@ -227,9 +227,9 @@ class TestRemoteExecutor(unittest.TestCase):
             mock_socket, server_hostname=self.host
         )
 
-    @patch("event_pipeline.executors.remote_executor.socket.create_connection")
-    @patch("event_pipeline.executors.remote_executor.send_data_over_socket")
-    @patch("event_pipeline.executors.remote_executor.receive_data_from_socket")
+    @patch("nexus.executors.remote_executor.socket.create_connection")
+    @patch("nexus.executors.remote_executor.send_data_over_socket")
+    @patch("nexus.executors.remote_executor.receive_data_from_socket")
     def test_send_task(self, mock_receive_data, mock_send_data, mock_create_connection):
         mock_receive_data.return_value = zlib.compress(pickle.dumps(42))
         mock_send_data.return_value = 100
@@ -242,9 +242,9 @@ class TestRemoteExecutor(unittest.TestCase):
         mock_send_data.assert_called_once()
         mock_receive_data.assert_called_once()
 
-    @patch("event_pipeline.executors.remote_executor.socket.create_connection")
-    @patch("event_pipeline.executors.remote_executor.send_data_over_socket")
-    @patch("event_pipeline.executors.remote_executor.receive_data_from_socket")
+    @patch("nexus.executors.remote_executor.socket.create_connection")
+    @patch("nexus.executors.remote_executor.send_data_over_socket")
+    @patch("nexus.executors.remote_executor.receive_data_from_socket")
     def test_send_task_with_error(
         self, mock_receive_data, mock_send_data, mock_create_connection
     ):
@@ -258,8 +258,8 @@ class TestRemoteExecutor(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.executor._send_task(task_message)
 
-    @patch("event_pipeline.executors.remote_executor.send_data_over_socket")
-    @patch("event_pipeline.executors.remote_executor.receive_data_from_socket")
+    @patch("nexus.executors.remote_executor.send_data_over_socket")
+    @patch("nexus.executors.remote_executor.receive_data_from_socket")
     def test_submit_task(self, mock_receive_data, mock_send_data):
         mock_receive_data.return_value = zlib.compress(pickle.dumps(dummy_task))
         mock_send_data.return_value = 100
@@ -267,8 +267,8 @@ class TestRemoteExecutor(unittest.TestCase):
         self.assertFalse(future.done())
         self.assertIn(str(id(future)), self.executor._futures)
 
-    @patch("event_pipeline.executors.remote_executor.RemoteExecutor.task_queue")
-    @patch("event_pipeline.executors.remote_executor.RemoteExecutor._send_task")
+    @patch("nexus.executors.remote_executor.RemoteExecutor.task_queue")
+    @patch("nexus.executors.remote_executor.RemoteExecutor._send_task")
     def test_process_queue(self, mock_send_task, mock_queue_get):
         mock_send_task.return_value = 3
 
@@ -305,12 +305,12 @@ class TestRemoteExecutor(unittest.TestCase):
             self.executor.submit(dummy_task, 1, 2)
 
     @pytest.mark.skip(reason="Test Hanging")
-    @patch("event_pipeline.executors.remote_executor.queue.Queue.get")
+    @patch("nexus.executors.remote_executor.queue.Queue.get")
     def test_process_queue_with_empty_queue(self, mock_queue_get):
         mock_queue_get.side_effect = queue.Empty
         self.executor._process_queue()  # Should not raise any exceptions
 
-    @patch("event_pipeline.executors.remote_executor.socket.create_connection")
+    @patch("nexus.executors.remote_executor.socket.create_connection")
     def test_connection_error_handling(self, mock_create_connection):
         mock_create_connection.side_effect = socket.error("Connection refused")
         future = self.executor.submit(dummy_task, 1, 2)

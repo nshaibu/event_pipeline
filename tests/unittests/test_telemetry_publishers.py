@@ -6,8 +6,8 @@ import pytest
 
 from ..utils import is_package_installed
 
-from event_pipeline.telemetry.logger import EventMetrics
-from event_pipeline.telemetry.publisher import (
+from nexus.telemetry.logger import EventMetrics
+from nexus.telemetry.publisher import (
     MetricsPublisher,
     ElasticsearchPublisher,
     PrometheusPublisher,

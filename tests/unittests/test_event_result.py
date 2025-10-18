@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
-from event_pipeline.result import EventResult, ResultSet, EntityContentType
-from event_pipeline.exceptions import MultiValueError
+from nexus.result import EventResult, ResultSet, EntityContentType
+from nexus.exceptions import MultiValueError
 
 
 def test_event_result_initialization():

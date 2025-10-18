@@ -2,13 +2,13 @@ import pytest
 import socket
 import ssl
 from unittest.mock import MagicMock, patch, call
-from event_pipeline.manager.remote_manager import RemoteTaskManager
+from nexus.manager.remote_manager import RemoteTaskManager
 
 
 @pytest.fixture
 def mock_config_loader():
     with patch(
-        "event_pipeline.manager.remote_manager.ConfigLoader.get_lazily_loaded_config"
+        "nexus.manager.remote_manager.ConfigLoader.get_lazily_loaded_config"
     ) as mock_config:
         mock_config.return_value = MagicMock(
             DEFAULT_CONNECTION_TIMEOUT=10,
@@ -71,9 +71,9 @@ def test_create_server_socket_with_ssl(
     assert server_socket == mock_ssl_instance.wrap_socket.return_value
 
 
-@patch("event_pipeline.manager.base.Path.relative_to")
-@patch("event_pipeline.manager.base.os.walk")
-@patch("event_pipeline.manager.base.import_module")
+@patch("nexus.manager.base.Path.relative_to")
+@patch("nexus.manager.base.os.walk")
+@patch("nexus.manager.base.import_module")
 def test_auto_load_all_task_modules(
     mock_import_module, mock_os_walk, mock_relative_path, remote_task_manager
 ):
@@ -87,12 +87,12 @@ def test_auto_load_all_task_modules(
     mock_relative_path.return_value = "root/module"
 
     with patch(
-        "event_pipeline.manager.base.inspect.getmembers",
+        "nexus.manager.base.inspect.getmembers",
         return_value=[("EventBase", mock_event_class)],
     ):
-        with patch("event_pipeline.manager.base.inspect.isclass", return_value=True):
+        with patch("nexus.manager.base.inspect.isclass", return_value=True):
             with patch(
-                "event_pipeline.manager.base.inspect.getmro",
+                "nexus.manager.base.inspect.getmro",
                 return_value=[object, MagicMock()],
             ):
                 remote_task_manager.auto_load_all_task_modules()
@@ -101,7 +101,7 @@ def test_auto_load_all_task_modules(
 
 
 @pytest.mark.skip(reason="Test hanging")
-@patch("event_pipeline.manager.remote_manager.socket.socket")
+@patch("nexus.manager.remote_manager.socket.socket")
 def test_start_and_shutdown(mock_socket, remote_task_manager):
     mock_socket_instance = mock_socket.return_value
     mock_socket_instance.accept.side_effect = [

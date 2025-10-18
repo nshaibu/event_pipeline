@@ -1,6 +1,6 @@
 import typing
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from event_pipeline import EventBase
+from nexus import EventBase
 
 
 class Execute(EventBase):

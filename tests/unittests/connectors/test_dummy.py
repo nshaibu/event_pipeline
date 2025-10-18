@@ -1,5 +1,5 @@
 import pytest
-from event_pipeline.backends.connectors.dummy import DummyConnector
+from nexus.backends.connectors.dummy import DummyConnector
 
 
 @pytest.fixture

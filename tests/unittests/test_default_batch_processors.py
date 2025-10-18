@@ -1,7 +1,7 @@
 import pytest
 from io import StringIO
 
-from event_pipeline.default_batch_processors import (
+from nexus.default_batch_processors import (
     list_batch_processor,
     file_stream_batch_processor,
     DEFAULT_BATCH_SIZE,

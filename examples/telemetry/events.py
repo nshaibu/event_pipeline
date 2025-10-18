@@ -1,6 +1,6 @@
-from event_pipeline import EventBase, RetryPolicy
-from event_pipeline.executors.remote_executor import RemoteExecutor
-from event_pipeline.telemetry import monitor_events, get_metrics, get_slow_events
+from nexus import EventBase, RetryPolicy
+from nexus.executors.remote_executor import RemoteExecutor
+from nexus.telemetry import monitor_events, get_metrics, get_slow_events
 
 
 class DataProcessingEvent(EventBase):

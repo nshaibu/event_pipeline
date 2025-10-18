@@ -1,6 +1,6 @@
 import inspect
 from unittest import mock
-from event_pipeline.utils import (
+from nexus.utils import (
     generate_unique_id,
     get_function_call_args,
     build_event_arguments_from_pipeline,
@@ -62,8 +62,8 @@ def test_get_function_call_args():
 
 
 def test_build_event_arguments_from_pipeline():
-    from event_pipeline import EventBase, Pipeline
-    from event_pipeline.fields import InputDataField
+    from nexus import EventBase, Pipeline
+    from nexus.fields import InputDataField
 
     class A(EventBase):
         def process(self, name, school):

@@ -1,5 +1,5 @@
-from event_pipeline import EventBase
-from event_pipeline.executors.grpc_executor import GRPCExecutor
+from nexus import EventBase
+from nexus.executors.grpc_executor import GRPCExecutor
 
 
 class ComputeTask(EventBase):

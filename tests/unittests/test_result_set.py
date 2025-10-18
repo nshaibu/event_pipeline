@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
-from event_pipeline.exceptions import MultiValueError
-from event_pipeline.result import ResultSet, EntityContentType
+from nexus.exceptions import MultiValueError
+from nexus.result import ResultSet, EntityContentType
 
 
 class MockResult:
