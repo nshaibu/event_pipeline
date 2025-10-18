@@ -32,7 +32,7 @@ jobs:
       - name: Convert profile file to static HTML
         id: snakeviz
         run: |
-          python3 -c "import snakeviz.stats, os; s = snakeviz.stats.Stats('profile_results_linear.prof'); s.prepare_pstats(); html = s.create_html(s.get_icicle_data(s.sortkey)); f = open('profile_report_linear.html', 'w'); f.write(html); f.close()"
+          snakeviz --static profile_results_linear.prof > profile_report_linear.html
         env:
           PROFILER_OUTPUT_FILE: profile_results_linear.prof
 
