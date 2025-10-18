@@ -120,7 +120,7 @@ The pointy file provides a structured format to describe how the pipeline should
 including the order of tasks, conditions, and dependencies.
 
 ```pty
-Fetch->Process->Execute->SaveToDB->Return
+Fetch -> Process -> Execute -> SaveToDB -> Return
 ```
 
 The pointy file `.pty` describes the flow of tasks and their dependencies, allowing you to build dynamic 
