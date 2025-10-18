@@ -26,132 +26,132 @@ jobs:
 
       - name: Run linear pipeline and capture .prof file
         # The -o flag is used with cProfile to write the profile data to a file.
-        run: python3 profiling/profiler.py -t linear -o profile_results_linear_{{ github.job }}.prof
+        run: python3 profiling/profiler.py -t linear -o profile_results_linear_${{ github.job }}.prof
 
       - name: Generate text report for linear pipeline
         run: |
-          if [ -f profile_results_linear_{{ github.job }}.prof ]; then
-            python3 -c "import pstats; p = pstats.Stats('profile_results_linear_{{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear.txt
+          if [ -f profile_results_linear_${{ github.job }}.prof ]; then
+            python3 -c "import pstats; p = pstats.Stats('profile_results_linear_${{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear_${{ github.job }}.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
           fi
         env:
-          PROFILER_OUTPUT_FILE: profile_results_linear_{{ github.job }}.prof
+          PROFILER_OUTPUT_FILE: profile_results_linear_${{ github.job }}.prof
 
       - name: Upload profile artifact for linear pipeline
         uses: actions/upload-artifact@v4
         with:
-          name: profile-report-linear_{{ github.job }}
-          path: profile_report_linear_{{ github.job }}.txt
+          name: profile-report-linear_${{ github.job }}
+          path: profile_report_linear_${{ github.job }}.txt
 
       - name: Upload .prof artifact for linear pipeline
         uses: actions/upload-artifact@v4
         with:
-          name: profile-data-linear_{{ github.job }}
-          path: profile_results_linear_{{ github.job }}.prof
+          name: profile-data-linear_${{ github.job }}
+          path: profile_results_linear_${{ github.job }}.prof
 
       - name: Run linear pipeline with result piping and capture .prof file for PR
-        run: python3 profiling/profiler.py -t linear_pr -o profile_results_linear_pr_{{ github.job }}.prof
+        run: python3 profiling/profiler.py -t linear_pr -o profile_results_linear_pr_${{ github.job }}.prof
 
       - name: Generate text report for linear pipeline with result piping
         run: |
           if [ -f profile_results_linear_pr_{{ github.job }}.prof ]; then
-              python3 -c "import pstats; p = pstats.Stats('profile_results_linear_pr_{{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear_pr_{{ github.job }}.txt
+              python3 -c "import pstats; p = pstats.Stats('profile_results_linear_pr_${{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_linear_pr_${{ github.job }}.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
           fi
         env:
-          PROFILER_OUTPUT_FILE: profile_results_linear_pr_{{ github.job }}.prof
+          PROFILER_OUTPUT_FILE: profile_results_linear_pr_${{ github.job }}.prof
 
       - name: Upload profile artifact for linear pipeline with result piping
         uses: actions/upload-artifact@v4
         with:
-          name: profile-report-linear-pr_{{ github.job }}
-          path: profile_report_linear_pr_{{ github.job }}.txt
+          name: profile-report-linear-pr_${{ github.job }}
+          path: profile_report_linear_pr_${{ github.job }}.txt
 
       - name: Upload .prof artifact for linear pipeline with result piping
         uses: actions/upload-artifact@v4
         with:
-          name: profile-data-linear-pr_{{ github.job }}
-          path: profile_results_linear_pr_{{ github.job }}.prof
+          name: profile-data-linear-pr_${{ github.job }}
+          path: profile_results_linear_pr_${{ github.job }}.prof
 
       - name: Run parallel pipeline and capture .prof file
-        run: python3 profiling/profiler.py -t parallel -o profile_results_parallel_{{ github.job }}.prof
+        run: python3 profiling/profiler.py -t parallel -o profile_results_parallel_${{ github.job }}.prof
 
       - name: Generate text report for parallel pipeline
         run: |
-          if [ -f profile_results_parallel_{{ github.job }}.prof ]; then
-              python3 -c "import pstats; p = pstats.Stats('profile_results_parallel_{{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_parallel_{{ github.job }}.txt
+          if [ -f profile_results_parallel_${{ github.job }}.prof ]; then
+              python3 -c "import pstats; p = pstats.Stats('profile_results_parallel_${{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_parallel_{{ github.job }}.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
           fi
         env:
-          PROFILER_OUTPUT_FILE: profile_results_parallel_{{ github.job }}.prof
+          PROFILER_OUTPUT_FILE: profile_results_parallel_${{ github.job }}.prof
 
       - name: Upload profile artifact for parallel pipeline
         uses: actions/upload-artifact@v4
         with:
-          name: profile-report-parallel_{{ github.job }}
-          path: profile_report_parallel_{{ github.job }}.txt
+          name: profile-report-parallel_${{ github.job }}
+          path: profile_report_parallel_${{ github.job }}.txt
 
       - name: Upload .prof artifact for parallel pipeline
         uses: actions/upload-artifact@v4
         with:
-          name: profile-data-parallel_{{ github.job }}
-          path: profile_results_parallel_{{ github.job }}.prof
+          name: profile-data-parallel_${{ github.job }}
+          path: profile_results_parallel_${{ github.job }}.prof
 
 
       - name: Run decision tree pipeline and capture .prof file
-        run: python3 profiling/profiler.py -t decision_tree -o profile_results_decision_tree_{{ github.job }}.prof
+        run: python3 profiling/profiler.py -t decision_tree -o profile_results_decision_tree_${{ github.job }}.prof
 
       - name: Generate text report for decision tree pipeline
         run: |
-          if [ -f profile_results_decision_tree_{{ github.job }}.prof ]; then
-              python3 -c "import pstats; p = pstats.Stats('profile_results_decision_tree_{{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_decision_tree_{{ github.job }}.txt
+          if [ -f profile_results_decision_tree_${{ github.job }}.prof ]; then
+              python3 -c "import pstats; p = pstats.Stats('profile_results_decision_tree_${{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_decision_tree_${{ github.job }}.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
           fi
         env:
-          PROFILER_OUTPUT_FILE: profile_results_decision_tree_{{ github.job }}.prof
+          PROFILER_OUTPUT_FILE: profile_results_decision_tree_${{ github.job }}.prof
 
       - name: Upload profile artifact for decision tree pipeline
         uses: actions/upload-artifact@v4
         with:
-          name: profile-report-decision-tree_{{ github.job }}
-          path: profile_report_decision_tree_{{ github.job }}.txt
+          name: profile-report-decision-tree_${{ github.job }}
+          path: profile_report_decision_tree_${{ github.job }}.txt
 
       - name: Upload .prof artifact for decision tree pipeline
         uses: actions/upload-artifact@v4
         with:
-          name: profile-data-decision-tree_{{ github.job }}
-          path: profile_results_decision_tree_{{ github.job }}.prof
+          name: profile-data-decision-tree_${{ github.job }}
+          path: profile_results_decision_tree_${{ github.job }}.prof
 
       - name: Run batch pipeline and capture .prof file
-        run: python3 profiling/profiler.py -t batch -o profile_results_batch_{{ github.job }}.prof
+        run: python3 profiling/profiler.py -t batch -o profile_results_batch_${{ github.job }}.prof
 
       - name: Generate snakeviz report for batch pipeline
         run: |
-          if [ -f profile_results_batch_{{ github.job }}.prof ]; then
-              python3 -c "import pstats; p = pstats.Stats('profile_results_batch_{{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_batch_{{ github.job }}.txt
+          if [ -f profile_results_batch_${{ github.job }}.prof ]; then
+              python3 -c "import pstats; p = pstats.Stats('profile_results_batch_${{ github.job }}.prof'); p.sort_stats('cumtime').print_stats()" > profile_report_batch_${{ github.job }}.txt
           else
             echo "Profile file not found. Skipping snakeviz."
             exit 1
           fi
         env:
-          PROFILER_OUTPUT_FILE: profile_results_batch_{{ github.job }}.prof
+          PROFILER_OUTPUT_FILE: profile_results_batch_${{ github.job }}.prof
 
       - name: Upload profile artifact for batch pipeline
         uses: actions/upload-artifact@v4
         with:
-          name: profile-report-batch_{{ github.job }}
-          path: profile_report_batch_{{ github.job }}.txt
+          name: profile-report-batch_${{ github.job }}
+          path: profile_report_batch_${{ github.job }}.txt
 
       - name: Upload .prof artifact for batch pipeline
         uses: actions/upload-artifact@v4
         with:
-          name: profile-data-batch_{{ github.job }}
-          path: profile_results_batch_{{ github.job }}.prof
+          name: profile-data-batch_${{ github.job }}
+          path: profile_results_batch_${{ github.job }}.prof
