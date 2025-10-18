@@ -2,11 +2,11 @@ import shutil
 import unittest
 import pytest
 from treelib import Tree
-from event_pipeline import EventBase
-from event_pipeline import Pipeline
-from event_pipeline.exceptions import EventDone, EventDoesNotExist
-from event_pipeline.fields import InputDataField, FileInputDataField
-from event_pipeline.constants import PIPELINE_STATE, PIPELINE_FIELDS
+from nexus import EventBase
+from nexus import Pipeline
+from nexus.exceptions import EventDone, EventDoesNotExist
+from nexus.fields import InputDataField, FileInputDataField
+from nexus.constants import PIPELINE_STATE, PIPELINE_FIELDS
 
 
 class PipelineTest(unittest.TestCase):

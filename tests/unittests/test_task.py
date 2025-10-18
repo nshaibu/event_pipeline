@@ -1,8 +1,8 @@
 import unittest
 from collections import deque
 from concurrent.futures import Executor
-from event_pipeline import EventBase, Pipeline
-from event_pipeline.task import (
+from nexus import EventBase, Pipeline
+from nexus.task import (
     PipelineTask,
     PipeType,
     EventExecutionContext,
@@ -36,7 +36,7 @@ class TestTask(unittest.TestCase):
         cls.C = C
         cls.S = S
 
-    def test_build_event_pipeline_for_line_execution(self):
+    def test_build_pipeline_for_line_execution(self):
         p = PipelineTask.build_pipeline_from_execution_code("A->B->C")
 
         self.assertIsInstance(p, PipelineTask)
@@ -47,14 +47,14 @@ class TestTask(unittest.TestCase):
         self.assertEqual(p.on_success_event.on_success_pipe, PipeType.POINTER)
         self.assertEqual(p.on_success_event.on_success_event.on_success_pipe, None)
 
-    def test_build_event_pipeline_with_result_piping_and_parallel_execution(self):
+    def test_build_pipeline_with_result_piping_and_parallel_execution(self):
         p = PipelineTask.build_pipeline_from_execution_code("A||B|->C")
 
         self.assertIsInstance(p, PipelineTask)
         self.assertEqual(p.on_success_pipe, PipeType.PARALLELISM)
         self.assertEqual(p.on_success_event.on_success_pipe, PipeType.PIPE_POINTER)
 
-    def test_build_event_pipeline_with_conditional_branching(self):
+    def test_build_pipeline_with_conditional_branching(self):
         p = PipelineTask.build_pipeline_from_execution_code("A(0->B,1->C)->S")
 
         self.assertIsInstance(p, PipelineTask)

@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from event_pipeline import EventBase
+from nexus import EventBase
 
 
 class EventOne(EventBase):
@@ -20,7 +20,7 @@ class EventTwo(EventBase):
 
 class EventTwoWithPipeResults(EventBase):
     def process(self, name, age) -> Tuple[bool, str]:
-        previous_result = self.previous_result.first().content #type:ignore
+        previous_result = self.previous_result.first().content  # type:ignore
         print("EventTwo")
         print("Previous result is " + previous_result)
         print("I am " + name[0] + " and I am " + str(age) + " years old")

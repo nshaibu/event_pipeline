@@ -1,6 +1,7 @@
 import argparse
 from enum import Enum
 
+
 class PipelineType(Enum):
     LINEAR = "linear"
     LINEAR_WITH_PREVIOUS_RESULT = "linear_pr"
@@ -25,10 +26,7 @@ parser.add_argument(
     help="This is the type of pipeline that's being run, whether a linear,decision_tree, parallel or batch",
 )
 parser.add_argument(
-    "-o",
-    "--output_file",
-    default=None,
-    help="The output file path for the profiler"
+    "-o", "--output_file", default=None, help="The output file path for the profiler"
 )
 
 

@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
-from event_pipeline.signal import SoftSignal
-from event_pipeline.decorators import listener
+from nexus.signal import SoftSignal
+from nexus.decorators import listener
 
 
 class Target(object):

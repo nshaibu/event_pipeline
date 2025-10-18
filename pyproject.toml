@@ -2,15 +2,16 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 [project]
-name = "event_pipeline"
+name = "nexus"
 version = "2.0.0"
 requires-python = ">=3.8"
 authors = [
     {name = "nshaibu", email = "nafiushaibu1@gmail.com"},
-    {name = "lateofrederick", email = "lateofrederick@gmail.com"}
+    {name = "lateofrederick", email = "lateofrederick@gmail.com"},
+    {name = "darkwak", email = "darkwak@live.com"}
 ]
-description="Simple tool for writing events and pipelines in python"
-keywords=["pipeline","events","concurrency","data","pointy", "pointy-lang", "event-pipeline", "redis", "pointy", "ETL"]
+description="Workflow orchestration and automation management"
+keywords=["pipeline","events","concurrency","data","pointy", "pointy-lang", "event-pipeline", "redis", "pointy", "ETL", "nexus"]
 readme = "README.md"
 license = { file = "LICENSE" }
 dependencies = [
@@ -48,8 +49,8 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 [project.urls]
-"Issue Tracker"="https://github.com/nshaibu/event_pipeline/issues"
-CI="https://github.com/nshaibu/event_pipeline/actions"
+"Issue Tracker"="https://github.com/nshaibu/nexus/issues"
+CI="https://github.com/nshaibu/nexus/actions"
 [project.optional-dependencies]
 dev = [
     "coverage>=7.4.1",
@@ -76,29 +77,29 @@ metrics = [
 ]
 [tool.setuptools]
 packages = [
-    "event_pipeline",
-    "event_pipeline.translator",
-    "event_pipeline.protos",
-    "event_pipeline.parser",
-    "event_pipeline.executors",
-    "event_pipeline.manager",
-    "event_pipeline.mixins",
-    "event_pipeline.mixins.utils",
-    "event_pipeline.signal",
-    "event_pipeline.backends",
-    "event_pipeline.backends.stores",
-    "event_pipeline.backends.connectors",
-    "event_pipeline.telemetry"
+    "nexus",
+    "nexus.translator",
+    "nexus.protos",
+    "nexus.parser",
+    "nexus.executors",
+    "nexus.manager",
+    "nexus.mixins",
+    "nexus.mixins.utils",
+    "nexus.signal",
+    "nexus.backends",
+    "nexus.backends.stores",
+    "nexus.backends.connectors",
+    "nexus.telemetry"
 ]
 
 [tool.coverage.run]
 branch = true
 concurrency=["multiprocessing"]
-source=["event_pipeline"]
+source=["nexus"]
 omit = [
-    "event_pipeline/parser/*",
+    "nexus/parser/*",
     "tests/*",
-    "event_pipeline/scripts/*",
+    "nexus/scripts/*",
     "event_piipeline/protos/*"
 ]
 data_file=".coverage"

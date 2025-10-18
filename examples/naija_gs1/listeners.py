@@ -1,6 +1,6 @@
-from event_pipeline.signal.signals import *
-from event_pipeline.decorators import listener
-from event_pipeline.task import EventExecutionContext
+from nexus.signal.signals import *
+from nexus.decorators import listener
+from nexus.task import EventExecutionContext
 
 
 @listener(

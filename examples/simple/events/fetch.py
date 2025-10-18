@@ -1,6 +1,6 @@
 import typing
 from concurrent.futures import ThreadPoolExecutor
-from event_pipeline import EventBase
+from nexus import EventBase
 
 
 class Fetch(EventBase):

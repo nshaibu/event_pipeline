@@ -1,7 +1,7 @@
 import typing
 
-from event_pipeline import EventBase
-from event_pipeline.base import RetryPolicy
+from nexus import EventBase
+from nexus.base import RetryPolicy
 
 
 class Serialise(EventBase):

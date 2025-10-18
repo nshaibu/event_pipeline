@@ -5,10 +5,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from event_pipeline import EventBase
-from event_pipeline.fields import InputDataField
-from event_pipeline.pipeline import Pipeline
-from event_pipeline.pipeline_wrapper import PipelineExecutionState, PipelineWrapper
+from nexus import EventBase
+from nexus.fields import InputDataField
+from nexus.pipeline import Pipeline
+from nexus.pipeline_wrapper import PipelineExecutionState, PipelineWrapper
 
 
 class Fetch(EventBase):
@@ -49,8 +49,8 @@ def basic_wrapper(mock_logger, mock_queue):
     return PipelineWrapper(
         pipeline=pipeline,
         focus_on_signals=[
-            "event_pipeline.signal.signals.pipeline_execution_start",
-            "event_pipeline.signal.signals.pipeline_execution_end",
+            "nexus.signal.signals.pipeline_execution_start",
+            "nexus.signal.signals.pipeline_execution_end",
         ],
         signals_queue=mock_queue,
         import_string_fn=lambda x: Mock(),
@@ -233,7 +233,7 @@ class TestPipelineWrapper:
 
         wrapper = PipelineWrapper(
             pipeline=basic_wrapper.pipeline,
-            focus_on_signals=["event_pipeline.signal.signals.pipeline_execution_start"],
+            focus_on_signals=["nexus.signal.signals.pipeline_execution_start"],
             signals_queue=mock_queue,
             import_string_fn=lambda x: Mock(),
             logger=Mock(),

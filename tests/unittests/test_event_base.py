@@ -2,11 +2,11 @@ import pytest
 import unittest
 from unittest.mock import patch
 from concurrent.futures import ProcessPoolExecutor
-from event_pipeline import EventBase
-from event_pipeline.base import EventExecutionEvaluationState, EvaluationContext
-from event_pipeline.task import PipelineTask
-from event_pipeline.decorators import event
-from event_pipeline.result import EventResult
+from nexus import EventBase
+from nexus.base import EventExecutionEvaluationState, EvaluationContext
+from nexus.task import PipelineTask
+from nexus.decorators import event
+from nexus.result import EventResult
 
 
 class TestEventBase(unittest.TestCase):
@@ -87,14 +87,14 @@ class TestEventBase(unittest.TestCase):
     def test_on_success_and_on_failure_is_called(self):
         event1 = self.WithoutParamEvent(None, "1")
         event2 = self.RaiseErrorEvent(None, "1")
-        with patch("event_pipeline.EventBase.on_success") as f:
+        with patch("nexus.EventBase.on_success") as f:
             event1()
             f.assert_called()
 
         response = event1()
         self.assertIsInstance(response, EventResult)
 
-        with patch("event_pipeline.EventBase.on_failure") as e:
+        with patch("nexus.EventBase.on_failure") as e:
             event2()
             e.assert_called()
 
@@ -130,7 +130,7 @@ class TestEventBase(unittest.TestCase):
 
     def test_event_flow_branch_to_on_failure_when_process_return_false(self):
         event1 = self.ProcessReturnFalseEvent(None, "1")
-        with patch("event_pipeline.EventBase.on_failure") as f:
+        with patch("nexus.EventBase.on_failure") as f:
             event1()
             f.assert_called()
 
