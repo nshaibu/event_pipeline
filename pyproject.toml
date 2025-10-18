@@ -100,7 +100,7 @@ omit = [
     "nexus/parser/*",
     "tests/*",
     "nexus/scripts/*",
-    "event_piipeline/protos/*"
+    "nexus/protos/*"
 ]
 data_file=".coverage"
 
