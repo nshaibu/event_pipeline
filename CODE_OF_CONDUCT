@@ -1,0 +1,44 @@
+Code of Conduct for Nexus
+
+1. Purpose
+This project exists to build useful software in a welcoming, respectful environment. The purpose of this Code of Conduct is to set clear expectations for participant behavior and to help maintain an inclusive community.
+
+2. Scope
+This Code of Conduct applies to all project spaces (repositories, issue trackers, mailing lists, chat rooms, conferences, and other events) and to all project participants, including maintainers, contributors, and visitors.
+
+3. Expected Behavior
+- Be respectful, courteous, and patient.
+- Assume good faith and give others the benefit of the doubt.
+- Use inclusive language and avoid jokes or comments that could exclude or offend.
+- Offer constructive feedback and accept criticism graciously.
+- Respect project decisions and follow community processes.
+
+4. Unacceptable Behavior
+Examples of unacceptable behavior include, but are not limited to:
+- Harassment, intimidation, or discrimination in any form.
+- Derogatory comments about race, gender, sexual orientation, religion, disability, age, or nationality.
+- Threats of violence, stalking, bullying, or repeated unwanted contact.
+- Deliberate sabotage of project work, doxxing, or sharing private information.
+- Sexual language or imagery in project spaces where it is not appropriate.
+- Persistent disruptive behavior after being asked to stop.
+
+5. Reporting
+If you experience or witness a violation, report it to the project maintainers:
+- Preferred: send an email to conduct@nexus.org (replace with the actual contact).
+- Alternative: open a private issue or contact a core maintainer directly.
+Include: date/time, location (repository/issue/chat), names or handles involved, and a brief description. Attach screenshots or logs if helpful.
+
+6. Enforcement
+Maintainers will review reports confidentially and act to resolve issues fairly and promptly. Possible actions include:
+- Verbal or written warning.
+- Temporary or permanent ban from project spaces.
+- Removal of offending content or contributions.
+- Escalation to relevant authorities if there is imminent danger.
+
+7. Appeals
+If you are subject to enforcement action and believe it was unjust, you may appeal by contacting an alternate maintainer or a designated appeals contact listed in the project README.
+
+8. Acknowledgements
+This Code of Conduct is intended to foster a safe, productive, and welcoming project community. Maintainers may update it as needed; changes will be announced in the project repository.
+
+Contact: conduct@nexus.org
