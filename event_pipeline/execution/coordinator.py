@@ -75,11 +75,13 @@ class ExecutionCoordinator:
             self.execution_context.update_status(ExecutionStatus.RUNNING)
             logger.info("Starting task execution")
 
-            # Run with optional timeout
-            if self._timeout:
-                future = await asyncio.wait_for(flow.run(), timeout=self._timeout)
-            else:
-                future = await flow.run()
+            try:
+                if self._timeout:
+                    future = await asyncio.wait_for(flow.run(), timeout=self._timeout)
+                else:
+                    future = await flow.run()
+            except:
+                return
 
             logger.info("Task execution completed, processing results")
             results, errors = await self._result_processor.process_futures([future])

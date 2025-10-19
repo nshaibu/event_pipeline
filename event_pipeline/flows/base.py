@@ -286,10 +286,12 @@ class BaseFlow(BaseModel, ObjectIdentityMixin, ABC):
 
     @abstractmethod
     async def run(self) -> asyncio.Future:
-        """Run the flow."""
+        """
+        Run the flow.
+        Raises:
+            ValueError: If the flow cannot be run.
+            RuntimeError: If the flow encounters an error during execution.
+            asyncio.TimeoutError: If the flow times out during execution.
+            Exception: For any other exceptions that may occur.
+        """
 
-    @classmethod
-    def setup_next_flow(
-        cls, next_flow: "FlowBase", previous: typing.Optional["FlowBase"] = None
-    ) -> None:
-        pass
