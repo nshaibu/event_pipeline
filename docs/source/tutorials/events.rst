@@ -38,7 +38,7 @@ Let's create a simple event that processes user data:
 
 .. code-block:: python
 
-    from event_pipeline import EventBase
+    from nexus import EventBase
 
     class UserRegistrationEvent(EventBase):
         def process(self, user_data, *args, **kwargs):
@@ -191,7 +191,7 @@ Here's an example of how to use the ``ExecutorInitializerConfig`` class:
 
 .. code-block:: python
 
-    from event_pipeline import ExecutorInitializerConfig, EventBase
+    from nexus import ExecutorInitializerConfig, EventBase
     from concurrent.futures import ThreadPoolExecutor
 
     # Configuring an executor with specific settings
@@ -237,7 +237,7 @@ The ``@event`` decorator allows you to also configure the executor for the event
 
 .. code-block:: python
 
-    from event_pipeline.decorators import event
+    from nexus.decorators import event
     from concurrent.futures import ThreadPoolExecutor
 
     # Define a function-based event with configuration
@@ -530,7 +530,7 @@ The ``EventExecutionEvaluationState`` class defines the criteria for evaluating 
 
 .. code-block:: python
 
-    from event_pipeline import EventBase, EventExecutionEvaluationState
+    from nexus import EventBase, EventExecutionEvaluationState
 
     class StrictEvent(EventBase):
         # Only succeed if ALL tasks succeed (default)
@@ -574,8 +574,8 @@ The stop condition for an event is defined using the ``StopCondition`` enum, whi
 
 .. code-block:: python
 
-    from event_pipeline import EventBase
-    from event_pipeline.parser.options import StopCondition
+    from nexus import EventBase
+    from nexus.parser.options import StopCondition
 
     class MyCustomEvent(EventBase):
         # Stop the pipeline if this event encounters an error
@@ -674,7 +674,7 @@ Examples of real world application
 
 .. code-block:: python
 
-    from event_pipeline import EventBase
+    from nexus import EventBase
     from concurrent.futures import ThreadPoolExecutor
 
     class ValidateOrderEvent(EventBase):
