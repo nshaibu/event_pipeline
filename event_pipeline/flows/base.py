@@ -295,3 +295,8 @@ class BaseFlow(BaseModel, ObjectIdentityMixin, ABC):
             Exception: For any other exceptions that may occur.
         """
 
+    async def cancel(self, *args, **kwargs) -> None:
+        """
+        Cancel the flow execution.
+        """
+        pass

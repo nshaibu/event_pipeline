@@ -120,61 +120,94 @@ class ExecutionContext(ObjectIdentityMixin, BaseModel):
         """
         return self._state_manager.get_state(self.state_id)
 
-    @contextmanager
-    def lock(self):
+    @property
+    async def state_async(self) -> ExecutionState:
         """
-        Acquire lock for THIS context only.
-        Other contexts run in parallel without blocking.
+        Async version of getting current state from shared memory.
         """
-        with self._state_manager.acquire(self.state_id):
-            yield
+        return await self._state_manager.get_state_async(self.state_id)
 
     def update_status(self, new_status: ExecutionStatus) -> None:
-        with self.lock():
-            self._state_manager.update_status(self.state_id, new_status)
+        self._state_manager.update_status(self.state_id, new_status)
+
+    async def update_status_async(self, new_status: ExecutionStatus) -> None:
+        await self._state_manager.update_status_async(self.state_id, new_status)
 
     def add_error(self, error: Exception) -> None:
-        with self.lock():
-            self._state_manager.append_error(self.state_id, error)
+        self._state_manager.append_error(self.state_id, error)
+
+    async def add_error_async(self, error: Exception) -> None:
+        await self._state_manager.append_error_async(self.state_id, error)
 
     def add_result(self, result: EventResult) -> None:
-        with self.lock():
-            self._state_manager.append_result(self.state_id, result)
+        self._state_manager.append_result(self.state_id, result)
+
+    async def add_result_async(self, result: EventResult) -> None:
+        await self._state_manager.append_result_async(self.state_id, result)
 
     def cancel(self) -> None:
         """
         Cancel execution - only locks THIS context.
         Other contexts continue running unaffected.
         """
-        with self.lock():
-            self._state_manager.update_status(self.state_id, ExecutionStatus.CANCELLED)
-            # Emit event
-            event_execution_cancelled.emit(
-                sender=self.__class__,
-                task_profiles=self.task_profiles.copy(),
-                execution_context=self,
-                state=ExecutionStatus.CANCELLED,
-            )
+        self._state_manager.update_status(self.state_id, ExecutionStatus.CANCELLED)
+        # Emit event
+        event_execution_cancelled.emit(
+            sender=self.__class__,
+            task_profiles=self.get_task_profiles().copy(),
+            execution_context=self,
+            state=ExecutionStatus.CANCELLED,
+        )
+
+    async def cancel_async(self) -> None:
+        """
+        Async version of cancel execution - only locks THIS context.
+        Other contexts continue running unaffected.
+        """
+        await self._state_manager.update_status_async(
+            self.state_id, ExecutionStatus.CANCELLED
+        )
+        # Emit event
+        event_execution_cancelled.emit(
+            sender=self.__class__,
+            task_profiles=self.get_task_profiles().copy(),
+            execution_context=self,
+            state=ExecutionStatus.CANCELLED,
+        )
 
     def abort(self) -> None:
         """
         Abort execution - only locks THIS context.
         Other contexts continue running unaffected.
         """
-        with self.lock():
-            self._state_manager.update_status(self.state_id, ExecutionStatus.ABORTED)
-            # Emit event
-            event_execution_aborted.emit(
-                sender=self.__class__,
-                task_profiles=self.task_profiles.copy(),
-                execution_context=self,
-                state=ExecutionStatus.ABORTED,
-            )
+        self._state_manager.update_status(self.state_id, ExecutionStatus.ABORTED)
+        # Emit event
+        event_execution_aborted.emit(
+            sender=self.__class__,
+            task_profiles=self.get_task_profiles().copy(),
+            execution_context=self,
+            state=ExecutionStatus.ABORTED,
+        )
+
+    async def abort_async(self) -> None:
+        """
+        Async version of abort execution - only locks THIS context.
+        Other contexts continue running unaffected.
+        """
+        await self._state_manager.update_status_async(
+            self.state_id, ExecutionStatus.ABORTED
+        )
+        # Emit event
+        event_execution_aborted.emit(
+            sender=self.__class__,
+            task_profiles=self.get_task_profiles().copy(),
+            execution_context=self,
+            state=ExecutionStatus.ABORTED,
+        )
 
     def get_state_snapshot(self) -> ExecutionState:
         """Get a thread-safe copy of current state."""
-        with self.lock():
-            return self.state
+        return self.state
 
     def bulk_update(
         self,
@@ -183,19 +216,30 @@ class ExecutionContext(ObjectIdentityMixin, BaseModel):
         results: typing.Optional[typing.List[EventResult]] = None,
     ) -> None:
         """Efficient bulk update"""
-        with self.lock():
-            state = self.state
-            if status is not None:
-                state.status = status
-            if errors is not None:
-                state.errors.extend(errors)
-            if results is not None:
-                (
-                    state.results.extend(results)
-                    if isinstance(state.results, list)
-                    else None
-                )
-            self._state_manager.update_state(self.state_id, state)
+        state = self.state
+        if status is not None:
+            state.status = status
+        if errors is not None:
+            state.errors.extend(errors)
+        if results is not None:
+            state.results.extend(results)
+        self._state_manager.update_state(self.state_id, state)
+
+    async def bulk_update_async(
+        self,
+        status: typing.Optional[ExecutionStatus] = None,
+        errors: typing.Optional[typing.List[Exception]] = None,
+        results: typing.Optional[typing.List[EventResult]] = None,
+    ) -> None:
+        """Async version of efficient bulk update"""
+        state = await self.state_async
+        if status is not None:
+            state.status = status
+        if errors is not None:
+            state.errors.extend(errors)
+        if results is not None:
+            state.results.extend(results)
+        await self._state_manager.update_state_async(self.state_id, state)
 
     def __iter__(self):
         current = self
@@ -206,8 +250,14 @@ class ExecutionContext(ObjectIdentityMixin, BaseModel):
     def __hash__(self):
         return hash(self.id)
 
+    def get_task_profiles(self) -> typing.Deque:
+        task_profiles = self.task_profiles
+        if typing.TYPE_CHECKING:
+            task_profiles = typing.cast(typing.Deque, task_profiles)
+        return task_profiles
+
     def is_multitask(self) -> bool:
-        return len(self.task_profiles) > 1
+        return len(self.get_task_profiles()) > 1
 
     def get_head_context(self) -> "ExecutionContext":
         """

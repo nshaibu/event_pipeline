@@ -221,6 +221,11 @@ class ResultSet(MutableSet):
             self._content[self.get_hash(result)] = result
             self._insert_entity(result)
 
+    def extend(self, results: typing.Sequence[Result]):
+        """Add multiple items to set"""
+        for result in results:
+            self.add(result)
+
     def clear(self) -> None:
         """Remove all results."""
         self._content.clear()

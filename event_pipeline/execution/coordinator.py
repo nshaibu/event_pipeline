@@ -11,6 +11,18 @@ from event_pipeline.execution.context import ExecutionContext
 logger = logging.getLogger(__name__)
 
 
+class ExecutionError(Exception):
+    """Base exception for execution failures."""
+
+    pass
+
+
+class ExecutionTimeoutError(ExecutionError):
+    """Exception raised when execution exceeds timeout."""
+
+    pass
+
+
 class ExecutionCoordinator:
     """
     Coordinates execution of tasks based on task hierarchy.
@@ -65,23 +77,24 @@ class ExecutionCoordinator:
             Tuple of (results, errors) from task execution
 
         Raises:
-            asyncio.TimeoutError: If execution exceeds timeout
+            ExecutionTimeoutError: If execution exceeds timeout
+            ExecutionError: If execution fails due to runtime errors
             Exception: If execution fails critically
         """
         flow = self._setup_execution_flow()
         self._flow = flow
 
         try:
-            self.execution_context.update_status(ExecutionStatus.RUNNING)
+            await self.execution_context.update_status_async(ExecutionStatus.RUNNING)
             logger.info("Starting task execution")
 
-            try:
-                if self._timeout:
-                    future = await asyncio.wait_for(flow.run(), timeout=self._timeout)
-                else:
-                    future = await flow.run()
-            except:
-                return
+            # Run with optional timeout - if timeout set
+            run_coro = flow.run()
+            future = (
+                await asyncio.wait_for(run_coro, timeout=self._timeout)
+                if self._timeout
+                else await run_coro
+            )
 
             logger.info("Task execution completed, processing results")
             results, errors = await self._result_processor.process_futures([future])
@@ -89,20 +102,32 @@ class ExecutionCoordinator:
             # Update status based on results
             if errors:
                 logger.warning(f"Execution completed with {len(errors)} error(s)")
-                self.execution_context.update_status(ExecutionStatus.FAILED)
+                await self.execution_context.update_status_async(ExecutionStatus.FAILED)
             else:
                 logger.info("Execution completed successfully")
-                self.execution_context.update_status(ExecutionStatus.COMPLETED)
+                await self.execution_context.update_status_async(
+                    ExecutionStatus.COMPLETED
+                )
 
             return results, errors
 
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
             logger.error(f"Execution exceeded timeout of {self._timeout}s")
-            self.execution_context.update_status(ExecutionStatus.FAILED)
-            raise
+            await self.execution_context.update_status_async(ExecutionStatus.FAILED)
+            raise ExecutionTimeoutError(
+                f"Task execution timed out after {self._timeout}s"
+            ) from e
+
+        except (RuntimeError, ValueError) as e:
+            logger.error(
+                f"Execution failed with {type(e).__name__}: {e}", exc_info=True
+            )
+            await self.execution_context.update_status_async(ExecutionStatus.FAILED)
+            raise ExecutionError(f"Task execution failed: {e}") from e
+
         except Exception as e:
-            logger.error(f"Execution failed with error: {e}", exc_info=True)
-            self.execution_context.update_status(ExecutionStatus.FAILED)
+            logger.error(f"Unexpected execution error: {e}", exc_info=True)
+            await self.execution_context.update_status_async(ExecutionStatus.FAILED)
             raise
 
     def execute(self) -> Tuple[Any, Any]:
@@ -133,18 +158,8 @@ class ExecutionCoordinator:
                     raise
                 # Otherwise, no running loop exists - we can proceed
 
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_closed():
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            # Execute
-            return loop.run_until_complete(self._execute_async())
+            # Execute with asyncio.run() - handles loop creation and cleanup
+            return asyncio.run(self._execute_async())
 
         except Exception as e:
             logger.error(f"Execution coordinator failed: {e}", exc_info=True)
@@ -166,9 +181,7 @@ class ExecutionCoordinator:
         """Cancel the currently running execution."""
         if self._flow:
             logger.warning("Cancelling execution flow")
-            # Assuming flow has a cancel method, adjust as needed
-            if hasattr(self._flow, "cancel"):
-                await self._flow.cancel()
+            await self._flow.cancel()
             self.execution_context.update_status(ExecutionStatus.CANCELLED)
 
     @asynccontextmanager
