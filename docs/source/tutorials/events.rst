@@ -100,7 +100,7 @@ In addition to defining events using classes, you can also define events as func
 
 .. code-block:: python
 
-    from nexus.executors import ThreadPoolExecutor
+    from nexus.decorators import event
 
     # Define a function-based event using the @event decorator
     @event()
@@ -430,7 +430,8 @@ You can create an instance of ``RetryPolicy`` or define it as a dictionary:
 
 .. code-block:: python
 
-    from nexus.base import RetryPolicy
+    from nexus import EventBase
+    from requests.exceptions import ConnectionError, TimeoutError
 
     class NetworkEvent(EventBase):
         # Retry on network errors
@@ -484,7 +485,6 @@ The configuration parameters are:
 
 .. code-block:: python
 
-    import typing
     from nexus import EventBase
     
     class DatabaseEvent(EventBase):
@@ -553,7 +553,7 @@ The ``EventExecutionEvaluationState`` class defines the criteria for evaluating 
 Events can control whether the pipeline should stop early after their execution.
 This is useful for cases where certain outcomes (such as success, error, or exception) should halt further event processing.
 
-The stop condition for an event is defined using the ``StopCondition`` enum, which can be imported from ``event_pipeline.parser.options``.
+The stop condition for an event is defined using the ``StopCondition`` enum, which can be imported from ``nexus.parser.options``.
 
 **Available stop conditions:**
 
