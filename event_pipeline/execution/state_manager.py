@@ -6,9 +6,8 @@ from dataclasses import dataclass, field
 from multiprocessing import Manager, Lock as MPLock
 from threading import Lock as ThreadLock
 from contextlib import contextmanager, asynccontextmanager
-from concurrent.futures import ThreadPoolExecutor, Future as MPFuture
 from event_pipeline.result import ResultSet, EventResult
-from event_pipeline.exceptions import PipelineError
+from event_pipeline.exceptions import PipelineError, SwitchTask, StopProcessingError
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +23,8 @@ class ExecutionStatus(Enum):
 
 @dataclass
 class ExecutionState:
+    """Holds the execution state for a pipeline/task."""
+
     status: ExecutionStatus = field(default=ExecutionStatus.PENDING)
     errors: typing.List[PipelineError] = field(default_factory=list)
     results: ResultSet[EventResult] = field(default_factory=lambda: ResultSet())
@@ -45,8 +46,23 @@ class ExecutionState:
             results=data["results"],
         )
 
+    def get_stop_processing_request(self):
+        """Check for StopProcessingError in errors"""
+        for err in self.errors:
+            if isinstance(err, Exception) and err.__class__ == StopProcessingError:
+                return err
+        return None
+
+    def get_switch_request(self):
+        """Check for SwitchTask in errors"""
+        for err in self.errors:
+            if isinstance(err, Exception) and err.__class__ == SwitchTask:
+                return err
+        return None
+
 
 class StateManager:
+    """Singleton manager for execution states with per-state locks."""
 
     _instance: typing.Optional["StateManager"] = None
     _instance_lock = ThreadLock()

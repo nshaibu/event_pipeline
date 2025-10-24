@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Optional, Tuple, Any
 from contextlib import asynccontextmanager
 
@@ -102,18 +103,52 @@ class ExecutionCoordinator:
             # Update status based on results
             if errors:
                 logger.warning(f"Execution completed with {len(errors)} error(s)")
-                await self.execution_context.update_status_async(ExecutionStatus.FAILED)
             else:
                 logger.info("Execution completed successfully")
-                await self.execution_context.update_status_async(
-                    ExecutionStatus.COMPLETED
+
+            error_results = await self._result_processor.process_errors(errors)
+
+            results.extend(error_results)
+
+            await self.execution_context.bulk_update_async(
+                ExecutionStatus.COMPLETED, errors, results
+            )
+            self.execution_context.metrics.end_time = time.time()
+
+            # check if stop processing request was raised
+            execution_state = await self.execution_context.state_async
+            stop_processing_requested = execution_state.get_stop_processing_request()
+            if stop_processing_requested:
+                logger.info(
+                    f"Execution stopped due to stop condition: {stop_processing_requested}"
                 )
+                await self.execution_context.cancel_async()
+
+            if stop_processing_requested is None:
+                # check for switch task request
+                switch_request = execution_state.get_switch_request()
+                if switch_request is not None:
+                    results.add(switch_request.result)
+
+                    current_task_profile = (
+                        self.execution_context.get_decision_task_profile()
+                    )
+                    if not current_task_profile.get_descriptor(
+                        switch_request.next_task_descriptor
+                    ):
+                        logger.error(
+                            f"Task profile has no configured descriptor {switch_request.next_task_descriptor}"
+                        )
+                        await self.execution_context.cancel_async()
+                        switch_request.descriptor_configured = False
+                    else:
+                        switch_request.descriptor_configured = True
 
             return results, errors
 
         except asyncio.TimeoutError as e:
             logger.error(f"Execution exceeded timeout of {self._timeout}s")
-            await self.execution_context.update_status_async(ExecutionStatus.FAILED)
+            await self.execution_context.failed_async()
             raise ExecutionTimeoutError(
                 f"Task execution timed out after {self._timeout}s"
             ) from e
@@ -122,12 +157,12 @@ class ExecutionCoordinator:
             logger.error(
                 f"Execution failed with {type(e).__name__}: {e}", exc_info=True
             )
-            await self.execution_context.update_status_async(ExecutionStatus.FAILED)
+            await self.execution_context.failed_async()
             raise ExecutionError(f"Task execution failed: {e}") from e
 
         except Exception as e:
             logger.error(f"Unexpected execution error: {e}", exc_info=True)
-            await self.execution_context.update_status_async(ExecutionStatus.FAILED)
+            await self.execution_context.failed_async()
             raise
 
     def execute(self) -> Tuple[Any, Any]:

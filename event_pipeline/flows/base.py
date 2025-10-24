@@ -37,7 +37,9 @@ def format_task_profiles(
     task_profiles: typing.Any,
 ) -> typing.Set[typing.Union[TaskProtocol, TaskGroupingProtocol]]:
     if isinstance(task_profiles, (TaskProtocol, TaskGroupingProtocol)):
-        return {task_profiles}
+        return {
+            task_profiles,
+        }
     return task_profiles
 
 

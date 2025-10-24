@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 conf = ConfigLoader.get_lazily_loaded_config()
 
 if typing.TYPE_CHECKING:
-    from event_pipeline.runners.execution_data import ExecutionContext
+    from event_pipeline.execution.context import ExecutionContext
 
 
 @dataclass
@@ -524,6 +524,9 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
             reason (str, optional): Reason for the task switch. Defaults to "manual".
             execute_on_event_method (bool, optional): If True, processes the result via
                 success/failure handlers; otherwise, wraps it in `EventResult`.
+        Raises:
+            ValueError: If the descriptor is not an integer between 0 to 9.
+            SwitchTask: Always raised to signal the task switch.
         """
         if not isinstance(descriptor, int):
             raise ValueError("Descriptor must be an integer between 0 to 9")
@@ -566,7 +569,10 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     def evaluator(cls) -> EventEvaluator:
         """
         Get the event evaluator for the current task.
-        :return: Evaluator for the current task.
+        Return:
+            Evaluator for the current task.
+        Raises:
+            ImproperlyConfigured: If no valid result evaluation strategy is specified.
         """
         if cls.result_evaluation_strategy is None:
             raise ImproperlyConfigured("No result evaluation strategy specified")
@@ -660,6 +666,15 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         return self.event_result(False, execution_result)
 
     def on_failure(self, execution_result) -> EventResult:
+        """
+        Handles failure scenarios during event execution.
+        Args:
+            execution_result: The result or exception from the failed execution.
+        Returns:
+            EventResult: The wrapped result indicating failure.
+        Raises:
+            StopProcessingError: If the stop condition dictates to halt processing.
+        """
         event_called.emit(
             sender=self.__class__,
             event=self,

@@ -82,12 +82,15 @@ class MaxRetryError(Exception):
 
 
 class ValidationError(PipelineError, ValueError):
+    """ValidationError raised when validation fails."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
 class ObjectExistError(ValueError):
+    """ObjectExistError raised when an object already exists."""
+
     pass
 
 
@@ -96,6 +99,7 @@ class ObjectDoesNotExist(ValueError):
 
 
 class SwitchTask(Exception):
+    """SwitchTask raised to indicate a task switch is required."""
 
     def __init__(
         self,

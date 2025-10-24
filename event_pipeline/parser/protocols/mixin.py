@@ -1,6 +1,7 @@
 import typing
 
 if typing.TYPE_CHECKING:
+    from event_pipeline.base import EventBase
     from .task_group import TaskGroupingProtocol
     from .task import TaskProtocol
     from ..operator import PipeType
@@ -58,3 +59,7 @@ class TaskProtocolMixin(typing.Protocol):
     def get_parent_node_for_parallel_execution(
         self,
     ) -> typing.Optional["TaskProtocol"]: ...
+
+    def get_event_klass(self) -> "EventBase": ...
+
+    def get_descriptor(self, descriptor: int) -> "TaskProtocol": ...

@@ -2,7 +2,7 @@ import asyncio
 import typing
 from contextlib import contextmanager
 
-from event_pipeline.result import ResultSet
+from event_pipeline.result import ResultSet, EventResult
 from event_pipeline.result_evaluators import (
     EventEvaluationResult,
     EventEvaluator,
@@ -13,26 +13,30 @@ from event_pipeline.result_evaluators import (
 class ResultProcessor:
     """Handles result processing and aggregation with configurable evaluation strategies."""
 
-    def __init__(self, evaluator: typing.Optional[EventEvaluator] = None) -> None:
+    def __init__(
+        self, strategy: typing.Optional[ExecutionResultEvaluationStrategyBase] = None
+    ) -> None:
         """
         Initialize the ResultProcessor.
 
         Args:
-            evaluator: Optional event evaluator for result evaluation.
+            strategy: Optional event evaluator for result evaluation.
         """
-        self._evaluator = evaluator
+        self._evaluator = EventEvaluator(strategy=strategy)
 
-    def change_strategy(self, evaluator: EventEvaluator) -> "ResultProcessor":
+    def change_strategy(
+        self, strategy: ExecutionResultEvaluationStrategyBase
+    ) -> "ResultProcessor":
         """
         Change the evaluation strategy.
 
         Args:
-            evaluator: New event evaluator to use.
+            strategy: New event evaluator to use.
 
         Returns:
             Self for method chaining.
         """
-        self._evaluator = evaluator
+        self._evaluator.change_strategy(strategy)
         return self
 
     @staticmethod
@@ -105,8 +109,46 @@ class ResultProcessor:
         """
         if self._evaluator is None:
             raise ValueError(
-                "No evaluator configured. Set an evaluator before calling evaluate_execution."
+                "No evaluation strategy configured. Set an evaluation strategy before calling evaluate_execution."
             )
 
         with self._temporary_strategy(strategy):
             return self._evaluator.evaluate(results)
+
+    @staticmethod
+    async def process_errors(
+        errors: ResultSet,
+    ) -> ResultSet:
+        """
+        Evaluate error results using the specified or current strategy.
+
+        Args:
+            errors: ResultSet of errors to evaluate.
+
+        Returns:
+            ResultSet of processed error EventResults.
+
+        """
+        results = ResultSet()
+        for error in errors:
+            if error.__class__.__name__.lower() not in [
+                "stopprocessingerror",
+                "switchtask",
+            ]:
+                params = getattr(error, "params", {})
+                event_name = params.get("event_name", "unknown")
+
+                result = EventResult(
+                    error=True,
+                    content=(
+                        error.to_dict() if hasattr(error, "to_dict") else str(error)
+                    ),
+                    task_id=params.get("task_id"),
+                    event_name=event_name,
+                    init_params=params.get("init_args"),
+                    call_params=params.get("call_args"),
+                )
+
+                results.add(result)
+
+        return results
