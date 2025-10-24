@@ -4,7 +4,6 @@ import logging
 import time
 import weakref
 import multiprocessing as mp
-from enum import Enum
 from functools import lru_cache
 from collections import deque
 from dataclasses import dataclass, field
@@ -21,25 +20,22 @@ from .exceptions import (
     SwitchTask,
     ImproperlyConfigured,
 )
-from .signal.signals import (
+from event_pipeline.signal.signals import (
     event_execution_retry,
     event_execution_retry_done,
     event_init,
+    event_called,
 )
-from event_pipeline.typing import ConfigState, ConfigurableValue
 from event_pipeline.parser.executor_config import ExecutorInitializerConfig
-
-from .result_evaluators import (
+from event_pipeline.result_evaluators import (
     ExecutionResultEvaluationStrategyBase,
     ResultEvaluationStrategies,
     EventEvaluator,
 )
+from event_pipeline.parser.options import StopCondition
+from event_pipeline.parser.options import Options
 
-__all__ = [
-    "EventBase",
-    "RetryPolicy",
-    "ExecutorInitializerConfig"
-]
+__all__ = ["EventBase", "RetryPolicy", "ExecutorInitializerConfig"]
 
 
 logger = logging.getLogger(__name__)
@@ -47,11 +43,11 @@ logger = logging.getLogger(__name__)
 conf = ConfigLoader.get_lazily_loaded_config()
 
 if typing.TYPE_CHECKING:
-    from .task import EventExecutionContext, Options
+    from event_pipeline.execution.context import ExecutionContext
 
 
 @dataclass
-class RetryPolicy(object):
+class RetryPolicy:
     max_attempts: int = field(
         init=True, default=conf.get("MAX_EVENT_RETRIES", default=MAX_RETRIES)
     )
@@ -67,17 +63,17 @@ class RetryPolicy(object):
     )
 
 
-class _RetryMixin(object):
+class _RetryMixin:
 
     retry_policy: typing.Union[
-        typing.Optional[RetryPolicy], typing.Dict[str, typing.Any]
+        typing.Optional[RetryPolicy], typing.Dict[str, typing.Any], None
     ] = None
 
     def __init__(self, *args, **kwargs):
         self._retry_count = 0
         super().__init__(*args, **kwargs)
 
-    def get_retry_policy(self) -> RetryPolicy:
+    def get_retry_policy(self) -> typing.Union[RetryPolicy, None]:
         if isinstance(self.retry_policy, dict):
             self.retry_policy = RetryPolicy(**self.retry_policy)
         return self.retry_policy
@@ -198,7 +194,7 @@ class _RetryMixin(object):
         return False, None
 
 
-class _ExecutorInitializerMixin(object):
+class _ExecutorInitializerMixin:
 
     executor: typing.Type[Executor] = DefaultExecutor
 
@@ -216,7 +212,9 @@ class _ExecutorInitializerMixin(object):
     def get_executor_initializer_config(self) -> ExecutorInitializerConfig:
         if self.executor_config:
             if isinstance(self.executor_config, dict):
-                self.executor_config = ExecutorInitializerConfig.from_dict(self.executor_config)
+                self.executor_config = ExecutorInitializerConfig.from_dict(
+                    self.executor_config
+                )
         else:
             self.executor_config = ExecutorInitializerConfig()
         return self.executor_config
@@ -261,6 +259,130 @@ class _ExecutorInitializerMixin(object):
         return context
 
 
+@dataclass
+class StopConditionProcessor:
+    """
+    Processor for handling stop conditions with improved error handling and flexibility.
+    Attributes:
+        stop_condition: The condition that determines when to stop processing
+        exception: Any exception that occurred during processing
+        message: Optional message for logging or debugging
+        logger: Optional logger instance for structured logging
+    """
+
+    stop_condition: typing.Union[StopCondition, typing.List[StopCondition]]
+    exception: typing.Optional[Exception] = None
+    message: typing.Optional[str] = None
+    logger: typing.Optional[logging.Logger] = None
+
+    def __post_init__(self):
+        """Validate initialization parameters."""
+        if not self.logger:
+            self.logger = logging.getLogger(__name__)
+
+    def should_stop(self, success: bool = True) -> bool:
+        """
+        Determine if processing should stop based on the current state.
+        Args:
+            success: Whether the operation was successful
+        Returns:
+            bool: True if processing should stop, False otherwise
+        """
+        if self.stop_condition == StopCondition.NEVER:
+            return False
+
+        if isinstance(self.stop_condition, (list, tuple)):
+            return any(
+                self._evaluate_single_condition(cond, success)
+                for cond in self.stop_condition
+            )
+
+        return self._evaluate_single_condition(self.stop_condition, success)
+
+    def _evaluate_single_condition(
+        self, condition: StopCondition, success: bool
+    ) -> bool:
+        """Evaluate a single stop condition."""
+        if condition == StopCondition.NEVER:
+            return False
+        elif condition == StopCondition.ON_SUCCESS:
+            return success and self.exception is None
+        elif condition == StopCondition.ON_ERROR:
+            return not success or self.exception is not None
+        elif condition == StopCondition.ON_ANY:
+            return True
+        else:
+            self.logger.warning(f"Unknown stop condition: {condition}")
+            return False
+
+    def on_success(self) -> bool:
+        """
+        Handle successful operation completion.
+        Returns:
+            bool: True if processing should stop
+        """
+        self.exception = None
+        should_stop = self.should_stop(success=True)
+
+        if should_stop:
+            self._log_stop_decision("success")
+
+        return should_stop
+
+    def on_error(
+        self, exception: Exception, message: typing.Optional[str] = None
+    ) -> bool:
+        """
+        Handle error during operation.
+        Args:
+            exception: The exception that occurred
+            message: Optional additional message
+        Returns:
+            bool: True if processing should stop
+        """
+        self.exception = exception
+        if message:
+            self.message = message
+
+        should_stop = self.should_stop(success=False)
+
+        if should_stop:
+            self._log_stop_decision("error")
+        return should_stop
+
+    def reset(self):
+        """Reset the processor state for reuse."""
+        self.exception = None
+        self.message = None
+
+    def _log_stop_decision(self, event_type: str):
+        """Log the stop decision with context."""
+        context = {
+            "event_type": event_type,
+            "stop_condition": self.stop_condition,
+            "has_exception": self.exception is not None,
+            "message": self.message,
+        }
+
+        if self.exception:
+            self.logger.info(
+                f"Stopping on {event_type} due to {self.stop_condition}", extra=context
+            )
+        else:
+            self.logger.debug(
+                f"Stopping on {event_type} due to {self.stop_condition}", extra=context
+            )
+
+    def get_status(self) -> dict:
+        """Get current processor status for debugging."""
+        return {
+            "stop_condition": self.stop_condition,
+            "has_exception": self.exception is not None,
+            "exception_type": type(self.exception).__name__ if self.exception else None,
+            "message": self.message,
+        }
+
+
 class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     """
     Abstract base class for event in the pipeline system.
@@ -288,7 +410,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                                     This means that if any task succeeds, the event will be considered successful,
                                     even if others fail.
 
-        MAJORITY_MUST_SUCCEED: Event succeeds if majority of tasks succeed
+        MAJORITY_MUST_SUCCEED: Event succeeds if a majority of tasks succeed
 
     Subclasses must implement the `process` method to define the logic for
     processing pipeline data.
@@ -307,6 +429,16 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
     def __init_subclass__(cls, **kwargs):
         """Automatically register subclasses when they're defined"""
+        # prevent the overriding of __init__
+        if cls.__name__ != "EventBase":
+            for attr_name in ["__init__"]:
+                if attr_name in cls.__dict__:
+                    raise PermissionError(
+                        f"Model '{cls.__name__}' cannot override {attr_name!r}. "
+                        f"Consider registering a 'listener' function for the signal 'event_init' for all your custom initialization. "
+                        f"You can also do your initialisation within the 'process' method"
+                    )
+
         super().__init_subclass__(**kwargs)
 
         # Register this class in the global registry
@@ -319,15 +451,13 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
 
     def __init__(
         self,
-        execution_context: "EventExecutionContext",
+        execution_context: "ExecutionContext",
         task_id: str,
         *args,
         previous_result: typing.Union[typing.List[EventResult], EMPTY] = EMPTY,
-        stop_on_exception: bool = False,
-        stop_on_success: bool = False,
-        stop_on_error: bool = False,
+        stop_condition: StopCondition = StopCondition.NEVER,
         run_bypass_event_checks: bool = False,
-        options: "Options" = None,
+        options: typing.Optional["Options"] = None,
         **kwargs,
     ):
         """
@@ -358,9 +488,9 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         self._task_id = task_id
         self.options = options
         self.previous_result = previous_result
-        self.stop_on_exception = stop_on_exception
-        self.stop_on_success = stop_on_success
-        self.stop_on_error = stop_on_error
+        self.stop_condition = StopConditionProcessor(
+            stop_condition=stop_condition, logger=logger
+        )
         self.run_bypass_event_checks = run_bypass_event_checks
 
         self.get_retry_policy()  # config retry if error
@@ -379,7 +509,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     def goto(
         self,
         descriptor: int,
-        result_status: bool,
+        result_success: bool,
         result: typing.Any,
         reason="manual",
         execute_on_event_method: bool = True,
@@ -389,23 +519,26 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         while optionally processing the result.
         Args:
             descriptor (int): The identifier of the next task to switch to.
-            result_status (bool): Indicates if the current task succeeded or failed.
+            result_success (bool): Indicates if the current task succeeded or failed.
             result (typing.Any): The result data to pass to the next task.
             reason (str, optional): Reason for the task switch. Defaults to "manual".
             execute_on_event_method (bool, optional): If True, processes the result via
                 success/failure handlers; otherwise, wraps it in `EventResult`.
+        Raises:
+            ValueError: If the descriptor is not an integer between 0 to 9.
+            SwitchTask: Always raised to signal the task switch.
         """
         if not isinstance(descriptor, int):
-            raise ValueError("descriptor must be an integer")
+            raise ValueError("Descriptor must be an integer between 0 to 9")
 
         if execute_on_event_method:
-            if result_status:
+            if result_success:
                 res = self.on_success(result)
             else:
                 res = self.on_failure(result)
         else:
             res = EventResult(
-                error=not result_status,
+                error=not result_success,
                 content=result,
                 task_id=self._task_id,
                 event_name=self.__class__.__name__,
@@ -422,7 +555,7 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     @classmethod
     def register_event(cls, event_klass: typing.Type["EventBase"]):
         if not issubclass(event_klass, EventBase):
-            raise ValueError("event_klass must be a subclass of EventBase")
+            raise ValueError(f"Event '{event_klass}' must be a subclass of EventBase")
 
         # Register this class in the global registry
         EventBase._all_event_classes.add(cls)
@@ -436,7 +569,10 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
     def evaluator(cls) -> EventEvaluator:
         """
         Get the event evaluator for the current task.
-        :return: Evaluator for the current task.
+        Return:
+            Evaluator for the current task.
+        Raises:
+            ImproperlyConfigured: If no valid result evaluation strategy is specified.
         """
         if cls.result_evaluation_strategy is None:
             raise ImproperlyConfigured("No result evaluation strategy specified")
@@ -503,34 +639,22 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
         )
 
     def on_success(self, execution_result) -> EventResult:
-        self._raise_stop_processing_exception(
-            condition=self.stop_on_success, message=execution_result
+        self.stop_condition.message = execution_result
+
+        event_called.emit(
+            sender=self.__class__,
+            event=self,
+            init_args=self.get_init_args(),
+            call_args=self.get_call_args(),
+            hook_type="on_success",
+            result=execution_result,
         )
 
-        return self.event_result(False, execution_result)
-
-    def _raise_stop_processing_exception(
-        self,
-        condition: bool,
-        message: typing.Union[str, typing.Dict[str, typing.Any]],
-        exception: typing.Optional[Exception] = None,
-    ):
-        """
-        Raises a StopProcessingError if the provided condition is True.
-
-        Args:
-            condition (bool): The condition that triggers the exception. If True, the exception will be raised.
-            message (str | dict): A message to include in the exception.
-            exception (Optional[Exception], optional): An optional exception to attach to the StopProcessingError.
-                                                    Defaults to None.
-
-        Raises:
-            StopProcessingError: If the condition is met, a StopProcessingError is raised with additional context.
-        """
-        if condition:
+        if self.stop_condition.on_success():
             raise StopProcessingError(
-                message=message,
-                exception=exception,
+                message=execution_result,
+                exception=None,
+                stop_condition=self.stop_condition,
                 params={
                     "init_args": self._init_args,
                     "call_args": self._call_args,
@@ -539,23 +663,48 @@ class EventBase(_RetryMixin, _ExecutorInitializerMixin, abc.ABC):
                 },
             )
 
+        return self.event_result(False, execution_result)
+
     def on_failure(self, execution_result) -> EventResult:
+        """
+        Handles failure scenarios during event execution.
+        Args:
+            execution_result: The result or exception from the failed execution.
+        Returns:
+            EventResult: The wrapped result indicating failure.
+        Raises:
+            StopProcessingError: If the stop condition dictates to halt processing.
+        """
+        event_called.emit(
+            sender=self.__class__,
+            event=self,
+            init_args=self.get_init_args(),
+            call_args=self.get_call_args(),
+            hook_type="on_failure",
+            result=execution_result,
+        )
+
         if isinstance(execution_result, Exception):
             execution_result = (
-                execution_result.exception
+                getattr(execution_result, "exception", execution_result)
                 if execution_result.__class__ == MaxRetryError
                 else execution_result
             )
 
-            self._raise_stop_processing_exception(
-                condition=self.stop_on_exception,
-                message=f"Error occurred while processing event '{self.__class__.__name__}'",
+        if self.stop_condition.on_error(
+            exception=execution_result,
+            message=f"Error occurred while processing event '{self.__class__.__name__}'",
+        ):
+            raise StopProcessingError(
+                message=self.stop_condition.message,
                 exception=execution_result,
+                params={
+                    "init_args": self._init_args,
+                    "call_args": self._call_args,
+                    "event_name": self.__class__.__name__,
+                    "task_id": self._task_id,
+                },
             )
-
-        self._raise_stop_processing_exception(
-            condition=self.stop_on_error, message=execution_result
-        )
 
         return self.event_result(True, execution_result)
 

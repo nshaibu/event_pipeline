@@ -1,6 +1,7 @@
 import typing
 
 if typing.TYPE_CHECKING:
+    from event_pipeline.base import EventBase
     from .task_group import TaskGroupingProtocol
     from .task import TaskProtocol
     from ..operator import PipeType
@@ -22,6 +23,9 @@ class TaskProtocolMixin(typing.Protocol):
     sink_pipe: typing.Optional["PipeType"]
 
     condition_node: "ConditionalNode"
+
+    def get_id(self) -> str:
+        """Return task id"""
 
     @property
     def descriptor(self) -> int: ...
@@ -48,3 +52,14 @@ class TaskProtocolMixin(typing.Protocol):
     def is_parallel_execution_node(self) -> bool: ...
 
     def get_root(self) -> "TaskProtocol": ...
+
+    def get_task_pointer_type(self) -> typing.Optional["PipeType"]:
+        """Return the pointer type pointing to this task"""
+
+    def get_parent_node_for_parallel_execution(
+        self,
+    ) -> typing.Optional["TaskProtocol"]: ...
+
+    def get_event_klass(self) -> "EventBase": ...
+
+    def get_descriptor(self, descriptor: int) -> "TaskProtocol": ...

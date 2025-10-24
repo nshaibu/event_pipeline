@@ -1,5 +1,5 @@
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 from event_pipeline.typing import ConfigState, ConfigurableValue
 
@@ -43,3 +43,23 @@ class ExecutorInitializerConfig:
                 kwargs[field_name] = config_dict[field_name]
             # Leave as default (UNSET) if not in dict
         return cls(**kwargs)
+
+    def to_dict(self) -> dict:
+        config_dict = {}
+        for fd in fields(self):
+            if self.is_configured(fd.name):
+                config_dict[fd.name] = getattr(self, fd.name)
+
+        config_dict["max_workers"] = self.resolve_max_workers()
+        return config_dict
+
+    def update(self, other: "ExecutorInitializerConfig") -> "ExecutorInitializerConfig":
+        if not isinstance(other, ExecutorInitializerConfig):
+            raise TypeError(f"Cannot add {self} to {other}")
+        config_dict = self.to_dict()
+        for field_name, value in config_dict.items():
+            if value is ConfigState.UNSET and other.is_configured(field_name):
+                config_dict[field_name] = getattr(other, field_name)
+            elif other.is_configured(field_name):
+                config_dict[field_name] = getattr(other, field_name)
+        return ExecutorInitializerConfig(**config_dict)

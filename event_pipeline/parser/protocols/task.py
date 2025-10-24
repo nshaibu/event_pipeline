@@ -16,3 +16,6 @@ class TaskProtocol(TaskProtocolMixin, typing.Protocol):
         self,
         event: typing.Union[typing.Type["EventBase"], str],
     ) -> None: ...
+
+    def get_event_class(self) -> typing.Type["EventBase"]:
+        """Return event class of task"""

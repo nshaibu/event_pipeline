@@ -30,7 +30,8 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
 
         except Exception as e:
             logger.error(
-                f"Error executing task {request.task_id}, name: {request.name}: {str(e)}", exc_info=e
+                f"Error executing task {request.task_id}, name: {request.name}: {str(e)}",
+                exc_info=e,
             )
             serialized_result = TaskMessage.serialize_object(e)
             return task_pb2.TaskResponse(
@@ -68,7 +69,9 @@ class TaskExecutorServicer(task_pb2_grpc.TaskExecutorServicer):
             )
 
         except Exception as e:
-            logger.error(f"Error in streaming task {request.task_id}: {str(e)}", exc_info=e)
+            logger.error(
+                f"Error in streaming task {request.task_id}: {str(e)}", exc_info=e
+            )
             serialized_result = TaskMessage.serialize_object(e)
             yield task_pb2.TaskStatus(
                 status=task_pb2.TaskStatus.FAILED,
