@@ -176,3 +176,6 @@ cython_debug/
 pointy_test.py
 executor_test.py
 manager_test.py
+
+refactor-plan.md
+executor.md

@@ -61,7 +61,9 @@ class ConditionalNode:
         return list(self._descriptors.values())
 
     @staticmethod
-    def _create_descriptor_property(descriptor: int, attr_name: str, attr_type: type):
+    def _create_descriptor_property(
+        descriptor: int, attr_name: str, attr_type: typing.Type
+    ):
         """Factory method to create descriptor properties with getter/setter"""
 
         def getter(self) -> typing.Optional[attr_type]:

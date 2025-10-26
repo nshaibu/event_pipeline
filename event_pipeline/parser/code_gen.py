@@ -57,15 +57,22 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     def visit_binop(
         self, node: ast.BinOpNode
     ) -> typing.Union[TaskProtocol, TaskGroupingProtocol]:
-        left_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = self._visit_node(node.left)
-        right_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = self._visit_node(node.right)
+        left_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = (
+            self._visit_node(node.left)
+        )
+        right_instance: typing.Union[TaskProtocol, TaskGroupingProtocol] = (
+            self._visit_node(node.right)
+        )
 
         if isinstance(
             left_instance, (TaskProtocol, TaskGroupingProtocol)
         ) and isinstance(right_instance, (TaskProtocol, TaskGroupingProtocol)):
             pipe_type = PipeType.get_pipe_type_enum(node.op)
             if pipe_type is None:
-                raise PointyParseError(f"AST is malformed {ast}")
+                logger.debug("No pipe type for %s", node.op)
+                raise PointyParseError(
+                    f"AST is malformed {ast}. No pipe type for {node.op} found."
+                )
 
             if left_instance.is_conditional:
                 left_instance.sink_node = right_instance
@@ -91,6 +98,7 @@ class ExecutableASTGenerator(ASTVisitorInterface):
                 node_instance = right_instance
 
             if node_instance is None:
+                logger.debug("No node instance for %s", left_instance)
                 raise PointyParseError(
                     f"AST is malformed {ast}. Descriptor operation must have a valid task node"
                 )
@@ -99,7 +107,8 @@ class ExecutableASTGenerator(ASTVisitorInterface):
             if node.op == PipeType.RETRY.token():
                 if node_instance.options is None:
                     node_instance.options = Options()
-                node_instance.options.retry_attempts += descriptor_value
+                # override the retry_attempts since * has high precedence
+                node_instance.options.retry_attempts = descriptor_value
                 return node_instance
 
             node_instance = node_instance.get_root()
@@ -125,6 +134,9 @@ class ExecutableASTGenerator(ASTVisitorInterface):
         if node.type == ast.BlockType.ASSIGNMENT:
             return self.visit_assignment_block(node)
         elif node.type == ast.BlockType.CONDITIONAL:
+            if typing.TYPE_CHECKING:
+                node = typing.cast(ast.ConditionalNode, typing.cast(ast.ASTNode, node))
+
             return self.visit_conditional(node)
         elif node.type == ast.BlockType.GROUP:
             return self.visit_group_block(node)
@@ -134,7 +146,7 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     def visit_group_block(self, node: ast.BlockNode):
         raise NotImplementedError("Not Supported yet")
 
-    def visit_literal(self, node: ast.LiteralNode):
+    def visit_literal(self, node: ast.LiteralNode) -> typing.Union[int, str, float]:
         return node.value
 
     def visit_assignment(self, node: ast.AssignmentNode):
@@ -145,6 +157,8 @@ class ExecutableASTGenerator(ASTVisitorInterface):
     ) -> typing.Dict[str, typing.Any]:
         assign = {}
         for statement in node.statements:
+            if typing.TYPE_CHECKING:
+                statement = typing.cast(ast.AssignmentNode, statement)
             assign.update(self.visit_assignment(statement))
         return assign
 
@@ -158,6 +172,10 @@ class ExecutableASTGenerator(ASTVisitorInterface):
         # create instance of expression group
         instance = self.grouping_template(expression_chain_groups)
         self._current_task = instance
+        if node.options:
+            instance.options = Options.from_dict(
+                self.visit_assignment_block(node.options)
+            )
         return instance
 
     def visit_conditional(self, node: ast.ConditionalNode):
@@ -193,8 +211,14 @@ class ExecutableASTGenerator(ASTVisitorInterface):
                         logger.warning(
                             f"Failed to add descriptor {instance.descriptor} for event {node}"
                         )
+            else:
+                logger.warning(
+                    f"Failed to add descriptor for conditional event {statement}"
+                )
 
         return parent
 
-    def generate(self) -> TaskProtocol:
-        pass
+    def generate(self) -> typing.Optional[TaskProtocol]:
+        if self._current_task is None:
+            return None
+        return self._current_task.get_root()

@@ -22,11 +22,15 @@ class TaskBase(ObjectIdentityMixin):
         self._descriptor: typing.Optional[int] = None
         self._descriptor_pipe: typing.Optional[PipeType] = None
 
-        self.parent_node: typing.Optional["TaskProtocol", "TaskGroupingProtocol"] = None
+        self.parent_node: typing.Optional[
+            typing.Union["TaskProtocol", "TaskGroupingProtocol"]
+        ] = None
 
         # sink event this is where the conditional events collapse
         # into after they are done executing
-        self.sink_node: typing.Optional["TaskProtocol", "TaskGroupingProtocol"] = None
+        self.sink_node: typing.Optional[
+            typing.Union["TaskProtocol", "TaskGroupingProtocol"]
+        ] = None
         self.sink_pipe: typing.Optional[PipeType] = None
 
         self.condition_node: ConditionalNode = ConditionalNode()
@@ -38,20 +42,25 @@ class TaskBase(ObjectIdentityMixin):
     def __setstate__(self, state):
         self.__dict__.update(state)
 
+    def get_id(self) -> str:
+        return self.id
+
     @property
-    def descriptor(self) -> int:
+    def descriptor(self) -> typing.Optional[int]:
         return self._descriptor
 
     @descriptor.setter
     def descriptor(self, value: typing.Optional[int]) -> None:
-        if value is not None and not isinstance(value, int):
+        if value is None:
+            raise ValueError("Descriptor cannot be None")
+        if not isinstance(value, int):
             raise TypeError("Descriptor must be an integer")
         if 0 > value or value > 9:
             raise ValueError("Descriptor must be between 0 and 9")
         self._descriptor = value
 
     @property
-    def descriptor_pipe(self) -> "PipeType":
+    def descriptor_pipe(self) -> typing.Optional["PipeType"]:
         return self._descriptor_pipe
 
     @descriptor_pipe.setter
@@ -60,7 +69,7 @@ class TaskBase(ObjectIdentityMixin):
 
     @property
     def is_conditional(self):
-        return len(self.condition_node.get_descriptors()) > 0
+        return len(self.condition_node.get_descriptors()) > 1
 
     @property
     def is_descriptor_task(self):
@@ -113,28 +122,32 @@ class TaskBase(ObjectIdentityMixin):
             or pointer_to_node == PipeType.PARALLELISM
         )
 
-    def get_pointer_to_task(self) -> PipeType:
+    def get_pointer_to_task(self) -> typing.Optional["PipeType"]:
         pipe_type = None
         if self.parent_node is not None:
             if (
-                self.parent_node.conditional_node.on_success_event
-                and self.parent_node.conditional_node.on_success_event == self
+                self.parent_node.condition_node.on_success_event
+                and self.parent_node.condition_node.on_success_event == self
             ):
-                pipe_type = self.parent_node.conditional_node.on_success_pipe
+                pipe_type = self.parent_node.condition_node.on_success_pipe
             elif (
-                self.parent_node.conditional_node.on_failure_event
-                and self.parent_node.conditional_node.on_failure_event == self
+                self.parent_node.condition_node.on_failure_event
+                and self.parent_node.condition_node.on_failure_event == self
             ):
-                pipe_type = self.parent_node.conditional_node.on_failure_pipe
+                pipe_type = self.parent_node.condition_node.on_failure_pipe
             elif self.parent_node.sink_node and self.parent_node.sink_node == self:
                 pipe_type = self.parent_node.sink_pipe
             else:
+                descriptor = self._descriptor
+                if descriptor is None:
+                    descriptor = -1  # sentinel for no descriptor
+
                 # Handle custom descriptors
                 descriptor_profile = (
-                    self.parent_node.conditional_node.get_descriptor_config(
-                        self._descriptor
-                    )
+                    self.parent_node.condition_node.get_descriptor_config(descriptor)
                 )
+                if descriptor_profile is None:
+                    return None
                 if descriptor_profile:
                     pipe_type = descriptor_profile.pipe
                 else:
@@ -150,12 +163,17 @@ class TaskBase(ObjectIdentityMixin):
             children.append(node_config.task)
         return children
 
-    def get_root(self):
+    def get_root(self) -> typing.Union["TaskProtocol", "TaskGroupingProtocol"]:
         if self.parent_node is None:
-            return self
+            node = self
+            if typing.TYPE_CHECKING:
+                node = typing.cast(
+                    typing.Union["TaskProtocol", "TaskGroupingProtocol"], node
+                )
+            return node
         return self.parent_node.get_root()
 
-    def get_dot_node_data(self) -> typing.Optional[str]:
+    def get_dot_node_data(self) -> str:
         raise NotImplementedError
 
     def get_task_count(self) -> int:
@@ -170,17 +188,24 @@ class TaskBase(ObjectIdentityMixin):
         return None
 
     @classmethod
-    def bf_traversal(cls, node: "TaskBase"):
+    def bf_traversal(
+        cls, node: typing.Optional[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]
+    ):
+        """
+        Performs a breadth-first traversal of the task tree starting from the given node.
+
+        Despite the method name, this traversal is depth-first, not breadth-first.
+        Yields each node in the tree.
+        """
         if node:
             yield node
 
             for child in node.get_children():
                 yield from cls.bf_traversal(child)
 
-    def get_parallel_nodes(self):
-        if not self.is_parallel_execution_node:
-            return None
-
+    def get_parallel_nodes(
+        self,
+    ) -> typing.Deque[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]:
         parallel_tasks = deque()
         task = self
         while task and task.condition_node.on_success_pipe == PipeType.PARALLELISM:

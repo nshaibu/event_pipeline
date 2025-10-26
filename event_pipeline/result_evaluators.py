@@ -72,7 +72,7 @@ class AllTasksMustSucceedStrategy(ExecutionResultEvaluationStrategyBase):
 
     def evaluate(self, task_results: T) -> bool:
         if not task_results:
-            return False  # No tasks means no success
+            return False
         return all(result.success for result in task_results)
 
     def get_strategy_name(self) -> str:
@@ -84,7 +84,7 @@ class AnyTaskMustSucceedStrategy(ExecutionResultEvaluationStrategyBase):
 
     def evaluate(self, task_results: T) -> bool:
         if not task_results:
-            return False  # No tasks means no success
+            return False
         return any(result.success for result in task_results)
 
     def get_strategy_name(self) -> str:
@@ -185,6 +185,65 @@ class ResultEvaluationStrategies:
         percentage: float,
     ) -> PercentageSuccessThresholdStrategy:
         return PercentageSuccessThresholdStrategy(percentage)
+
+    def __getattr__(self, name: str) -> ExecutionResultEvaluationStrategyBase:
+        """
+        Dynamic attribute access for parametrized evaluation strategies.
+        Supports magic strategy access where parameters can be passed by appending them
+        to the strategy name with an underscore separator.
+
+        Examples:
+            - PercentageSuccessThresholdStrategy_75
+            - MinimumSuccessThresholdStrategy_5
+            - PercentageSuccessThresholdStrategy_85.5
+            - MinimumSuccessThresholdStrategy_2.5
+
+        Args:
+            name: The attribute name, potentially with parameters
+
+        Returns:
+            An instance of the requested evaluation strategy
+
+        Raises:
+            AttributeError: If the strategy is not found or parameters are invalid
+            ValueError: If the factor cannot be parsed as an integer
+        """
+        # Check if this is parametrized strategy access
+        if "_" in name:
+            parts = name.split("_")
+            if len(parts) == 2:
+                evaluator_name, factor_str = parts
+
+                try:
+                    factor = float(factor_str)
+                except ValueError:
+                    raise AttributeError(
+                        f"Invalid factor '{factor_str}' in '{name}'. Factor must be a number."
+                    )
+
+                evaluator_name_lower = evaluator_name.lower()
+
+                parametrized_strategies = {
+                    PercentageSuccessThresholdStrategy.__name__.lower(): PercentageSuccessThresholdStrategy,
+                    MinimumSuccessThresholdStrategy.__name__.lower(): MinimumSuccessThresholdStrategy,
+                }
+
+                strategy_class = parametrized_strategies.get(evaluator_name_lower)
+                if strategy_class:
+                    try:
+                        return strategy_class(factor)
+                    except Exception as e:
+                        raise AttributeError(
+                            f"Failed to create {evaluator_name} with factor {factor}: {e}"
+                        )
+
+        # If not a known parametrized strategy, fall through to default behavior
+        try:
+            return self.__getattribute__(name)
+        except AttributeError:
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute '{name}'"
+            )
 
 
 class EventEvaluator:

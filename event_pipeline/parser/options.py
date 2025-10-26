@@ -28,7 +28,7 @@ class ResultEvaluationStrategy(StrEnum):
 
 def resolve_str_to_enum(
     enum_klass: typing.Type[Enum], value: str, use_lower_case: bool = False
-) -> typing.Union[typing.Type[Enum], str]:
+) -> typing.Union[Enum, str]:
     """Resolve enum value to enum class"""
     if not isinstance(value, str):
         return value
@@ -67,7 +67,7 @@ class Options(BaseModel):
 
     # Execution state and control
     result_evaluation_strategy: MiniAnnotated[
-        typing.Union[ResultEvaluationStrategy, str],
+        typing.Union[ResultEvaluationStrategy],
         Attrib(
             default=ResultEvaluationStrategy.ALL_MUST_SUCCEED,
             pre_formatter=lambda val: resolve_str_to_enum(
@@ -76,7 +76,7 @@ class Options(BaseModel):
         ),
     ]
     stop_condition: MiniAnnotated[
-        typing.Union[StopCondition, str, None],
+        typing.Union[StopCondition, None],
         Attrib(
             default=None,
             pre_formatter=lambda val: val
@@ -165,3 +165,13 @@ class Options(BaseModel):
 
         merged["extras"] = merged_extras
         return self.from_dict(merged)
+
+    def is_configured(self, field_name: str) -> bool:
+        """
+        Check if a specific option field is configured (not None).
+        Args:
+            field_name: Name of the field to check
+        Returns:
+            True if the field is configured, False otherwise
+        """
+        return getattr(self, field_name, None) is not None
