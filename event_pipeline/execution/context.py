@@ -295,7 +295,12 @@ class ExecutionContext(ObjectIdentityMixin, BaseModel):
 
         coordinator = ExecutionCoordinator(execution_context=self, timeout=timeout)
 
-        return coordinator.execute()
+        try:
+            return coordinator.execute()
+        except Exception as e:
+            logger.error(
+                f"{self.pipeline.__class__.__name__} : {str(self.task_profiles)} : {str(e)}"
+            )
 
     def get_task_profiles(self) -> typing.Deque:
         task_profiles = self.task_profiles
@@ -385,7 +390,7 @@ class ExecutionContext(ObjectIdentityMixin, BaseModel):
                 return task_profile
         return None
 
-    def get_result_evaluation_strategy(self):
+    def get_result_evaluator(self):
         """
         Retrieves the result evaluation strategy from the task profile.
 

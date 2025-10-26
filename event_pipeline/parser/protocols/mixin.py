@@ -24,8 +24,9 @@ class TaskProtocolMixin(typing.Protocol):
 
     condition_node: "ConditionalNode"
 
-    def get_id(self) -> str:
-        """Return task id"""
+    def get_id(self) -> str: ...
+
+    def get_event_name(self) -> str: ...
 
     @property
     def descriptor(self) -> int: ...
@@ -63,3 +64,28 @@ class TaskProtocolMixin(typing.Protocol):
     def get_event_klass(self) -> "EventBase": ...
 
     def get_descriptor(self, descriptor: int) -> "TaskProtocol": ...
+
+    def get_children(self) -> typing.List["TaskProtocol"]: ...
+
+    def get_pointer_to_task(self) -> typing.Optional["PipeType"]: ...
+
+    def get_dot_node_data(self) -> str: ...
+
+    def get_parallel_nodes(
+        self,
+    ) -> typing.Deque[typing.Union["TaskProtocol", "TaskGroupingProtocol"]]: ...
+
+    @classmethod
+    def bf_traversal(
+        cls,
+        root: typing.Union["TaskProtocol", "TaskGroupingProtocol"],
+    ) -> typing.Generator[
+        typing.Union["TaskProtocol", "TaskGroupingProtocol"], None, None
+    ]: ...
+
+    # queue = deque([root])
+    # while queue:
+    #     node = queue.popleft()
+    #     yield node
+    #     for child in node.get_children():
+    #         queue.append(child)

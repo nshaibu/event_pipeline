@@ -3,6 +3,8 @@ import logging
 from collections import deque
 from event_pipeline.typing import TaskType
 from event_pipeline.pipeline import Pipeline
+from .utils import evaluate_context_execution_results
+from event_pipeline.exceptions import SwitchTask
 from event_pipeline.parser.operator import PipeType
 from event_pipeline.exceptions import TaskSwitchingError
 from event_pipeline.execution.state_manager import ExecutionStatus
@@ -46,9 +48,9 @@ def run_workflow(
             # until we encounter a task where the 'on_success_pipe' is no longer equal
             # to PipeType.PARALLELISM.
             # This indicates that the task is part of a parallel execution chain.
-            while task and task.on_success_pipe == PipeType.PARALLELISM:
+            while task and task.condition_node.on_success_pipe == PipeType.PARALLELISM:
                 parallel_tasks.add(task)
-                task = task.on_success_event
+                task = task.condition_node.on_success_event
 
             if parallel_tasks:
                 parallel_tasks.add(task)
@@ -77,6 +79,9 @@ def run_workflow(
 
         switch_request = execution_state.get_switch_request()
 
+        if typing.TYPE_CHECKING:
+            switch_request = typing.cast(SwitchTask, switch_request)
+
         if switch_request and switch_request.descriptor_configured:
             task_profile = task.get_descriptor(switch_request.next_task_descriptor)
             if task_profile is None:
@@ -96,25 +101,34 @@ def run_workflow(
                 sink_queue=sink_queue,
             )
         else:
-            evaluation_res = execution_context.evaluate_execution_results()
             if task.is_conditional:
-                if not evaluation_res.success:  #  execution_context.execution_failed():
-                    run_workflow(
-                        task=task.on_failure_event,
-                        previous_context=execution_context,
-                        pipeline=pipeline,
-                        sink_queue=sink_queue,
-                    )
+                evaluation_result = evaluate_context_execution_results(
+                    execution_context
+                )
+
+                if evaluation_result is not None:
+
+                    if not evaluation_result.success:
+                        run_workflow(
+                            task=task.condition_node.on_failure_event,
+                            previous_context=execution_context,
+                            pipeline=pipeline,
+                            sink_queue=sink_queue,
+                        )
+                    else:
+                        run_workflow(
+                            task=task.condition_node.on_success_event,
+                            previous_context=execution_context,
+                            pipeline=pipeline,
+                            sink_queue=sink_queue,
+                        )
                 else:
-                    run_workflow(
-                        task=task.on_success_event,
-                        previous_context=execution_context,
-                        pipeline=pipeline,
-                        sink_queue=sink_queue,
+                    logger.error(
+                        f"Cannot evaluate conditional task '{task}' without execution results."
                     )
             else:
                 run_workflow(
-                    task=task.on_success_event,
+                    task=task.condition_node.on_success_event,
                     previous_context=execution_context,
                     pipeline=pipeline,
                     sink_queue=sink_queue,

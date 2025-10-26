@@ -6,6 +6,7 @@ try:
 except ImportError:
     from io import StringIO
 
+from event_pipeline.typing import TaskType
 from event_pipeline.parser.operator import PipeType
 from event_pipeline.task import PipelineTask, PipelineTaskGrouping
 
@@ -23,14 +24,14 @@ def str_to_number(s: str) -> int:
 
 
 def process_parallel_nodes(
-    parallel_nodes: typing.Deque[PipelineTask], nodes_list: typing.List[str]
+    parallel_nodes: typing.Deque[TaskType], nodes_list: typing.List[str]
 ) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
     """Process a group of parallel execution nodes and return node ID"""
     if not parallel_nodes:
         return None, None
 
-    node_id = parallel_nodes[0].id
-    node_label = "{" + "|".join([n.event for n in parallel_nodes]) + "}"
+    node_id = parallel_nodes[0].get_id()
+    node_label = "{" + "|".join([n.get_event_name() for n in parallel_nodes]) + "}"
     node_text = f'\t"{node_id}" [label="{node_label}", shape=record, style="filled,rounded", fillcolor=lightblue]\n'
 
     if node_text not in nodes_list:
@@ -58,7 +59,7 @@ def draw_subgraph_from_task_state(task_state: PipelineTaskGrouping) -> str:
 
 
 def generate_dot_from_task_state(
-    task_state: PipelineTask, is_subgraph: bool = False
+    task_state: TaskType, is_subgraph: bool = False
 ) -> str:
     root = task_state.get_root()
     nodes = []
@@ -75,7 +76,7 @@ def generate_dot_from_task_state(
 
     while True:
         try:
-            node: PipelineTask = next(iterator)
+            node = next(iterator)
         except StopIteration:
             break
 
@@ -105,9 +106,9 @@ def generate_dot_from_task_state(
 
             for n in last_node.get_children():
                 edge = (
-                    f'\t"{node_id}" -> "{n.id}" [taillabel="{n.descriptor}"]'
+                    f'\t"{node_id}" -> "{n.get_id()}" [taillabel="{n.descriptor}"]'
                     if n.descriptor is not None
-                    else f'\t"{node_id}" -> "{n.id}"'
+                    else f'\t"{node_id}" -> "{n.get_id()}"'
                 )
 
                 if edge not in edges:
@@ -117,7 +118,7 @@ def generate_dot_from_task_state(
             iterator = task_state.bf_traversal(last_node)
         else:
             for child in node.get_children():
-                edge = f'\t"{node.id}" -> '
+                edge = f'\t"{node.get_id()}" -> '
                 if child.is_parallel_execution_node:
                     parallel_nodes = child.get_parallel_nodes()
                     if not parallel_nodes:
@@ -133,9 +134,9 @@ def generate_dot_from_task_state(
                         else f'"{node_id}"'
                     )
                 elif child.descriptor is not None:
-                    edge += f'"{child.id}" [taillabel="{child.descriptor}"]'
+                    edge += f'"{child.get_id()}" [taillabel="{child.descriptor}"]'
                 else:
-                    edge += f'"{child.id}"'
+                    edge += f'"{child.get_id()}"'
 
                 if edge not in edges:
                     edges.append(edge)

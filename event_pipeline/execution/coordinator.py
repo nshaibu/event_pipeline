@@ -1,9 +1,10 @@
 import asyncio
 import logging
 import time
+import typing
 from typing import Optional, Tuple, Any
 from contextlib import asynccontextmanager
-
+from event_pipeline.exceptions import SwitchTask
 from event_pipeline.flows import setup_execution_flow
 from event_pipeline.execution.state_manager import ExecutionStatus
 from event_pipeline.execution.result import ResultProcessor
@@ -127,22 +128,32 @@ class ExecutionCoordinator:
             if stop_processing_requested is None:
                 # check for switch task request
                 switch_request = execution_state.get_switch_request()
+
+                if typing.TYPE_CHECKING:
+                    switch_request = typing.cast(SwitchTask, switch_request)
+
                 if switch_request is not None:
                     results.add(switch_request.result)
 
                     current_task_profile = (
                         self.execution_context.get_decision_task_profile()
                     )
-                    if not current_task_profile.get_descriptor(
-                        switch_request.next_task_descriptor
-                    ):
-                        logger.error(
-                            f"Task profile has no configured descriptor {switch_request.next_task_descriptor}"
-                        )
-                        await self.execution_context.cancel_async()
-                        switch_request.descriptor_configured = False
+
+                    if current_task_profile is not None:
+                        if not current_task_profile.get_descriptor(
+                            switch_request.next_task_descriptor
+                        ):
+                            logger.error(
+                                f"Task profile has no configured descriptor {switch_request.next_task_descriptor}"
+                            )
+                            await self.execution_context.cancel_async()
+                            switch_request.descriptor_configured = False
+                        else:
+                            switch_request.descriptor_configured = True
                     else:
-                        switch_request.descriptor_configured = True
+                        logger.warning(
+                            "No decision task profile found for switch task handling"
+                        )
 
             return results, errors
 

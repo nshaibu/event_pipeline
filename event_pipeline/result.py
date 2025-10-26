@@ -1,5 +1,4 @@
 import os
-import json
 import typing
 from datetime import datetime
 from collections.abc import MutableSet, Hashable
@@ -8,7 +7,6 @@ from pydantic_mini.typing import is_builtin_type
 from pydantic_mini import BaseModel, MiniAnnotated, Attrib
 from .import_utils import import_string
 from .exceptions import MultiValueError
-from .mixins import ObjectIdentityMixin
 from event_pipeline.mixins import BackendIntegrationMixin
 from event_pipeline.utils import get_obj_klass_import_str, get_obj_state
 
@@ -16,7 +14,7 @@ __all__ = ["EventResult", "ResultSet"]
 
 T = typing.TypeVar("T", bound="ResultSet")
 
-Result = typing.TypeVar("Result", bound=Hashable)
+Result: typing.TypeAlias = Hashable  # Placeholder for Result type
 
 
 class EventResult(BackendIntegrationMixin, BaseModel):
@@ -108,7 +106,7 @@ class EntityContentType:
 
     @classmethod
     def add_entity_content_type(
-        cls, entity: ObjectIdentityMixin
+        cls, entity: Result
     ) -> typing.Optional["EntityContentType"]:
         """Create an EntityContentType from an ObjectIdentityMixin instance."""
         if not entity or not getattr(entity, "id", None):
@@ -122,7 +120,7 @@ class EntityContentType:
 
         return cls(
             backend_import_str=backend_import_str,
-            entity_content_type=entity.__object_import_str__,
+            entity_content_type=getattr(entity, "__object_import_str__", None),
         )
 
     def get_backend(self) -> typing.Any:
@@ -212,16 +210,16 @@ class ResultSet(MutableSet):
         if content_type and content_type not in self._context_types:
             self._context_types.add(content_type)
 
-    def add(self, result: typing.Union[Result, "ResultSet"]) -> None:
+    def add(self, value: typing.Union[Result, "ResultSet"]) -> None:
         """Add a result or merge another ResultSet."""
-        if isinstance(result, ResultSet):
-            self._content.update(result._content)
-            self._context_types.update(result._context_types)
+        if isinstance(value, ResultSet):
+            self._content.update(value._content)
+            self._context_types.update(value._context_types)
         else:
-            self._content[self.get_hash(result)] = result
-            self._insert_entity(result)
+            self._content[self.get_hash(value)] = value
+            self._insert_entity(value)
 
-    def extend(self, results: typing.Sequence[Result]):
+    def extend(self, results: typing.Collection[Result]):
         """Add multiple items to set"""
         for result in results:
             self.add(result)
@@ -231,13 +229,13 @@ class ResultSet(MutableSet):
         self._content.clear()
         self._context_types.clear()
 
-    def discard(self, result: typing.Union[Result, "ResultSet"]) -> None:
+    def discard(self, value: typing.Union[Result, "ResultSet"]) -> None:
         """Remove a result or results from another ResultSet."""
-        if isinstance(result, ResultSet):
-            for res in result:
+        if isinstance(value, ResultSet):
+            for res in value:
                 self._content.pop(self.get_hash(res), None)
         else:
-            self._content.pop(self.get_hash(result), None)
+            self._content.pop(self.get_hash(value), None)
 
     def copy(self) -> "ResultSet":
         """Create a shallow copy of this ResultSet."""
